@@ -1,0 +1,39 @@
+aiofiles==25.1.0
+aiohappyeyeballs==2.6.1
+aiohttp==3.13.2
+aiosignal==1.4.0
+annotated-types==0.7.0
+asyncio-glib==0.1
+attrs==25.4.0
+-e git+https://github.com/varungujjar/berryaudio.git@e757fee135c105031f7fc879c7091e77bfd92e61#egg=berryaudio
+camilladsp @ git+https://github.com/HEnquist/pycamilladsp.git@15d9b7c434b8e795bcad25783b75d5354acdb840
+camilladsp_plot @ git+https://github.com/HEnquist/pycamilladsp-plot.git@dfec8e5acc4446421c8da7281b0625fc12b4162e
+certifi==2025.10.5
+charset-normalizer==3.4.4
+colorlog==6.10.1
+frozenlist==1.8.0
+gbulb==0.6.6
+idna==3.11
+jsonschema==4.25.1
+jsonschema-specifications==2025.9.1
+multidict==6.7.0
+mutagen==1.47.0
+netifaces==0.11.0
+propcache==0.4.1
+psutil==7.1.3
+pyalsaaudio==0.11.0
+pycairo==1.28.0
+pydantic==2.12.4
+pydantic_core==2.41.5
+pydbus==0.6.0
+PyGObject==3.48.2
+pyudev==0.24.4
+PyYAML==6.0.3
+referencing==0.37.0
+requests==2.32.5
+rpds-py==0.28.0
+typing-inspection==0.4.2
+typing_extensions==4.15.0
+urllib3==2.5.0
+websocket-client==1.9.0
+yarl==1.22.0
