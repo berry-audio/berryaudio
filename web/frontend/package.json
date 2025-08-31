@@ -1,0 +1,53 @@
+{
+  "name": "berryaudio-ui",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host",
+    "build": "tsc -b && vite build",
+    "lint": "eslint .",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@fontsource/inter": "^5.2.8",
+    "@hello-pangea/dnd": "^18.0.1",
+    "@phosphor-icons/react": "^2.1.10",
+    "@radix-ui/react-slider": "^1.2.4",
+    "@reduxjs/toolkit": "^2.8.2",
+    "@tailwindcss/cli": "^4.1.11",
+    "@tailwindcss/postcss": "^4.1.4",
+    "@tailwindcss/vite": "^4.1.3",
+    "antd": "^5.27.6",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "events": "^3.3.0",
+    "isomorphic-ws": "^5.0.0",
+    "react": "^19.1.1",
+    "react-cool-virtual": "^0.7.0",
+    "react-dom": "^19.1.1",
+    "react-native-marquee": "^0.5.0",
+    "react-redux": "^9.2.0",
+    "react-router-dom": "^7.5.2",
+    "redux": "^5.0.1",
+    "swiper": "^12.0.3",
+    "tailwind-merge": "^3.2.0",
+    "tw-animate-css": "^1.2.5"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.21.0",
+    "@types/react": "^19.0.10",
+    "@types/react-dom": "^19.0.4",
+    "@vitejs/plugin-react": "^4.3.4",
+    "autoprefixer": "^10.4.21",
+    "eslint": "^9.21.0",
+    "eslint-plugin-react-hooks": "^5.1.0",
+    "eslint-plugin-react-refresh": "^0.4.19",
+    "globals": "^15.15.0",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^4.1.11",
+    "typescript": "~5.7.2",
+    "typescript-eslint": "^8.24.1",
+    "vite": "^6.3.0"
+  }
+}
