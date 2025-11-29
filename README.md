@@ -32,11 +32,12 @@ Built using  **gstreamer**, **python**, **reactjs** & **typescript**, designed f
 - Manage Bluetooth, view system stats, and control power options (Shutdown, Reboot, Standby).
 - High-quality audio filters, EQ profiles, and real-time DSP updates.
 
+## Download
+You can download the ready image based on Bookworm OS from the following link
+[berryaudio_v1.0.0.img.zip](http://berryaudio.org/berryaudio_v1.0.0.img.zip)
+
 
 ## Getting Started
-
-Coming soon...
-
 Installation guides, SD card flashing instructions, and hardware compatibility details will be shared here.
 - **Installation Guide**: [Coming Soon](https://placeholder-link-to-wifi-setup.com)
 - **Community Forum**: [community.berryaudio.org](https://community.berryaudio.org/)
@@ -119,6 +120,7 @@ Installation guides, SD card flashing instructions, and hardware compatibility d
 - PCM5122 HIFI I2S DAC + [Link](https://www.waveshare.com/pcm5122-audio-board-a.htm)
 - Have not tested but should work with other natively supported DAC boards
 - If you have tested on any other hardware please feel free to share them.
+
 
 ### In Progress
 
