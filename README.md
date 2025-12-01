@@ -44,7 +44,7 @@ Scroll below to see a list of supported hardware
 
 ## Getting Started
 Installation guides, SD card flashing instructions, and hardware compatibility details will be shared here.
-- **Installation Guide**: [Coming Soon](https://github.com/berry-audio/berryaudio/wiki/Installation-&-Setup)
+- **Installation & Setup**: [Wiki](https://github.com/berry-audio/berryaudio/wiki/Installation-&-Setup)
 - **Community Forum**: [community.berryaudio.org](https://community.berryaudio.org/)
 - **Website**: [www.berryaudio.org](https://www.berryaudio.org/)
 
