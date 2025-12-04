@@ -165,6 +165,42 @@ export interface StorageInfo {
   unmounted: StorageDevice[];
 }
 
+
+export interface NetworkState {
+  networks: WifiNetwork[];
+  wlan0: NetworkDevice | undefined;
+  eth0: NetworkDevice | undefined;
+}
+
+export interface NetworkDevice {
+  device: string;
+  type: string;
+  mac_address: string;
+  mtu: string;
+  state: string;
+  connection: string;
+  ipv4_address: string;
+  ipv4_gateway: string;
+  ipv4_dns: string;
+  ipv4_routes: (string)[];
+  ipv6_addresses: (string)[];
+  ipv6_gateway: string;
+  ipv6_dns: string;
+  ipv6_routes: (string)[];
+}
+
+export interface WifiNetwork {
+  ssid: string;
+  bssid: string;
+  mode: string;
+  channel: number;
+  frequency: number;
+  rate: number;
+  signal: number;
+  security: string;
+  connected: boolean;
+}
+
 export type ViewMode = "list" | "grid";
 
 export interface PcmDevice {

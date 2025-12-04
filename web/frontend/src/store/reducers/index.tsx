@@ -8,6 +8,7 @@ import { overlayReducer } from "./overlayReducer";
 import { storageReducer } from "./storageReducer";
 import { bluetoothReducer } from "./bluetoothReducer";
 import { scanReducer } from "./scanReducer";
+import { networkReducer } from "./networkReducer";
 
 export const rootReducer = combineReducers({
   socket: socketReducer,
@@ -19,4 +20,5 @@ export const rootReducer = combineReducers({
   storage: storageReducer,
   scan: scanReducer,
   bluetooth: bluetoothReducer,
+  network: networkReducer,
 });

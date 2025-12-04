@@ -14,6 +14,7 @@ export enum INFO_EVENTS {
    SCAN_UPDATED = "event/scan/library/updated",
    SCAN_ARTIST_UPDATED = "event/scan/library/artist/updated",
    SCAN_BLUETOOTH_COMPLETED = 'event/scan/bluetooth/updated',
+   SCAN_WIFI_COMPLETED = 'event/scan/wifi/updated',
    SET_BLUETOOTH_STATE = 'event/set/bluetooth/state'
 }
 

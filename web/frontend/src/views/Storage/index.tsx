@@ -140,9 +140,9 @@ const Storage = () => {
             onClick={() => mounted && fetchDir(item.mount)}
             className="cursor-pointer w-full"
           >
-            <div className="text-lg font-medium">
+            <div className="font-medium">
               <div className="w-full flex">
-                <div className="flex">
+                <div className="flex text-lg ">
                   <HardDriveIcon
                     weight={ICON_WEIGHT}
                     size={ICON_SM}

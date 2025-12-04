@@ -5,6 +5,7 @@ import {
   CpuIcon,
   GearIcon,
   InfoIcon,
+  NetworkIcon,
   ShareNetworkIcon,
   SpeakerHifiIcon,
   StackIcon,
@@ -34,11 +35,10 @@ const SettingsItems = [
     url: "/settings/bluetooth",
   },
   {
-    name: "Wifi",
-    alias: "wifi",
-    icon: <WifiHighIcon weight={ICON_WEIGHT} size={ICON_SM} />,
-    url: "/settings/wifi",
-    disabled: true,
+    name: "Network",
+    alias: "network",
+    icon: <NetworkIcon weight={ICON_WEIGHT} size={ICON_SM} />,
+    url: "/settings/network",
   },
   {
     name: "Camilla DSP",
