@@ -116,16 +116,22 @@ class NetworkExtension(Actor):
             ssid=self._name, 
             password=CONFIG_AP_PASSWORD
             )
+        self._core.send(event="network_state_changed", state=self.on_device(ifname='wlan0'))
+        self._core.send(event="network_list_updated", networks=self.on_wifi())
         return True
 
 
     def on_disconnect(self, ifname):
         nmcli.device.disconnect(ifname=ifname)
+        self._core.send(event="network_state_changed", state=self.on_device(ifname='wlan0'))
+        self._core.send(event="network_list_updated", networks=self.on_wifi())
         return True
 
 
     def on_connect(self, ifname):
         nmcli.device.connect(ifname=ifname)
+        self._core.send(event="network_state_changed", state=self.on_device(ifname='wlan0'))
+        self._core.send(event="network_list_updated", networks=self.on_wifi())
         return True
     
 
@@ -141,6 +147,8 @@ class NetworkExtension(Actor):
 
     def on_delete(self, name):
         nmcli.connection.delete(name=name)
+        self._core.send(event="network_state_changed", state=self.on_device(ifname='wlan0'))
+        self._core.send(event="network_list_updated", networks=self.on_wifi())
         return True
     
 
@@ -154,6 +162,8 @@ class NetworkExtension(Actor):
         nmcli.connection.down(name)
         nmcli.connection.up(name)
         self._conn_in_progress = False
+        self._core.send(event="network_state_changed", state=self.on_device(ifname='wlan0'))
+        self._core.send(event="network_state_changed", state=self.on_device(ifname='eth0'))
         return True
 
 
@@ -164,14 +174,13 @@ class NetworkExtension(Actor):
             password=password
             ) 
         self._conn_in_progress = False
+        self._core.send(event="network_state_changed", state=self.on_device(ifname='wlan0'))
+        self._core.send(event="network_list_updated", networks=self.on_wifi())
         return True
 
 
-    def on_scan(self):
-        nmcli.device.wifi_rescan()
-        time.sleep(3)
-        wifi_devices = nmcli.device.wifi()
-
+    def on_wifi(self, rescan=False):
+        wifi_devices = nmcli.device.wifi(rescan=rescan)
         discovered_networks = []
         for device in wifi_devices:
             discovered_networks.append({
