@@ -19,13 +19,9 @@ export const networkReducer = (state = initialState, action: any): NetworkState 
     case EVENTS.NETWORK_STATE_CHANGED:
       return {
         ...state,
-        devices: { ...state.devices, [payload.state.device]: payload.state },
-      };
-    case EVENTS.NETWORK_LIST_UPDATED:
-      return {
-        ...state,
+        devices: { ...state.devices, [payload.device.device]: payload.device },
         networks: payload.networks,
-      };  
+      };
     default:
       return state;
   }

@@ -9,7 +9,6 @@ import {
   ShareNetworkIcon,
   SpeakerHifiIcon,
   StackIcon,
-  WifiHighIcon,
 } from "@phosphor-icons/react";
 
 import Page from "@/components/Page";

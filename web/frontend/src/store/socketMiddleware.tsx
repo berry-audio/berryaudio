@@ -1,7 +1,6 @@
 import { Middleware } from "@reduxjs/toolkit";
 import { WEBSOCKET_URL } from "@/constants";
 import { DIALOG_EVENTS, SOCKET_EVENTS } from "./constants";
-import { EVENTS } from "@/constants/events";
 
 export const socketMiddleware: Middleware = (store) => {
   let socket: WebSocket | null = null;

@@ -1,5 +1,5 @@
 import { useDispatch } from "react-redux";
-import { DIALOG_EVENTS, INFO_EVENTS } from "@/store/constants";
+import { DIALOG_EVENTS } from "@/store/constants";
 import { useNetworkService } from "@/services/network";
 import { WifiNetwork } from "@/types";
 import { useState } from "react";
@@ -18,18 +18,13 @@ export function useNetworkActions() {
     const wlanNetworks = await onWifi();
 
     dispatch({
-      type: INFO_EVENTS.WLAN_SCAN_COMPLETED,
-      payload: wlanNetworks,
+      type: EVENTS.NETWORK_STATE_CHANGED,
+      payload: { device: wlanDevice, networks: wlanNetworks },
     });
 
     dispatch({
       type: EVENTS.NETWORK_STATE_CHANGED,
-      payload: { state: wlanDevice },
-    });
-
-    dispatch({
-      type: EVENTS.NETWORK_STATE_CHANGED,
-      payload: { state: ethDevice },
+      payload: { device: ethDevice, networks: wlanNetworks },
     });
   };
 

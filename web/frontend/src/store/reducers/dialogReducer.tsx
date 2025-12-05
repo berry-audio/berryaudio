@@ -1,4 +1,3 @@
-import { EVENTS } from "@/constants/events";
 import { DIALOG_EVENTS } from "../constants";
 
 interface DialogState {
