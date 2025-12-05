@@ -1,3 +1,4 @@
+import { EVENTS } from "@/constants/events";
 import { DIALOG_EVENTS } from "../constants";
 
 interface DialogState {
@@ -26,8 +27,10 @@ export const dialogReducer = (
     case DIALOG_EVENTS.DIALOG_SCAN_LIBRARY_ARTIST:
     case DIALOG_EVENTS.DIALOG_INFO_LIBRARY:
     case DIALOG_EVENTS.DIALOG_BLUETOOTH_NOT_CONNECTED:
+    case DIALOG_EVENTS.DIALOG_WIFI_CONNECT:
     case DIALOG_EVENTS.DIALOG_REBOOT:
     case DIALOG_EVENTS.DIALOG_POWER_OPTIONS:
+    case DIALOG_EVENTS.DIALOG_ERROR:
       return {
         dialog: type,
         payload,

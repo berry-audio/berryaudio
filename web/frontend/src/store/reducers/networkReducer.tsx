@@ -1,24 +1,31 @@
 import { NetworkState } from "@/types";
 import { INFO_EVENTS } from "../constants";
+import { EVENTS } from "@/constants/events";
 
 const initialState: NetworkState = {
   networks: [],
-  wlan0: undefined,
-  eth0: undefined,
+  devices: { wlan0: undefined, eth0: undefined },
 };
 
-export const networkReducer = (
-  state = initialState,
-  action: any
-): NetworkState => {
+export const networkReducer = (state = initialState, action: any): NetworkState => {
   const { type, payload } = action;
 
   switch (type) {
-    case INFO_EVENTS.SCAN_WIFI_COMPLETED:
+    case INFO_EVENTS.WLAN_SCAN_COMPLETED:
       return {
         ...state,
         networks: payload,
       };
+    case EVENTS.NETWORK_STATE_CHANGED:
+      return {
+        ...state,
+        devices: { ...state.devices, [payload.state.device]: payload.state },
+      };
+    case EVENTS.NETWORK_LIST_UPDATED:
+      return {
+        ...state,
+        networks: payload.networks,
+      };  
     default:
       return state;
   }

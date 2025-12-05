@@ -165,11 +165,9 @@ export interface StorageInfo {
   unmounted: StorageDevice[];
 }
 
-
 export interface NetworkState {
   networks: WifiNetwork[];
-  wlan0: NetworkDevice | undefined;
-  eth0: NetworkDevice | undefined;
+  devices: { wlan0: NetworkDevice | undefined; eth0: NetworkDevice | undefined };
 }
 
 export interface NetworkDevice {
@@ -182,11 +180,11 @@ export interface NetworkDevice {
   ipv4_address: string;
   ipv4_gateway: string;
   ipv4_dns: string;
-  ipv4_routes: (string)[];
-  ipv6_addresses: (string)[];
+  ipv4_routes: string[];
+  ipv6_addresses: string[];
   ipv6_gateway: string;
   ipv6_dns: string;
-  ipv6_routes: (string)[];
+  ipv6_routes: string[];
 }
 
 export interface WifiNetwork {

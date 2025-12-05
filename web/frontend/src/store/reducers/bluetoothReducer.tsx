@@ -15,7 +15,7 @@ export const bluetoothReducer = (
   const { type, payload } = action;
 
   switch (type) {
-    case INFO_EVENTS.SCAN_BLUETOOTH_COMPLETED:
+    case INFO_EVENTS.BLUETOOTH_SCAN_COMPLETED:
       return {
         ...state,
         devices_available: payload.sort(
@@ -23,7 +23,7 @@ export const bluetoothReducer = (
             a.name.localeCompare(b.name)
         ),
       };
-    case INFO_EVENTS.SET_BLUETOOTH_STATE:
+    case INFO_EVENTS.BLUETOOTH_STATE_UPDATED:
       return { ...state, adapter_state: payload };
     case EVENTS.BLUETOOTH_STATE_CHANGED:
        return { ...state, adapter_state: payload.state }; 

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useDispatch, useSelector } from "react-redux";
+import { useDispatch } from "react-redux";
 import { useNetworkService } from "@/services/network";
 import { ArrowsClockwiseIcon } from "@phosphor-icons/react";
 import { ICON_SM, ICON_WEIGHT } from "@/constants";
@@ -10,16 +10,16 @@ import Spinner from "@/components/Spinner";
 
 const ButtonWifiScan = () => {
   const dispatch = useDispatch();
-  const { adapter_state } = useSelector((state: any) => state.bluetooth);
-  const { scanNetwork } = useNetworkService();
+
+  const { onWifi } = useNetworkService();
 
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
   const startScan = async () => {
     setIsLoading(true);
-    const _res = await scanNetwork();
+    const _res = await onWifi(true);
     dispatch({
-      type: INFO_EVENTS.SCAN_WIFI_COMPLETED,
+      type: INFO_EVENTS.WLAN_SCAN_COMPLETED,
       payload: _res,
     });
     setIsLoading(false);

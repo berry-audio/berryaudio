@@ -11,15 +11,17 @@ export enum PLAYER_EVENTS {
 
 export enum INFO_EVENTS {
    PLAYLISTS_UPDATED = "event/playlists/updated",
-   SCAN_UPDATED = "event/scan/library/updated",
-   SCAN_ARTIST_UPDATED = "event/scan/library/artist/updated",
-   SCAN_BLUETOOTH_COMPLETED = 'event/scan/bluetooth/updated',
-   SCAN_WIFI_COMPLETED = 'event/scan/wifi/updated',
-   SET_BLUETOOTH_STATE = 'event/set/bluetooth/state'
+   SCAN_UPDATED = "event/library/scan/updated",
+   SCAN_ARTIST_UPDATED = "event/library/artist/scan/updated",
+   BLUETOOTH_SCAN_COMPLETED = 'event/bluetooth/scan/completed',
+   BLUETOOTH_STATE_UPDATED = 'event/bluetooth/state/updated',
+   WLAN_STATE_UPDATED = 'event/wlan/state/updated',
+   WLAN_SCAN_COMPLETED = 'event/wlan/scan/completed'
 }
 
 export enum DIALOG_EVENTS {
    DIALOG_CLOSE = "dialog/close",
+   DIALOG_ERROR = "dialog/error",
    DIALOG_PLAYLISTS = "dialog/playlists",
    DIALOG_PLAYLIST_RENAME = "dialog/playist/rename", 
    DIALOG_PLAYLIST_DELETE = "dialog/playist/delete",
@@ -29,6 +31,7 @@ export enum DIALOG_EVENTS {
    DIALOG_INFO_LIBRARY = "dialog/library/info",
    DIALOG_SCAN_LIBRARY_ARTIST = "dialog/library/scan/artist",
    DIALOG_BLUETOOTH_NOT_CONNECTED = "dialog/bluetooth/unavailable",
+   DIALOG_WIFI_CONNECT = "dialog/wifi/connect",
    DIALOG_REBOOT = "dialog/system/reboot",
    DIALOG_POWER_OPTIONS = "dialog/system/power",
 }

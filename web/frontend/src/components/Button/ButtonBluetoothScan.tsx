@@ -19,7 +19,7 @@ const ButtonBluetoothScan = () => {
     setIsLoading(true);
     const res = await discoverDevices();
     dispatch({
-      type: INFO_EVENTS.SCAN_BLUETOOTH_COMPLETED,
+      type: INFO_EVENTS.BLUETOOTH_SCAN_COMPLETED,
       payload: res,
     });
     setIsLoading(false);
