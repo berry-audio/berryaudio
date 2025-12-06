@@ -1,14 +1,14 @@
 import { useDispatch } from "react-redux";
 import { DIALOG_EVENTS } from "@/store/constants";
 import { useNetworkService } from "@/services/network";
-import { WifiNetwork } from "@/types";
+import { NetworkDevice, WifiNetwork } from "@/types";
 import { useState } from "react";
 import { EVENTS } from "@/constants/events";
 
 export function useNetworkActions() {
   const dispatch = useDispatch();
 
-  const { onConnectWlan, onDisconnect, onDelete, getDevice, onWifi } = useNetworkService();
+  const { onConnectWlan, onDisconnect, onDelete, getDevice, onModify, onWifi } = useNetworkService();
 
   const [loading, setLoading] = useState<boolean>(false);
 
@@ -28,6 +28,20 @@ export function useNetworkActions() {
     });
   };
 
+  const modifyNetwork = async (ifname: string, name: string, ipv4_address: string, ipv4_gateway: string, ipv4_dns: string, method: string) => {
+    setLoading(true);
+    await onModify(ifname, name, ipv4_address, ipv4_gateway, ipv4_dns, method);
+    setLoading(false);
+    dispatch({ type: DIALOG_EVENTS.DIALOG_CLOSE });
+  };
+
+  const handleModifyNetwork = async (device: NetworkDevice) => {
+    dispatch({
+      type: DIALOG_EVENTS.DIALOG_EDIT_NETWORK,
+      payload: device,
+    });
+  };
+
   const handleConnectAuth = async (ssid: string, password: string) => {
     setLoading(true);
     await onConnectWlan(ssid, password);
@@ -40,7 +54,7 @@ export function useNetworkActions() {
       await handleConnectAuth(network.ssid, "");
     } else {
       dispatch({
-        type: DIALOG_EVENTS.DIALOG_WIFI_CONNECT,
+        type: DIALOG_EVENTS.DIALOG_WIFI_AUTH,
         payload: network,
       });
     }
@@ -54,5 +68,14 @@ export function useNetworkActions() {
     await onDelete(name);
   };
 
-  return { fetchDevices, handleConnectWifi, handleConnectAuth, handleDisconnect, handleDelete, loading };
+  return {
+    fetchDevices,
+    modifyNetwork,
+    handleConnectWifi,
+    handleConnectAuth,
+    handleDisconnect,
+    handleDelete,
+    handleModifyNetwork,
+    loading,
+  };
 }

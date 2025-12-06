@@ -12,8 +12,9 @@ import DialogEmptyLibrary from "./DialogEmptyLibrary";
 import DialogLibraryInfo from "./DialogLibraryInfo";
 import DialogReboot from "./DialogReboot";
 import DialogPowerOptions from "./DialogPowerOptions";
-import DialogWifiConnect from "./DialogWifiConnect";
 import DialogError from "./DialogError";
+import DialogEditNetwork from "./DialogEditNetwork";
+import DialogWifiAuth from "./DialogWifiAuth";
 
 const Dialog = () => {
   const { dialog, payload: item } = useSelector((state: any) => state.dialog);
@@ -40,8 +41,11 @@ const Dialog = () => {
       {dialog === DIALOG_EVENTS.DIALOG_BLUETOOTH_NOT_CONNECTED && (
         <DialogNoBluetooth />
       )}
-      {dialog === DIALOG_EVENTS.DIALOG_WIFI_CONNECT && (
-        <DialogWifiConnect item={item}/>
+      {dialog === DIALOG_EVENTS.DIALOG_WIFI_AUTH && (
+        <DialogWifiAuth item={item}/>
+      )}
+      {dialog === DIALOG_EVENTS.DIALOG_EDIT_NETWORK && (
+        <DialogEditNetwork item={item}/>
       )}
       {dialog === DIALOG_EVENTS.DIALOG_REBOOT && <DialogReboot />}
       {dialog === DIALOG_EVENTS.DIALOG_POWER_OPTIONS && <DialogPowerOptions />}

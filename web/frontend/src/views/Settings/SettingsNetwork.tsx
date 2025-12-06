@@ -1,7 +1,5 @@
 import {
-  LaptopIcon,
   LockIcon,
-  NetworkIcon,
   PencilIcon,
   TrashSimpleIcon,
   WifiHighIcon,
@@ -13,6 +11,7 @@ import {
 import { useSelector } from "react-redux";
 import { useEffect, useState } from "react";
 import { NetworkDevice, WifiNetwork } from "@/types";
+import { getNetworkDeviceName } from "@/util";
 import { useNetworkActions } from "@/hooks/useNetworkActions";
 import { ICON_SM, ICON_WEIGHT, ICON_XS } from "@/constants";
 
@@ -25,7 +24,7 @@ import ButtonWifiScan from "@/components/Button/ButtonWifiScan";
 
 const SettingsNetwork = () => {
   const { networks, devices } = useSelector((state: any) => state.network);
-  const { fetchDevices, handleDelete, handleDisconnect, handleConnectWifi } = useNetworkActions();
+  const { fetchDevices, handleDelete, handleDisconnect, handleConnectWifi, handleModifyNetwork } = useNetworkActions();
 
   useEffect(() => {
     fetchDevices();
@@ -94,9 +93,9 @@ const SettingsNetwork = () => {
   const ListNetworkDevice = ({ ifname }: { ifname: string }) => {
     const actionItems = [
       {
-        name: "Edit",
+        name: "Configure",
         icon: <PencilIcon size={ICON_XS} weight={ICON_WEIGHT} />,
-        action: () => undefined,
+        action: () => handleModifyNetwork(devices[ifname]),
       },
     ];
 
@@ -112,22 +111,7 @@ const SettingsNetwork = () => {
           <div className="font-medium">
             <div className="w-full flex">
               <div className="flex text-lg ">
-                {device?.type === "wifi" ? (
-                  <>
-                    <WifiHighIcon weight={ICON_WEIGHT} size={ICON_SM} className="mr-2" />
-                    Wifi
-                  </>
-                ) : device?.type === "ethernet" ? (
-                  <>
-                    <LaptopIcon weight={ICON_WEIGHT} size={ICON_SM} className="mr-2" />
-                    Ethernet
-                  </>
-                ) : (
-                  <>
-                    <NetworkIcon weight={ICON_WEIGHT} size={ICON_SM} />
-                    {device?.device}
-                  </>
-                )}
+                {getNetworkDeviceName(device)}
               </div>
             </div>
             <div className="mb-1  text-neutral-500 text-left">
@@ -180,7 +164,7 @@ const SettingsNetwork = () => {
       <div className="p-4">
         <h2 className="mt-3 text-xl">Available Networks</h2>
       </div>
-      {networks.length ? (
+      {networks?.length ? (
         networks.map((network: WifiNetwork, index: number) => (
           <ItemWrapper key={index}>
             <ItemPadding>

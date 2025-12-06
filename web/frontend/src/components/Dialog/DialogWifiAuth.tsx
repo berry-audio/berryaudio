@@ -1,15 +1,16 @@
+import { useState } from "react";
 import { useDispatch } from "react-redux";
-import { DIALOG_EVENTS } from "@/store/constants";
 import { WifiNetwork } from "@/types";
 import { Input } from "@/components/Form/Input";
-import { useState } from "react";
 import { useNetworkActions } from "@/hooks/useNetworkActions";
-
-import Modal from "@/components/Modal";
 import { WifiHighIcon } from "@phosphor-icons/react";
+import { DIALOG_EVENTS } from "@/store/constants";
 import { ICON_SM, ICON_WEIGHT } from "@/constants";
 
-const DialogWifiConnect = ({ item }: { item: WifiNetwork }) => {
+import Modal from "@/components/Modal";
+
+
+const DialogWifiAuth = ({ item }: { item: WifiNetwork }) => {
   const dispatch = useDispatch();
   const [password, setPassword] = useState<string>("");
 
@@ -35,4 +36,4 @@ const DialogWifiConnect = ({ item }: { item: WifiNetwork }) => {
   );
 };
 
-export default DialogWifiConnect;
+export default DialogWifiAuth;

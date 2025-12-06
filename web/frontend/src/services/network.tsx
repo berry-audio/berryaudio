@@ -10,5 +10,7 @@ export const useNetworkService = () => {
     onConnectWlan: (ssid: string, password: string) => request("network.connect_wlan", { ssid, password }),
     onDelete: (name: string) => request("network.delete", { name }),
     onDisconnect: (ifname: string) => request("network.disconnect", { ifname }),
+    onModify: (ifname: string, name: string, ipv4_address: string, ipv4_gateway: string, ipv4_dns: string, method: string) =>
+      request("network.modify", { ifname, name, ipv4_address, ipv4_gateway, ipv4_dns, method }),
   };
 };
