@@ -85,7 +85,7 @@ class NetworkExtension(Actor):
             'mtu': network_info.get('GENERAL.MTU'),
             'state': network_info.get('GENERAL.STATE'),
             'connection': network_info.get('GENERAL.CONNECTION'),
-            'ipv4_address': network_info.get('IP4.ADDRESS[1]'),
+            'ipv4_address': network_info.get('IP4.ADDRESS[1]').split('/')[0] if '/' in network_info.get('IP4.ADDRESS[1]') else network_info.get('IP4.ADDRESS[1]'),
             'ipv4_gateway': network_info.get('IP4.GATEWAY'),
             'ipv4_dns': network_info.get('IP4.DNS[1]'),
             'ipv4_routes': [
@@ -148,17 +148,18 @@ class NetworkExtension(Actor):
         return True
     
 
-    def on_modify(self, name):
+    def on_modify(self, ifname, name, ipv4_address, ipv4_gateway, ipv4_dns, method='auto'):
         self._conn_in_progress = True
         nmcli.connection.modify(name, {
-            'ipv4.addresses': '192.168.0.111/24',
-            'ipv4.gateway': '192.168.0.1',
-            'ipv4.method': 'auto' #or  manual
+            'ipv4.addresses': f'{ipv4_address}/24' if method == 'manual' else '',
+            'ipv4.gateway': ipv4_gateway if method == 'manual' else '',
+            'ipv4.dns': ipv4_dns if method == 'manual' else '',
+            'ipv4.method': method
         })
         nmcli.connection.down(name)
         nmcli.connection.up(name)
         self._conn_in_progress = False
-        self._core.send(event="network_state_changed", device=self.on_device(ifname='wlan0'), networks=self.on_wifi())
+        self._core.send(event="network_state_changed", device=self.on_device(ifname=ifname), networks=self.on_wifi())
         return True
 
 
