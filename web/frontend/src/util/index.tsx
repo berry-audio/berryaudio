@@ -1,4 +1,4 @@
-import { ICON_SM, ICON_WEIGHT, SERVER_URL } from "@/constants";
+import { ICON_SM, ICON_WEIGHT, ICON_XS, SERVER_URL } from "@/constants";
 import { REPEAT_MODE, SHUFFLE_MODE } from "@/constants/states";
 import { Album, Artist, NetworkDevice } from "@/types";
 import { LaptopIcon, NetworkIcon, WifiHighIcon } from "@phosphor-icons/react";
@@ -233,23 +233,20 @@ export const getPCMPlaybackName = (device_name: string) => {
 /**
  * Returns the network name and icon
  */
-export const getNetworkDeviceName = (device: NetworkDevice) => {
+export const getNetworkDeviceName = (device: string) => {
   return (
     <>
-      {device?.type === "wifi" ? (
+      {device === "wlan0" ? (
         <>
           <WifiHighIcon weight={ICON_WEIGHT} size={ICON_SM} className="mr-2" />
-          Wifi
         </>
-      ) : device?.type === "ethernet" ? (
+      ) : device === "eth0" ? (
         <>
           <LaptopIcon weight={ICON_WEIGHT} size={ICON_SM} className="mr-2" />
-          Ethernet
         </>
       ) : (
         <>
           <NetworkIcon weight={ICON_WEIGHT} size={ICON_SM} />
-          {device?.device}
         </>
       )}
     </>

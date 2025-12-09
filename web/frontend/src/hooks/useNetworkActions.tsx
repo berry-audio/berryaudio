@@ -8,7 +8,7 @@ import { EVENTS } from "@/constants/events";
 export function useNetworkActions() {
   const dispatch = useDispatch();
 
-  const { onConnectWlan, onDisconnect, onDelete, getDevice, onModify, onWifi } = useNetworkService();
+  const { onConnectWlan, onDisconnect, onDelete, getDevice, onModify, onWifi, getConnection } = useNetworkService();
 
   const [loading, setLoading] = useState<boolean>(false);
 
@@ -28,6 +28,7 @@ export function useNetworkActions() {
     });
   };
 
+
   const modifyNetwork = async (ifname: string, name: string, ipv4_address: string, ipv4_gateway: string, ipv4_dns: string, method: string) => {
     setLoading(true);
     await onModify(ifname, name, ipv4_address, ipv4_gateway, ipv4_dns, method);
@@ -35,7 +36,9 @@ export function useNetworkActions() {
     dispatch({ type: DIALOG_EVENTS.DIALOG_CLOSE });
   };
 
-  const handleModifyNetwork = async (device: NetworkDevice) => {
+  const handleModifyNetwork = async (name: string) => {
+    const device = await getConnection(name);
+
     dispatch({
       type: DIALOG_EVENTS.DIALOG_EDIT_NETWORK,
       payload: device,

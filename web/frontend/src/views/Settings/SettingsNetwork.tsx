@@ -1,13 +1,4 @@
-import {
-  LockIcon,
-  PencilIcon,
-  TrashSimpleIcon,
-  WifiHighIcon,
-  WifiLowIcon,
-  WifiMediumIcon,
-  WifiNoneIcon,
-  WifiSlashIcon,
-} from "@phosphor-icons/react";
+import { LockIcon, PencilIcon, TrashSimpleIcon, WifiHighIcon, WifiLowIcon, WifiMediumIcon, WifiNoneIcon, WifiSlashIcon } from "@phosphor-icons/react";
 import { useSelector } from "react-redux";
 import { useEffect, useState } from "react";
 import { NetworkDevice, WifiNetwork } from "@/types";
@@ -75,7 +66,9 @@ const SettingsNetwork = () => {
 
           <div className="text-lg font-medium">
             <div className="w-full">
-              <div className={`${network.connected ? "text-yellow-700" : "dark:text-neutral-300 text-neutral-950"} flex `}>{network.ssid == ''? 'unknown' : network.ssid} </div>
+              <div className={`${network.connected ? "text-yellow-700" : "dark:text-neutral-300 text-neutral-950"} flex `}>
+                {network.ssid == "" ? "unknown" : network.ssid}{" "}
+              </div>
               <div className="mb-1  text-neutral-500 text-left text-sm">{network.bssid}</div>
             </div>
           </div>
@@ -95,7 +88,7 @@ const SettingsNetwork = () => {
       {
         name: "Configure",
         icon: <PencilIcon size={ICON_XS} weight={ICON_WEIGHT} />,
-        action: () => handleModifyNetwork(devices[ifname]),
+        action: () => handleModifyNetwork(devices[ifname]["connection"]),
       },
     ];
 
@@ -110,8 +103,8 @@ const SettingsNetwork = () => {
         <div className="flex justify-between">
           <div className="font-medium">
             <div className="w-full flex">
-              <div className="flex text-lg ">
-                {getNetworkDeviceName(device)}
+              <div className="flex text-xl items-center">
+                {getNetworkDeviceName(device.device)} {device.device}
               </div>
             </div>
             <div className="mb-1  text-neutral-500 text-left">

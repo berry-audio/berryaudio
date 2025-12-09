@@ -7,6 +7,7 @@ export const useNetworkService = () => {
     onWifi: (rescan?: boolean) => request("network.wifi", { rescan }),
     getDevices: () => request("network.devices"),
     getDevice: (ifname: string) => request("network.device", { ifname }),
+    getConnection: (name: string) => request("network.connection", { name }),
     onConnectWlan: (ssid: string, password: string) => request("network.connect_wlan", { ssid, password }),
     onDelete: (name: string) => request("network.delete", { name }),
     onDisconnect: (ifname: string) => request("network.disconnect", { ifname }),

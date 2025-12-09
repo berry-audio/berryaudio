@@ -196,7 +196,6 @@ const SettingsAbout = () => {
             <ListHardwareItem title="Version" desc={systemInfo?.version} />
             <ListHardwareItem title="Hostname" desc={systemInfo?.hostname} />
             <ListHardwareItem title="Software" desc={systemInfo?.software} />
-            <ListHardwareItem title="Wlan0" desc={systemInfo?.network?.wlan0} />
           </div>
         </div>
       )}
