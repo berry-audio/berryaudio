@@ -104,7 +104,7 @@ const SettingsNetwork = () => {
           <div className="font-medium">
             <div className="w-full flex">
               <div className="flex text-xl items-center">
-                {getNetworkDeviceName(device.device)} {device.device}
+                {getNetworkDeviceName(device?.device)} {device?.device}
               </div>
             </div>
             <div className="mb-1  text-neutral-500 text-left">
