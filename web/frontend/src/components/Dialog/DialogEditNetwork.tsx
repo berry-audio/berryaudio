@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useDispatch } from "react-redux";
-import { NetworkConnectionInfo, NetworkDevice } from "@/types";
+import { NetworkConnectionInfo } from "@/types";
 import { getNetworkDeviceName } from "@/util";
 import { Input } from "@/components/Form/Input";
 import { useNetworkActions } from "@/hooks/useNetworkActions";

@@ -1,7 +1,7 @@
 import { useDispatch } from "react-redux";
 import { DIALOG_EVENTS } from "@/store/constants";
 import { useNetworkService } from "@/services/network";
-import { NetworkDevice, WifiNetwork } from "@/types";
+import { WifiNetwork } from "@/types";
 import { useState } from "react";
 import { EVENTS } from "@/constants/events";
 

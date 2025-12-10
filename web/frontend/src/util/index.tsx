@@ -1,6 +1,6 @@
-import { ICON_SM, ICON_WEIGHT, ICON_XS, SERVER_URL } from "@/constants";
+import { ICON_SM, ICON_WEIGHT, SERVER_URL } from "@/constants";
 import { REPEAT_MODE, SHUFFLE_MODE } from "@/constants/states";
-import { Album, Artist, NetworkDevice } from "@/types";
+import { Album, Artist } from "@/types";
 import { LaptopIcon, NetworkIcon, WifiHighIcon } from "@phosphor-icons/react";
 
 /**
