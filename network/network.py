@@ -109,6 +109,87 @@ class NetworkExtension(Actor):
         }
         return result
 
+
+    def on_connection(self, name):
+        connection_info = nmcli.connection.show(name=name)
+        result = {
+            'name': connection_info.get('GENERAL.NAME'),
+            'uuid': connection_info.get('GENERAL.UUID'),
+            'device': connection_info.get('GENERAL.DEVICES'),
+            'ip_iface': connection_info.get('GENERAL.IP-IFACE'),
+            'state': connection_info.get('GENERAL.STATE'),
+            'is_default': connection_info.get('GENERAL.DEFAULT'),
+            'is_default6': connection_info.get('GENERAL.DEFAULT6'),
+            'vpn': connection_info.get('GENERAL.VPN'),
+            'dbus_path': connection_info.get('GENERAL.DBUS-PATH'),
+            'con_path': connection_info.get('GENERAL.CON-PATH'),
+            'zone': connection_info.get('GENERAL.ZONE'),
+            'master_path': connection_info.get('GENERAL.MASTER-PATH'),
+
+            'connection_id': connection_info.get('connection.id'),
+            'connection_uuid': connection_info.get('connection.uuid'),
+            'connection_type': connection_info.get('connection.type'),
+            'connection_interface': connection_info.get('connection.interface-name'),
+            'connection_autoconnect': connection_info.get('connection.autoconnect'),
+            'connection_autoconnect_priority': connection_info.get('connection.autoconnect-priority'),
+            'connection_read_only': connection_info.get('connection.read-only'),
+            'connection_timestamp': connection_info.get('connection.timestamp'),
+            'connection_metered': connection_info.get('connection.metered'),
+
+            'ethernet_port': connection_info.get('802-3-ethernet.port'),
+            'ethernet_speed': connection_info.get('802-3-ethernet.speed'),
+            'ethernet_duplex': connection_info.get('802-3-ethernet.duplex'),
+            'ethernet_auto_negotiate': connection_info.get('802-3-ethernet.auto-negotiate'),
+            'ethernet_mac': connection_info.get('802-3-ethernet.mac-address'),
+            'ethernet_mtu': connection_info.get('802-3-ethernet.mtu'),
+
+            'ipv4_method': connection_info.get('ipv4.method'),
+            'ipv4_dns': connection_info.get('ipv4.dns'),
+            'ipv4_dns_search': connection_info.get('ipv4.dns-search'),
+            'ipv4_dns_options': connection_info.get('ipv4.dns-options'),
+            'ipv4_dns_priority': connection_info.get('ipv4.dns-priority'),
+            'ipv4_addresses': connection_info.get('ipv4.addresses'),
+            'ipv4_gateway': connection_info.get('ipv4.gateway'),
+            'ipv4_route_metric': connection_info.get('ipv4.route-metric'),
+            'ipv4_route_table': connection_info.get('ipv4.route-table'),
+            'ipv4_may_fail': connection_info.get('ipv4.may-fail'),
+
+            'ipv4_address': (
+                connection_info.get('IP4.ADDRESS[1]').split('/')[0]
+                if connection_info.get('IP4.ADDRESS[1]') and '/' in connection_info.get('IP4.ADDRESS[1]'
+                ) else connection_info.get('IP4.ADDRESS[1]')
+            ),
+            'ipv4_gateway_runtime': connection_info.get('IP4.GATEWAY'),
+            'ipv4_dns_runtime': connection_info.get('IP4.DNS[1]'),
+            'ipv4_routes': [
+                connection_info.get('IP4.ROUTE[1]'),
+                connection_info.get('IP4.ROUTE[2]')
+            ],
+
+            'ipv6_method': connection_info.get('ipv6.method'),
+            'ipv6_dns': connection_info.get('ipv6.dns'),
+            'ipv6_dns_priority': connection_info.get('ipv6.dns-priority'),
+            'ipv6_gateway': connection_info.get('ipv6.gateway'),
+            'ipv6_route_metric': connection_info.get('ipv6.route-metric'),
+            'ipv6_route_table': connection_info.get('ipv6.route-table'),
+
+            'ipv6_addresses': [
+                connection_info.get('IP6.ADDRESS[1]'),
+                connection_info.get('IP6.ADDRESS[2]'),
+                connection_info.get('IP6.ADDRESS[3]')
+            ],
+            'ipv6_gateway_runtime': connection_info.get('IP6.GATEWAY'),
+            'ipv6_dns_runtime': connection_info.get('IP6.DNS[1]') if 'IP6.DNS[1]' in connection_info else None,
+            'ipv6_routes': [
+                connection_info.get('IP6.ROUTE[1]'),
+                connection_info.get('IP6.ROUTE[2]'),
+                connection_info.get('IP6.ROUTE[3]'),
+                connection_info.get('IP6.ROUTE[4]'),
+                connection_info.get('IP6.ROUTE[5]')
+            ],
+        }
+        return result
+
         
     def on_ap_mode(self):
         logger.info(f'Starting AP mode with name {self._name} and passkey {CONFIG_AP_PASSWORD}')
