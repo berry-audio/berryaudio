@@ -19,6 +19,7 @@ import Playlists from "./views/Playlist";
 import SettingsGeneral from "./views/Settings/SettingsGeneral";
 import SettingsLibrary from "./views/Settings/SettingsLibrary";
 import SettingsBluetooth from "./views/Settings/SettingsBluetooth";
+import SettingsNetwork from "./views/Settings/SettingsNetwork";
 
 const App = () => {
   return (
@@ -41,6 +42,7 @@ const App = () => {
                   <Route path="/settings/general/" element={<SettingsGeneral />} />
                   <Route path="/settings/library/" element={<SettingsLibrary />} />
                   <Route path="/settings/bluetooth/" element={<SettingsBluetooth />} />
+                  <Route path="/settings/network/" element={<SettingsNetwork />} />
                 </Routes>
               </Layout>
           </Router>

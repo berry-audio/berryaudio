@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { useDispatch, useSelector } from "react-redux";
-import { useBluetoothService } from "@/services/bluetooth";
+import { useDispatch } from "react-redux";
+import { useNetworkService } from "@/services/network";
 import { ArrowsClockwiseIcon } from "@phosphor-icons/react";
 import { ICON_SM, ICON_WEIGHT } from "@/constants";
 import { INFO_EVENTS } from "@/store/constants";
@@ -8,25 +8,25 @@ import { INFO_EVENTS } from "@/store/constants";
 import ButtonIcon from "@/components/Button/ButtonIcon";
 import Spinner from "@/components/Spinner";
 
-const ButtonBluetoothScan = () => {
+const ButtonWifiScan = () => {
   const dispatch = useDispatch();
-  const { adapter_state } = useSelector((state: any) => state.bluetooth);
-  const { discoverDevices } = useBluetoothService();
+
+  const { onWifi } = useNetworkService();
 
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
   const startScan = async () => {
     setIsLoading(true);
-    const res = await discoverDevices();
+    const _res = await onWifi(true);
     dispatch({
-      type: INFO_EVENTS.BLUETOOTH_SCAN_COMPLETED,
-      payload: res,
+      type: INFO_EVENTS.WLAN_SCAN_COMPLETED,
+      payload: _res,
     });
     setIsLoading(false);
   };
 
   return (
-    <ButtonIcon onClick={() => startScan()} className="mr-1" disabled={!adapter_state.powered}>
+    <ButtonIcon onClick={() => startScan()} className="mr-1">
       {isLoading ? (
         <Spinner />
       ) : (
@@ -40,4 +40,4 @@ const ButtonBluetoothScan = () => {
   );
 };
 
-export default ButtonBluetoothScan;
+export default ButtonWifiScan;

@@ -165,6 +165,95 @@ export interface StorageInfo {
   unmounted: StorageDevice[];
 }
 
+export interface NetworkState {
+  networks: WifiNetwork[];
+  devices: { wlan0: NetworkDevice | undefined; eth0: NetworkDevice | undefined };
+}
+
+export interface NetworkDevice {
+  device: string;
+  type: string;
+  mac_address: string;
+  mtu: string;
+  state: string;
+  connection: string;
+  ipv4_address: string;
+  ipv4_gateway: string;
+  ipv4_dns: string;
+  ipv4_routes: string[];
+  ipv6_addresses: string[];
+  ipv6_gateway: string;
+  ipv6_dns: string;
+  ipv6_routes: string[];
+}
+
+export interface NetworkConnectionInfo {
+  name: string;
+  uuid: string | null;
+  device: string;
+  ip_iface: string | null;
+  state: string | null;
+  is_default: string | null;
+  is_default6: string | null;
+  vpn: string | null;
+  dbus_path: string | null;
+  con_path: string | null;
+  zone: string | null;
+  master_path: string | null;
+  connection_id: string | null;
+  connection_uuid: string | null;
+  connection_type: string | null;
+  connection_interface: string | null;
+  connection_autoconnect: string | null;
+  connection_autoconnect_priority: string | null;
+  connection_read_only: string | null;
+  connection_timestamp: string | null;
+  connection_metered: string | null;
+  ethernet_port: string | null;
+  ethernet_speed: string | null;
+  ethernet_duplex: string | null;
+  ethernet_auto_negotiate: string | null;
+  ethernet_mac: string | null;
+  ethernet_mtu: string | null;
+  ipv4_method: string;
+  ipv4_dns: string | null;
+  ipv4_dns_search: string | null;
+  ipv4_dns_options: string | null;
+  ipv4_dns_priority: string | null;
+  ipv4_addresses: string | null;
+  ipv4_gateway: string | null;
+  ipv4_route_metric: string | null;
+  ipv4_route_table: string | null;
+  ipv4_may_fail: string | null;
+  ipv4_address: string | null;
+  ipv4_gateway_runtime: string | null;
+  ipv4_dns_runtime: string | null;
+  ipv4_routes: (string | null)[];
+  ipv6_method: string | null;
+  ipv6_dns: string | null;
+  ipv6_dns_priority: string | null;
+  ipv6_gateway: string | null;
+  ipv6_route_metric: string | null;
+  ipv6_route_table: string | null;
+  ipv6_addresses: (string | null)[];
+  ipv6_gateway_runtime: string | null;
+  ipv6_dns_runtime: string | null;
+  ipv6_routes: (string | null)[];
+}
+
+
+export interface WifiNetwork {
+  ssid: string;
+  bssid: string;
+  mode: string;
+  channel: number;
+  frequency: number;
+  rate: number;
+  signal: number;
+  security: string;
+  connected: boolean;
+}
+
 export type ViewMode = "list" | "grid";
 
 export interface PcmDevice {

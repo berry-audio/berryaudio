@@ -17,7 +17,7 @@ const ButtonBluetoothToggle = () => {
   const toggleBluetooth = async () => {
     const res = await setAdapterState(!adapter_state.powered);
     dispatch({
-      type: INFO_EVENTS.SET_BLUETOOTH_STATE,
+      type: INFO_EVENTS.BLUETOOTH_STATE_UPDATED,
       payload: res,
     });
   };
@@ -25,7 +25,7 @@ const ButtonBluetoothToggle = () => {
   const fetchAdapterState = async () => {
     const res = await getAdapterState();
     dispatch({
-      type: INFO_EVENTS.SET_BLUETOOTH_STATE,
+      type: INFO_EVENTS.BLUETOOTH_STATE_UPDATED,
       payload: res,
     });
   };
@@ -37,7 +37,7 @@ const ButtonBluetoothToggle = () => {
 
   return (
     <ButtonIcon onClick={() => toggleBluetooth()} className="mr-1">
-      {adapter_state.powered ? (
+      {adapter_state?.powered ? (
         <BluetoothIcon
           weight={ICON_WEIGHT}
           size={ICON_SM}

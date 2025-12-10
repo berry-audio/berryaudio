@@ -45,7 +45,8 @@ async def async_main(verbose=False):
         "search",
         "storage",
         "playlist",
-        "playback"
+        "playback",
+        "network"
     ]
     await core.load_extensions_by_name(extensions)
 

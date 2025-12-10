@@ -1,6 +1,7 @@
-import { SERVER_URL } from "@/constants";
+import { ICON_SM, ICON_WEIGHT, SERVER_URL } from "@/constants";
 import { REPEAT_MODE, SHUFFLE_MODE } from "@/constants/states";
 import { Album, Artist } from "@/types";
+import { LaptopIcon, NetworkIcon, WifiHighIcon } from "@phosphor-icons/react";
 
 /**
  * Checks if url contains http, https.
@@ -15,7 +16,7 @@ export const isHttpUrl = (url: string): boolean => {
  * @returns A string listing all artist names, or an empty string if none exist.
  */
 export const getArtists = (artists: Artist[]): string => {
-  return `${artists?.map((artist: any) => artist.name?.trim() ? artist.name : undefined).join(",") || ""}`;
+  return `${artists?.map((artist: any) => (artist.name?.trim() ? artist.name : undefined)).join(",") || ""}`;
 };
 
 /**
@@ -24,14 +25,11 @@ export const getArtists = (artists: Artist[]): string => {
  * @returns A string listing all artist names, or an empty string if none exist.
  */
 export const getAlbums = (albums: Album[]): string => {
-  return `${albums?.map((album: any) => album.name?.trim() ? album.name : 'Unknown').join(",") || ""}`;
+  return `${albums?.map((album: any) => (album.name?.trim() ? album.name : "Unknown")).join(",") || ""}`;
 };
 
 // Determine repeat mode string based on boolean values
-export const getRepeatMode = (
-  repeat: boolean,
-  single: boolean
-): REPEAT_MODE => {
+export const getRepeatMode = (repeat: boolean, single: boolean): REPEAT_MODE => {
   if (!repeat && !single) return REPEAT_MODE.REPEAT_OFF;
   if (repeat && single) return REPEAT_MODE.REPEAT_SINGLE;
   if (repeat) return REPEAT_MODE.REPEAT_ALL;
@@ -41,8 +39,7 @@ export const getRepeatMode = (
 /**
  * Determines shuffle mode based on backend boolean.
  */
-export const getShuffleMode = (random: boolean): SHUFFLE_MODE =>
-  random ? SHUFFLE_MODE.SHUFFLE_ON : SHUFFLE_MODE.SHUFFLE_OFF;
+export const getShuffleMode = (random: boolean): SHUFFLE_MODE => (random ? SHUFFLE_MODE.SHUFFLE_ON : SHUFFLE_MODE.SHUFFLE_OFF);
 
 /**
  * Converts a duration in ms to mm:ss or hh:mm:ss.
@@ -63,27 +60,22 @@ export const convertMillisecondstoTime = (milliseconds: number): string => {
 /**
  * Gets total duration of the track.
  */
-export const getTotalDuration = (duration: number) =>
-  convertMillisecondstoTime(duration ?? 0);
+export const getTotalDuration = (duration: number) => convertMillisecondstoTime(duration ?? 0);
 
 /**
  * Gets current playback position in formatted time.
  */
-export const getPosition = (position: number) =>
-  convertMillisecondstoTime(position);
+export const getPosition = (position: number) => convertMillisecondstoTime(position);
 
 /**
  * Returns the track's bitrate in kbps.
  */
-export const getBitrate = (bitrate: number) =>
-  `${Math.floor((bitrate ?? 0) / 1000)}kbps`;
+export const getBitrate = (bitrate: number) => `${Math.floor((bitrate ?? 0) / 1000)}kbps`;
 
 /**
  * Returns the track's sample rate in khz.
  */
-export const getSampleRate = (samplerate: number) =>
-  `${Math.floor((samplerate ?? 0) / 1000)}kHz`;
-
+export const getSampleRate = (samplerate: number) => `${Math.floor((samplerate ?? 0) / 1000)}kHz`;
 
 /**
  * Returns the track'saudio codec shortname.
@@ -99,8 +91,7 @@ export const getCodecName = (format: string) => {
     | "MPEG-1 Layer 2 (MP2)"
     | "MPEG-4 AAC"
     | "MPEG-2 AAC"
-    | "Free Lossless Audio Codec (FLAC)"
-;
+    | "Free Lossless Audio Codec (FLAC)";
 
   const mapping: Record<CodecFormat, string> = {
     "DSD (Direct Stream Digital), least significant bit first, planar": "DSD",
@@ -110,12 +101,11 @@ export const getCodecName = (format: string) => {
     "MPEG-1 Layer 2 (MP2)": "MP2",
     "MPEG-4 AAC": "AAC",
     "MPEG-2 AAC": "AAC",
-    "Free Lossless Audio Codec (FLAC)": 'FLAC'
+    "Free Lossless Audio Codec (FLAC)": "FLAC",
   };
 
   return mapping[format as CodecFormat] || format;
 };
-
 
 /**
  * Returns the source fullname.
@@ -123,18 +113,13 @@ export const getCodecName = (format: string) => {
 export const getSourceName = (type: string) => {
   if (!type) return "Unknown";
 
-  type SourceType =
-    | "bluetooth"
-    | "spotify"
-    | "shairportsync"
-    | "none"
-;
+  type SourceType = "bluetooth" | "spotify" | "shairportsync" | "none";
 
   const mapping: Record<SourceType, string> = {
-    "bluetooth": "Bluetooth",
-    "spotify": "Spotify Connect",
-    "shairportsync": "Airplay",
-    "none": " ",
+    bluetooth: "Bluetooth",
+    spotify: "Spotify Connect",
+    shairportsync: "Airplay",
+    none: " ",
   };
 
   return mapping[type as SourceType] || type;
@@ -146,22 +131,11 @@ export const getSourceName = (type: string) => {
 export const getBitDepth = (format: string) => {
   if (!format) return "";
 
-  type AudioFormat =
-    | "S16_LE"
-    | "S24_32LE"
-    | "S16"
-    | "S24_LE"
-    | "S32_LE"
-    | "S16_BE"
-    | "S24_BE"
-    | "S32_BE"
-    | "S16LE"
-    | "S24LE"
-    | "F32LE";
+  type AudioFormat = "S16_LE" | "S24_32LE" | "S16" | "S24_LE" | "S32_LE" | "S16_BE" | "S24_BE" | "S32_BE" | "S16LE" | "S24LE" | "F32LE";
 
   const mapping: Record<AudioFormat, string> = {
     S16_LE: "16bit",
-    S16:    "16bit",
+    S16: "16bit",
     S24_LE: "24bit",
     S24_32LE: "32bit",
     S32_LE: "32bit",
@@ -184,13 +158,8 @@ export const arrayToText = (array: []) => {
 
 export const getImage = (imageUri: string) => {
   const isRemote = isHttpUrl(imageUri);
-  return imageUri
-    ? isRemote
-      ? imageUri
-      : `${SERVER_URL}${imageUri}`
-    : undefined;
+  return imageUri ? (isRemote ? imageUri : `${SERVER_URL}${imageUri}`) : undefined;
 };
-
 
 /**
  * Returns MB or GB
@@ -219,10 +188,9 @@ export function formatBytes(bytes: number): string {
   return `${value.toFixed(2)} ${units[i]}`;
 }
 
-
-export const formatNo = (no: number) =>{
-  return String(no).padStart(2, '0');
-}
+export const formatNo = (no: number) => {
+  return String(no).padStart(2, "0");
+};
 
 /**
  * Split a "type:id" URI into name and numeric id.
@@ -234,16 +202,14 @@ export const splitUri = (uri: string) => {
   return { name, id };
 };
 
-
-export const formatDate = (dateString: string): string  => {
+export const formatDate = (dateString: string): string => {
   const isoString = dateString.replace(" ", "T");
   const date = new Date(isoString);
   const day = date.getDate();
-  const month = date.toLocaleString("en-US", { month: "short" }); 
+  const month = date.toLocaleString("en-US", { month: "short" });
   const year = date.getFullYear();
   return `${day} ${month}, ${year}`;
-}
-
+};
 
 /**
  * Returns the track'saudio codec shortname.
@@ -251,21 +217,38 @@ export const formatDate = (dateString: string): string  => {
 export const getPCMPlaybackName = (device_name: string) => {
   if (!device_name) return "";
 
-  type PCMDevice =
-    | "Loopback"
-    | "bcm2835 Headphones"
-    | "RPi DAC+"
-    | "vc4-hdmi-0"
-    | "vc4-hdmi-1"
-;
+  type PCMDevice = "Loopback" | "bcm2835 Headphones" | "RPi DAC+" | "vc4-hdmi-0" | "vc4-hdmi-1";
 
   const mapping: Record<PCMDevice, string> = {
-    "Loopback": "Loopback",
+    Loopback: "Loopback",
     "bcm2835 Headphones": "Headphones",
     "RPi DAC+": "DAC+",
     "vc4-hdmi-0": "HDMI-0",
-    "vc4-hdmi-1": "HDMI-1"
+    "vc4-hdmi-1": "HDMI-1",
   };
 
   return mapping[device_name as PCMDevice] || device_name;
+};
+
+/**
+ * Returns the network name and icon
+ */
+export const getNetworkDeviceName = (device: string) => {
+  return (
+    <>
+      {device === "wlan0" ? (
+        <>
+          <WifiHighIcon weight={ICON_WEIGHT} size={ICON_SM} className="mr-2" />
+        </>
+      ) : device === "eth0" ? (
+        <>
+          <LaptopIcon weight={ICON_WEIGHT} size={ICON_SM} className="mr-2" />
+        </>
+      ) : (
+        <>
+          <NetworkIcon weight={ICON_WEIGHT} size={ICON_SM} />
+        </>
+      )}
+    </>
+  );
 };

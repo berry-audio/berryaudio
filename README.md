@@ -31,6 +31,7 @@ After years of missing the simplicity of Winamp and the smart features of old Mu
 - Create and manage playlists with touch-friendly drag-and-drop sorting and playback modes (Repeat, Shuffle).
 - Supports SD cards, USB HDD and SSD drives.
 - Manage Bluetooth, view system stats, and control power options (Shutdown, Reboot, Standby).
+- Manage wireless & ethernet network, Hotspot, IP configurations direclty from the interface
 - No need to install any app can be fully controlled using a responsive web interface.
 
 ## Application
@@ -95,9 +96,17 @@ Installation guides, SD card flashing instructions, and hardware compatibility d
 - NVME & PCle (not tested but should work)
 
 
-### Networking & Power
+### Networking 
 
-- Scan and manage Bluetooth devices over D-Bus
+- Scan and manage Bluetooth devices via D-Bus  
+- Discover and manage Wi-Fi networks
+- Enables Wi-Fi hotspot if no wireless network connected
+- Manage Ethernet connection
+- Configure IP settings (manual/static or DHCP)
+
+
+### Power
+
 - View CPU, memory, and internal storage usage stats
 - Shutdown, Reboot, and Standby options available from the interface
 - Standby screen displays local date and time
@@ -116,7 +125,6 @@ Installation guides, SD card flashing instructions, and hardware compatibility d
 
 - Snapcast Multiroom
 - DLNA
-- Wifi Management
 - Network folder sharing
 - And More ...
 

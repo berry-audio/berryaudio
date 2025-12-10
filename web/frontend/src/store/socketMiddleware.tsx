@@ -1,6 +1,6 @@
 import { Middleware } from "@reduxjs/toolkit";
 import { WEBSOCKET_URL } from "@/constants";
-import { SOCKET_EVENTS } from "./constants";
+import { DIALOG_EVENTS, SOCKET_EVENTS } from "./constants";
 
 export const socketMiddleware: Middleware = (store) => {
   let socket: WebSocket | null = null;
@@ -34,6 +34,14 @@ export const socketMiddleware: Middleware = (store) => {
     socket.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
+        
+        if (data.error){
+          store.dispatch({
+            type: DIALOG_EVENTS.DIALOG_ERROR,
+            payload: data.error,
+          });
+          return
+        }
 
         if (data.id && pendingRequests.has(data.id)) {
           pendingRequests.get(data.id)?.(data);

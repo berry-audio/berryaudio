@@ -12,12 +12,18 @@ import DialogEmptyLibrary from "./DialogEmptyLibrary";
 import DialogLibraryInfo from "./DialogLibraryInfo";
 import DialogReboot from "./DialogReboot";
 import DialogPowerOptions from "./DialogPowerOptions";
+import DialogError from "./DialogError";
+import DialogEditNetwork from "./DialogEditNetwork";
+import DialogWifiAuth from "./DialogWifiAuth";
 
 const Dialog = () => {
   const { dialog, payload: item } = useSelector((state: any) => state.dialog);
 
   return (
     <>
+      {dialog === DIALOG_EVENTS.DIALOG_ERROR && (
+        <DialogError item={item}/>
+      )}
       {dialog === DIALOG_EVENTS.DIALOG_PLAYLISTS && (
         <DialogAddToPlaylist item={item} />
       )}
@@ -34,6 +40,12 @@ const Dialog = () => {
       )}
       {dialog === DIALOG_EVENTS.DIALOG_BLUETOOTH_NOT_CONNECTED && (
         <DialogNoBluetooth />
+      )}
+      {dialog === DIALOG_EVENTS.DIALOG_WIFI_AUTH && (
+        <DialogWifiAuth item={item}/>
+      )}
+      {dialog === DIALOG_EVENTS.DIALOG_EDIT_NETWORK && (
+        <DialogEditNetwork item={item}/>
       )}
       {dialog === DIALOG_EVENTS.DIALOG_REBOOT && <DialogReboot />}
       {dialog === DIALOG_EVENTS.DIALOG_POWER_OPTIONS && <DialogPowerOptions />}
