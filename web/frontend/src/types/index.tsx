@@ -167,7 +167,7 @@ export interface StorageInfo {
 
 export interface NetworkState {
   networks: WifiNetwork[];
-  devices: { wlan0: NetworkDevice | undefined; eth0: NetworkDevice | undefined };
+  devices: {};
 }
 
 export interface NetworkDevice {
@@ -240,7 +240,6 @@ export interface NetworkConnectionInfo {
   ipv6_dns_runtime: string | null;
   ipv6_routes: (string | null)[];
 }
-
 
 export interface WifiNetwork {
   ssid: string;

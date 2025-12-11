@@ -18,7 +18,13 @@ const SettingsNetwork = () => {
   const { fetchDevices, handleDelete, handleDisconnect, handleConnectWifi, handleModifyNetwork } = useNetworkActions();
 
   useEffect(() => {
-    fetchDevices();
+    {
+      "wlan0" in devices && fetchDevices("wlan0");
+    }
+
+    {
+      "eth0" in devices && fetchDevices("eth0");
+    }
   }, []);
 
   const ListTextItem = ({ title, desc }: { title: string; desc: string }) => {
@@ -128,6 +134,25 @@ const SettingsNetwork = () => {
     );
   };
 
+  const NetworkDeviceUnavailable = ({ ifname }: { ifname: string }) => {
+    return (
+      <div className="w-full py-3 px-4">
+        <div className="flex justify-between">
+          <div className="font-medium">
+            <div className="w-full flex">
+              <div className="flex text-xl items-center">
+                {getNetworkDeviceName(ifname)} {ifname}
+              </div>
+            </div>
+            <div className="mb-1  text-neutral-500 text-left">
+              <ListTextItem desc="unavailable" title="status" />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <Page
       backButton
@@ -141,17 +166,33 @@ const SettingsNetwork = () => {
       }
     >
       <div className="md:flex">
-        <ItemWrapper>
-          <ItemPadding>
-            <ListNetworkDevice ifname="wlan0" />
-          </ItemPadding>
-        </ItemWrapper>
+        {"wlan0" in devices ? (
+          <div className="md:w-1/2">
+            <ItemWrapper>
+              <ItemPadding>
+                <ListNetworkDevice ifname="wlan0" />
+              </ItemPadding>
+            </ItemWrapper>
+          </div>
+        ) : (
+          <div className="md:w-2/2">
+            <NetworkDeviceUnavailable ifname="wlan0" />
+          </div>
+        )}
 
-        <ItemWrapper>
-          <ItemPadding>
-            <ListNetworkDevice ifname="eth0" />
-          </ItemPadding>
-        </ItemWrapper>
+        {"eth0" in devices ? (
+          <div className="md:w-1/2">
+            <ItemWrapper>
+              <ItemPadding>
+                <ListNetworkDevice ifname="eth0" />
+              </ItemPadding>
+            </ItemWrapper>
+          </div>
+        ) : (
+          <div className="md:w-1/2">
+            <NetworkDeviceUnavailable ifname="eth0" />
+          </div>
+        )}
       </div>
 
       <div className="p-4">

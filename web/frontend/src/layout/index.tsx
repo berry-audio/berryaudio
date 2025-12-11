@@ -5,6 +5,7 @@ import { usePlaybackService } from "@/services/playback";
 import { useTracklistService } from "@/services/tracklist";
 import { useMixerService } from "@/services/mixer";
 import { useSystemService } from "@/services/system";
+import { useNetworkService } from "@/services/network";
 import { EVENTS } from "@/constants/events";
 import { Menu } from "../components/Menu";
 import { getRepeatMode, getShuffleMode } from "@/util";
@@ -23,12 +24,12 @@ export default function Layout({ children }: { children: any }) {
   const dispatch = useDispatch();
   const connected = useSelector((state: any) => state.socket.connected);
 
-  const { getRepeat, getSingle, getRandom, getTracklist } =
-    useTracklistService();
+  const { getRepeat, getSingle, getRandom, getTracklist } = useTracklistService();
   const { getState, getCurrentTlTrack } = usePlaybackService();
   const { getMixerVolume, getMixerMute } = useMixerService();
-  const { getSource } = useSourceService();
   const { getSystemTime, getPowerState } = useSystemService();
+  const { getDevices } = useNetworkService();
+  const { getSource } = useSourceService();
 
   const [loading, setLoading] = useState<boolean>(false);
 
@@ -39,6 +40,7 @@ export default function Layout({ children }: { children: any }) {
       setLoading(true);
       try {
         const [
+          _getNetworkDevices,
           _getPowerState,
           _getState,
           _getAudioSource,
@@ -51,6 +53,7 @@ export default function Layout({ children }: { children: any }) {
           _getSingle,
           _getShuffle,
         ] = await Promise.all([
+          getDevices(),
           getPowerState(),
           getState(),
           getSource(),
@@ -63,6 +66,11 @@ export default function Layout({ children }: { children: any }) {
           getSingle(),
           getRandom(),
         ]);
+
+        dispatch({
+          type: EVENTS.NETWORK_DEVICES,
+          payload: { state: _getNetworkDevices },
+        });
 
         dispatch({
           type: EVENTS.SYSTEM_POWER_STATE,
