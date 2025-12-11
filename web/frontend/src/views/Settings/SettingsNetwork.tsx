@@ -134,6 +134,25 @@ const SettingsNetwork = () => {
     );
   };
 
+  const NetworkDeviceUnavailable = ({ ifname }: { ifname: string }) => {
+    return (
+      <div className="w-full py-3 px-4">
+        <div className="flex justify-between">
+          <div className="font-medium">
+            <div className="w-full flex">
+              <div className="flex text-xl items-center">
+                {getNetworkDeviceName(ifname)} {ifname}
+              </div>
+            </div>
+            <div className="mb-1  text-neutral-500 text-left">
+              <ListTextItem desc="unavailable" title="status" />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <Page
       backButton
@@ -147,20 +166,32 @@ const SettingsNetwork = () => {
       }
     >
       <div className="md:flex">
-        {"wlan0" in devices && (
-          <ItemWrapper>
-            <ItemPadding>
-              <ListNetworkDevice ifname="wlan0" />
-            </ItemPadding>
-          </ItemWrapper>
+        {"wlan0" in devices ? (
+          <div className="md:w-1/2">
+            <ItemWrapper>
+              <ItemPadding>
+                <ListNetworkDevice ifname="wlan0" />
+              </ItemPadding>
+            </ItemWrapper>
+          </div>
+        ) : (
+          <div className="md:w-2/2">
+            <NetworkDeviceUnavailable ifname="wlan0" />
+          </div>
         )}
 
-        {"eth0" in devices && (
-          <ItemWrapper>
-            <ItemPadding>
-              <ListNetworkDevice ifname="eth0" />
-            </ItemPadding>
-          </ItemWrapper>
+        {"eth0" in devices ? (
+          <div className="md:w-1/2">
+            <ItemWrapper>
+              <ItemPadding>
+                <ListNetworkDevice ifname="eth0" />
+              </ItemPadding>
+            </ItemWrapper>
+          </div>
+        ) : (
+          <div className="md:w-1/2">
+            <NetworkDeviceUnavailable ifname="eth0" />
+          </div>
         )}
       </div>
 
