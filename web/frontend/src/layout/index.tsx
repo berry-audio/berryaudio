@@ -47,11 +47,11 @@ export default function Layout({ children }: { children: any }) {
           _tl_track,
           _tl_tracks,
           _value,
-          _volume,
-          _mute,
           _getRepeat,
           _getSingle,
           _getShuffle,
+          _volume,
+          _mute,
         ] = await Promise.all([
           getDevices(),
           getPowerState(),
@@ -60,11 +60,11 @@ export default function Layout({ children }: { children: any }) {
           getCurrentTlTrack(),
           getTracklist(),
           getSystemTime(),
-          getMixerVolume(),
-          getMixerMute(),
           getRepeat(),
           getSingle(),
           getRandom(),
+          getMixerVolume(),
+          getMixerMute(),
         ]);
 
         dispatch({
