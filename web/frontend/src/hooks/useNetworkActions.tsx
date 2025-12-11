@@ -12,20 +12,15 @@ export function useNetworkActions() {
 
   const [loading, setLoading] = useState<boolean>(false);
 
-  const fetchDevices = async () => {
-    const wlanDevice = await getDevice("wlan0");
-    const ethDevice = await getDevice("eth0");
-    const wlanNetworks = await onWifi();
+  const fetchDevices = async (device:string) => {
+    const _device = await getDevice(device);
+    const _wlanNetworks = await onWifi();
 
     dispatch({
       type: EVENTS.NETWORK_STATE_CHANGED,
-      payload: { device: wlanDevice, networks: wlanNetworks },
+      payload: { device: _device, networks: _wlanNetworks },
     });
 
-    dispatch({
-      type: EVENTS.NETWORK_STATE_CHANGED,
-      payload: { device: ethDevice, networks: wlanNetworks },
-    });
   };
 
 

@@ -4,7 +4,7 @@ import { EVENTS } from "@/constants/events";
 
 const initialState: NetworkState = {
   networks: [],
-  devices: { wlan0: undefined, eth0: undefined },
+  devices: {},
 };
 
 export const networkReducer = (state = initialState, action: any): NetworkState => {
@@ -15,6 +15,11 @@ export const networkReducer = (state = initialState, action: any): NetworkState 
       return {
         ...state,
         networks: payload,
+      };
+    case EVENTS.NETWORK_DEVICES:
+      return {
+        ...state,
+        devices: Object.fromEntries(payload.state.map((dev: string) => [dev, undefined])),
       };
     case EVENTS.NETWORK_STATE_CHANGED:
       return {

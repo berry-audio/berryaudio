@@ -18,7 +18,13 @@ const SettingsNetwork = () => {
   const { fetchDevices, handleDelete, handleDisconnect, handleConnectWifi, handleModifyNetwork } = useNetworkActions();
 
   useEffect(() => {
-    fetchDevices();
+    {
+      "wlan0" in devices && fetchDevices("wlan0");
+    }
+
+    {
+      "eth0" in devices && fetchDevices("eth0");
+    }
   }, []);
 
   const ListTextItem = ({ title, desc }: { title: string; desc: string }) => {
@@ -141,17 +147,21 @@ const SettingsNetwork = () => {
       }
     >
       <div className="md:flex">
-        <ItemWrapper>
-          <ItemPadding>
-            <ListNetworkDevice ifname="wlan0" />
-          </ItemPadding>
-        </ItemWrapper>
+        {"wlan0" in devices && (
+          <ItemWrapper>
+            <ItemPadding>
+              <ListNetworkDevice ifname="wlan0" />
+            </ItemPadding>
+          </ItemWrapper>
+        )}
 
-        <ItemWrapper>
-          <ItemPadding>
-            <ListNetworkDevice ifname="eth0" />
-          </ItemPadding>
-        </ItemWrapper>
+        {"eth0" in devices && (
+          <ItemWrapper>
+            <ItemPadding>
+              <ListNetworkDevice ifname="eth0" />
+            </ItemPadding>
+          </ItemWrapper>
+        )}
       </div>
 
       <div className="p-4">

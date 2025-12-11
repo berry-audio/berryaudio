@@ -67,12 +67,7 @@ class NetworkExtension(Actor):
         self._devices = nmcli.device()
         device_list = []
         for dev in self._devices:
-            device_list.append({
-                'device': dev.device,
-                'type': dev.device_type,
-                'state': dev.state,
-                'connection': dev.connection
-            })
+            device_list.append(dev.device)
         return device_list
 
 

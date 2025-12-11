@@ -24,5 +24,6 @@ export enum EVENTS {
   BLUETOOTH_DISCONNECTED = "bluetooth_device_disconnected",
   BLUETOOTH_REMOVED = "bluetooth_device_removed",
   BLUETOOTH_STATE_CHANGED = "bluetooth_state_changed",
-  NETWORK_STATE_CHANGED = "network_state_changed"
+  NETWORK_STATE_CHANGED = "network_state_changed",
+  NETWORK_DEVICES = "network_devices"
 }
