@@ -19,7 +19,7 @@ export const networkReducer = (state = initialState, action: any): NetworkState 
     case EVENTS.NETWORK_DEVICES:
       return {
         ...state,
-        devices: Object.fromEntries(payload.state.map((dev: string) => [dev, undefined])),
+        devices: Object.fromEntries(payload.state.map((dev: any) => [dev.device, undefined])),
       };
     case EVENTS.NETWORK_STATE_CHANGED:
       return {

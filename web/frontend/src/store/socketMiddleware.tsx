@@ -40,7 +40,6 @@ export const socketMiddleware: Middleware = (store) => {
             type: DIALOG_EVENTS.DIALOG_ERROR,
             payload: data.error,
           });
-          return
         }
 
         if (data.id && pendingRequests.has(data.id)) {
