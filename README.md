@@ -40,7 +40,7 @@ After years of missing the simplicity of Winamp and the smart features of old Mu
 
 ## Download
 You can download the ready image based on Bookworm OS from the following link
-[berryaudio_v1.0.0.img.zip](http://berryaudio.org/berryaudio_v1.0.0.img.zip)\
+[berryaudio_v1.1.0.img.zip](http://berryaudio.org/berryaudio_v1.1.0.img.zip)\
 Scroll below to see a list of supported hardware
 
 ## Getting Started
