@@ -34,9 +34,12 @@ class DBConnection:
         self.conn.commit()
         return cursor
 
-    def executescript(self, script: str):
+    def executescript(self, script: str, params=None):
         cursor = self.conn.cursor()
-        cursor.executescript(script)
+        if params is None:
+            cursor.executescript(script)
+        else:
+            cursor.execute(script, params)    
         self.conn.commit()
         return cursor
     
@@ -56,6 +59,12 @@ class DBConnection:
             self.__class__._instance = None
             logger.info("Database connection closed.")
 
+    def init_extension(self, name, config):
+        sql = 'INSERT OR IGNORE INTO extension (name, config) VALUES (?, ?)'
+        params = (name, json.dumps(config))
+        self.execute(sql, params)
+        logger.debug(f"Initialized extension {name} in database")
+        return True
 
     def get_config(self):
         rows = self.fetchall('SELECT * FROM extension')

@@ -46,7 +46,8 @@ async def async_main(verbose=False):
         "storage",
         "playlist",
         "playback",
-        "network"
+        "network",
+        "snapcast"
     ]
     await core.load_extensions_by_name(extensions)
 
