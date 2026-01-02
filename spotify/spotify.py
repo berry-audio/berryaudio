@@ -93,6 +93,7 @@ class SpotifyExtension(Actor):
                 self._source.state.user_name = event["USER_NAME"]
                 self._source.state.connection_id = event["CONNECTION_ID"]
                 self._source.state.connected = True
+                logger.info(f"Connected to Spotify account: {self._source.state.user_name}")
 
             if event["PLAYER_EVENT"] in ('session_disconnected'):
                 if "connection_id" in self._source.state:
@@ -102,6 +103,7 @@ class SpotifyExtension(Actor):
                 await self._meta_init()
                 await self._core.request("playback.stop_playback")
                 await self._core.request("source.update_source", source=self._source)
+                logger.warning(f"Disconnected from Spotify account: {self._source.state.user_name}")
                 
             if event["PLAYER_EVENT"] in ('session_client_changed'):
                 self._source.state.name = self._source.state.user_name #event["CLIENT_NAME"] not available anymore

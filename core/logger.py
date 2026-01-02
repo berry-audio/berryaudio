@@ -1,19 +1,26 @@
 import logging, colorlog
 from colorlog import ColoredFormatter
 
-
 def setup_logging(level=logging.INFO):
     """Configure root logger with ColoredFormatter."""
+
+    logging.addLevelName(logging.DEBUG,    "DEBUG")
+    logging.addLevelName(logging.INFO,     "INFO ")
+    logging.addLevelName(logging.WARNING,  "WARN ")
+    logging.addLevelName(logging.ERROR,    "ERROR")
+    logging.addLevelName(logging.CRITICAL, "FATAL")
+
     formatter = ColoredFormatter(
-        "[  %(log_color)s%(levelname)s%(reset)s  ] [%(asctime)s] [%(name)s] => %(funcName)s : %(message)s",
+        "[  %(log_color)s%(levelname)s%(reset)s  ] "
+        "[%(asctime)s] [%(name)s] => %(funcName)s : %(message)s",
         datefmt="%H:%M:%S",
         reset=True,
         log_colors={
-            'DEBUG':    'white',
-            'INFO':     'green',
-            'WARNING':  'yellow',
-            'ERROR':    'red',
-            'CRITICAL': 'red',
+            'DEBUG':'white',
+            'INFO ':'green',
+            'WARN ':'yellow',
+            'ERROR':'red',
+            'FATAL':'red',
         }
     )
 
@@ -23,7 +30,6 @@ def setup_logging(level=logging.INFO):
     root = logging.getLogger()
     root.setLevel(level)
 
-    # avoid duplicate handlers if setup_logging is called twice
     if not root.handlers:
         root.addHandler(handler)
 

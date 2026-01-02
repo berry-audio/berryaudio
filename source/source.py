@@ -12,7 +12,8 @@ SOURCES = {
     "radio", 
     "bluetooth", 
     "shairportsync", 
-    "spotify"
+    "spotify",
+    "snapcast"
     }
 
 class SourceExtension(Actor):
