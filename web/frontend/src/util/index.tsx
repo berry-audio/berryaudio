@@ -91,7 +91,10 @@ export const getCodecName = (format: string) => {
     | "MPEG-1 Layer 2 (MP2)"
     | "MPEG-4 AAC"
     | "MPEG-2 AAC"
-    | "Free Lossless Audio Codec (FLAC)";
+    | "Free Lossless Audio Codec (FLAC)"
+    | "Opus (low-latency lossy audio codec)"
+    | "Ogg Opus (Opus audio in Ogg container)"
+    | "Ogg Vorbis (lossy audio codec)";
 
   const mapping: Record<CodecFormat, string> = {
     "DSD (Direct Stream Digital), least significant bit first, planar": "DSD",
@@ -102,6 +105,9 @@ export const getCodecName = (format: string) => {
     "MPEG-4 AAC": "AAC",
     "MPEG-2 AAC": "AAC",
     "Free Lossless Audio Codec (FLAC)": "FLAC",
+    "Opus (low-latency lossy audio codec)": "Opus",
+    "Ogg Opus (Opus audio in Ogg container)": "Opus",
+    "Ogg Vorbis (lossy audio codec)": "Ogg Vorbis",
   };
 
   return mapping[format as CodecFormat] || format;

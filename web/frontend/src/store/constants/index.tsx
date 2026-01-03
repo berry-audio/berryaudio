@@ -16,7 +16,8 @@ export enum INFO_EVENTS {
    BLUETOOTH_SCAN_COMPLETED = 'event/bluetooth/scan/completed',
    BLUETOOTH_STATE_UPDATED = 'event/bluetooth/state/updated',
    WLAN_STATE_UPDATED = 'event/wlan/state/updated',
-   WLAN_SCAN_COMPLETED = 'event/wlan/scan/completed'
+   WLAN_SCAN_COMPLETED = 'event/wlan/scan/completed',
+   SNAPCAST_SCAN_COMPLETED = 'event/snapcast/scan/completed'
 }
 
 export enum DIALOG_EVENTS {

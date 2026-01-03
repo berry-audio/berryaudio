@@ -11,6 +11,7 @@ import {
   GlobeHemisphereWestIcon,
   HardDrivesIcon,
   PlaylistIcon,
+  SpeakerHifiIcon,
   SpotifyLogoIcon,
   VinylRecordIcon,
 } from "@phosphor-icons/react";
@@ -75,6 +76,11 @@ const sources: SourceItem[] = [
     name: "Airplay",
     icon: <AirplayIcon weight={ICON_WEIGHT} size={ICON_LG} />,
     alias: "shairportsync",
+  },
+  {
+    name: "Multiroom",
+    icon: <SpeakerHifiIcon weight={ICON_WEIGHT} size={ICON_LG} />,
+    alias: "snapcast",
   },
   {
     name: "Settings",

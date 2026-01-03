@@ -144,6 +144,25 @@ export interface BluetoothState {
   devices_available: BluetoothDevice[];
 }
 
+
+export interface SnapcastServer {
+  service_name: string;
+  hostname: string;
+  ip: string;
+  port: number;
+  connected: boolean;
+  status: 'playing' | 'idle';
+}
+
+export interface SnapcastState {
+  status: {
+        "clients": [],
+        "server": {},
+        "streams": []
+    },
+  servers_available: SnapcastServer[],
+}
+
 export interface StorageDevice {
   dev: string;
   parent: string;

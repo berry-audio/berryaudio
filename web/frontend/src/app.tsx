@@ -20,6 +20,7 @@ import SettingsGeneral from "./views/Settings/SettingsGeneral";
 import SettingsLibrary from "./views/Settings/SettingsLibrary";
 import SettingsBluetooth from "./views/Settings/SettingsBluetooth";
 import SettingsNetwork from "./views/Settings/SettingsNetwork";
+import SettingsSnapcast from "./views/Settings/SettingsSnapcast";
 
 const App = () => {
   return (
@@ -32,6 +33,7 @@ const App = () => {
                   <Route path="/bluetooth" element={<Start />} />
                   <Route path="/spotify" element={<Start />} />
                   <Route path="/shairportsync" element={<Start />} />
+                  <Route path="/snapcast" element={<SettingsSnapcast />} />
                   <Route path="/queue" element={<Queue />} />
                   <Route path="/playlist/:id?" element={<Playlists />} />
                   <Route path="/library/:view?/:id?" element={<Local />} />
