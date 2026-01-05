@@ -159,7 +159,7 @@ class SystemExtension(Actor):
             "os": f"{system} ({machine})",
             "hostname": hostname,
             "model": self.get_hardware_model(),
-            "software":"0.1.0",
+            "software":"1.2.0",
             "version": version,
             "cpu": {
                 "volts": self.get_volts("core"),

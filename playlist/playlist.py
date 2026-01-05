@@ -98,7 +98,7 @@ class PlaylistExtension(Actor):
             )
             logger.debug(f"{uri} updated")
             self._core.send(event='playlists_updated')
-            return self.on_items()
+            return True
         raise ValueError("id or name not provided")
     
         
@@ -111,7 +111,7 @@ class PlaylistExtension(Actor):
             )
             logger.debug(f"{uri} deleted")
             self._core.send(event='playlists_updated')
-            return self.on_items()
+            return True
     
 
     async def on_create(self, name: str | None = None, tl_tracks: list[TlTrack] | None = None) -> bool:

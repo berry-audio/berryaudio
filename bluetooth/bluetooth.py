@@ -183,7 +183,7 @@ class BluetoothExtension(Actor):
                         
 
                 if connected_device or is_bonded:
-                    for device in self.on_devices():
+                    for device in self._devices:
                         device_path = device.get("path")
                         if device_path != connected_device.get("path"):
                             self.on_disconnect(device_path)
@@ -274,49 +274,37 @@ class BluetoothExtension(Actor):
             raise RuntimeError(f"Failed to get adapter state")
         
 
-    async def on_discover(self):
-        """Scan for trusted Bluetooth devices and return a list of device Name and MAC addresses."""      
-        self.on_adapter_set_state(True)
+    async def on_devices(self, rescan: bool = False):
+        """Discover Bluetooth devices or return cached devices"""
 
-        logger.debug("Scanning for available Bluetooth devices...")      
-        adapter.StartDiscovery()
-        
-        await asyncio.sleep(discovery_time)
-        adapter.StopDiscovery()
+        if rescan:
+            self.on_adapter_set_state(True)
 
-        mng_objs = mngr.GetManagedObjects()       
+            logger.info("Scanning for available Bluetooth devices...")
+            adapter.StartDiscovery()
+            await asyncio.sleep(discovery_time)
+            adapter.StopDiscovery()
+
+        mng_objs = mngr.GetManagedObjects()
         devices = []
-        for path in mng_objs:
-            device = mng_objs[path].get(BLUEZ_DEVICE)
-            if device and device.get('Name'):
-                devices.append({
-                    "name": device.get("Name"),
-                    "address": device.get("Address"),
-                    "alias": device.get("Alias"),
-                    "icon": device.get("Icon"),
-                    "path": path
-                })
+
+        for path, interfaces in mng_objs.items():
+            device = interfaces.get(BLUEZ_DEVICE)
+            if not device or not device.get("Name"):
+                continue
+
+            devices.append({
+                "path": path,
+                "name": device.get("Name"),
+                "address": device.get("Address"),
+                "alias": device.get("Alias"),
+                "icon": device.get("Icon"),
+                "connected": device.get("Connected"),
+            })
+
         self._devices = devices
-        logger.debug(f"Found ({str(devices)}) Bluetooth devices.")
-        return devices
-
-
-    def on_devices(self):
-        """Gets the list of devices cached from last scan"""
-        mng_objs = mngr.GetManagedObjects()       
-        devices = []
-        for path in mng_objs:
-            device = mng_objs[path].get(BLUEZ_DEVICE)
-            if device and device.get('Name'):
-                devices.append({
-                    "path": path,
-                    "name": device.get("Name"),
-                    "address": device.get("Address"),
-                    "alias": device.get("Alias"),
-                    "icon": device.get("Icon"),
-                    "connected":device.get("Connected")
-                })
-        logger.debug(devices)        
+        logger.info(f"Found ({len(devices)}) Bluetooth devices.")
+        logger.debug(devices)
         return devices
 
 
