@@ -1,5 +1,5 @@
-import { useDispatch } from "react-redux";
-import { DIALOG_EVENTS } from "@/store/constants";
+import { useDispatch, useSelector } from "react-redux";
+import { DIALOG_EVENTS, INFO_EVENTS } from "@/store/constants";
 import { useNetworkService } from "@/services/network";
 import { WifiNetwork } from "@/types";
 import { useState } from "react";
@@ -7,22 +7,39 @@ import { EVENTS } from "@/constants/events";
 
 export function useNetworkActions() {
   const dispatch = useDispatch();
+  const { devices, networks } = useSelector((state: any) => state.network);
 
-  const { onConnectWlan, onDisconnect, onDelete, getDevice, onModify, onWifi, getConnection } = useNetworkService();
+  const { onConnectWlan, onDisconnect, onDelete, getDevice, onModify, getConnection, onWifi } = useNetworkService();
 
   const [loading, setLoading] = useState<boolean>(false);
 
-  const fetchDevices = async (device:string) => {
-    const _device = await getDevice(device);
-    const _wlanNetworks = await onWifi();
+  const fetchDevices = async () => {
+    if (Object.keys(devices).length) {
+      setLoading(true);
+      Object.keys(devices).map(async (ifname) => {
+        const device = await getDevice(ifname);
 
-    dispatch({
-      type: EVENTS.NETWORK_STATE_CHANGED,
-      payload: { device: _device, networks: _wlanNetworks },
-    });
-
+        dispatch({
+          type: EVENTS.NETWORK_STATE_CHANGED,
+          payload: { device },
+        });
+      });
+      setLoading(false);
+    }
   };
 
+  const fetchWifiNetworks = async (rescan: boolean = false) => {
+    if (!rescan && networks?.length) return;
+
+    setLoading(true);
+    const networks_discovered = await onWifi(rescan);
+
+    dispatch({
+      type: INFO_EVENTS.WLAN_SCAN_COMPLETED,
+      payload: networks_discovered,
+    });
+    setLoading(false);
+  };
 
   const modifyNetwork = async (ifname: string, name: string, ipv4_address: string, ipv4_gateway: string, ipv4_dns: string, method: string) => {
     setLoading(true);
@@ -31,8 +48,9 @@ export function useNetworkActions() {
     dispatch({ type: DIALOG_EVENTS.DIALOG_CLOSE });
   };
 
-  const handleModifyNetwork = async (name: string) => {
-    const device = await getConnection(name);
+  const handleModifyNetwork = async (connection: string) => {
+    const device = await getConnection(connection);
+    if (!device?.name) return;
 
     dispatch({
       type: DIALOG_EVENTS.DIALOG_EDIT_NETWORK,
@@ -67,6 +85,7 @@ export function useNetworkActions() {
   };
 
   return {
+    fetchWifiNetworks,
     fetchDevices,
     modifyNetwork,
     handleConnectWifi,

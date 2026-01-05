@@ -13,4 +13,7 @@ export const ICON_LG = 40
 export const ICON_SM = 25
 export const ICON_XS = 20
 
+export const WLAN_DEVICE = 'wlan0'
+export const ETH_DEVICE = 'eth0'
+
 export const THEME_TEXT = 'text-yellow-700'

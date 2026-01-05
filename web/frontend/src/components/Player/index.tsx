@@ -51,8 +51,8 @@ const Player = () => {
   return (
     <>
       <div className="z-5">
-        <div className="seek-slider h-[2px] overflow-hidden">
-          <PositionSlider className="h-[2px] dark:bg-neutral-950 bg-neutral-200" />
+        <div className="seek-slider h-0.5 overflow-hidden">
+          <PositionSlider className="h-0.5 dark:bg-neutral-950 bg-neutral-200" />
         </div>
         <div className="lg:flex hidden px-4 py-2 items-center dark:bg-neutral-900  bg-neutral-100">
           <div className="w-3/8">
@@ -134,7 +134,7 @@ const Player = () => {
             >
               <div className="flex items-center">
                 <div
-                  className={`overflow-hidden rounded-[3px] mr-3 w-[40px] min-w-[40px] grayscale-25`}
+                  className={`overflow-hidden rounded-[3px] mr-3 min-w-10 grayscale-25`}
                 >
                   {image  ? (
                     <img

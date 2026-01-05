@@ -119,7 +119,7 @@ const OverlayNowPlaying = () => {
           )}
 
           <div className="mt-2 mb-2 w-full text-center">
-            {["bluetooth", "spotify", "shairportsync"].includes(source.type) ? (
+            {["bluetooth", "spotify", "shairportsync", "snapcast"].includes(source.type) ? (
               <div className="flex justify-center w-full">
                 <Source />
               </div>
@@ -217,7 +217,7 @@ const OverlayNowPlaying = () => {
               )}
 
               <div className="mt-3">
-                {["bluetooth", "spotify", "shairportsync"].includes(
+                {["bluetooth", "spotify", "shairportsync", "snapcast"].includes(
                   source.type
                 ) ? (
                   <Source />

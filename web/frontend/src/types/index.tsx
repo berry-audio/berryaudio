@@ -141,13 +141,13 @@ export interface AdapterState {
 export interface BluetoothState {
   adapter_state: AdapterState;
   device_connected: undefined | {};
-  devices_available: BluetoothDevice[];
+  devices: BluetoothDevice[];
 }
 
 
 export interface SnapcastServer {
   service_name: string;
-  hostname: string;
+  name: string;
   ip: string;
   port: number;
   connected: boolean;
@@ -155,12 +155,8 @@ export interface SnapcastServer {
 }
 
 export interface SnapcastState {
-  status: {
-        "clients": [],
-        "server": {},
-        "streams": []
-    },
-  servers_available: SnapcastServer[],
+  status: {},
+  servers: SnapcastServer[],
 }
 
 export interface StorageDevice {

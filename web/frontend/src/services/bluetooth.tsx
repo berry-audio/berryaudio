@@ -4,8 +4,7 @@ export const useBluetoothService = () => {
   const { request } = useSocketRequest();
 
   return {
-    discoverDevices : () => request("bluetooth.discover"),
-    getDevices: () => request("bluetooth.devices"),
+    getDevices: (rescan: boolean) => request("bluetooth.devices", { rescan }),
     getAdapterState: () => request("bluetooth.adapter_get_state"),
     setAdapterState: (state: boolean) => request("bluetooth.adapter_set_state", { state }),
     removeDevice: (path: string) => request("bluetooth.remove", { path }),

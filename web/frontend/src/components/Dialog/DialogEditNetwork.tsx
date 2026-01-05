@@ -11,14 +11,12 @@ import Toggle from "../Form/Toggle";
 
 const DialogEditNetwork = ({ item }: { item: NetworkConnectionInfo }) => {
   const dispatch = useDispatch();
-
   const { modifyNetwork, loading } = useNetworkActions();
 
-  const [ipv4_address, setIpv4_address] = useState<string>(item.ipv4_address || "");
-  const [ipv4_gateway, setIpv4_gateway] = useState<string>(item.ipv4_gateway_runtime || "");
-  const [ipv4_dns, setIpv4_dns] = useState<string>(item.ipv4_dns_runtime || "");
-  const [method, setMethod] = useState<string>(item.ipv4_method);
-
+  const [ipv4_address, setIpv4_address] = useState<string>(item?.ipv4_address || "");
+  const [ipv4_gateway, setIpv4_gateway] = useState<string>(item?.ipv4_gateway_runtime || "");
+  const [ipv4_dns, setIpv4_dns] = useState<string>(item?.ipv4_dns_runtime || "");
+  const [method, setMethod] = useState<string>(item?.ipv4_method);
 
   return (
     <Modal
@@ -28,9 +26,12 @@ const DialogEditNetwork = ({ item }: { item: NetworkConnectionInfo }) => {
       buttonText="Apply"
       buttonLoading={loading}
       buttonOnClick={() => modifyNetwork(item.device, item.name, ipv4_address, ipv4_gateway, ipv4_dns, method)}
-      buttonDisabled={(ipv4_address === "" || ipv4_gateway === "" || ipv4_dns === "" ) && method === "manual"}
+      buttonDisabled={(ipv4_address === "" || ipv4_gateway === "" || ipv4_dns === "") && method === "manual"}
     >
-      <div className="flex text-xl items-center">{getNetworkDeviceName(item.device)}{item.device}</div>
+      <div className="flex text-xl items-center">
+        {getNetworkDeviceName(item.device)}
+        {item.device}
+      </div>
       <div className="pt-2 pb-4 text-neutral-500 text-sm">
         Changing network settings may cause you to lose access. Please ensure your settings are correct before applying.
       </div>
