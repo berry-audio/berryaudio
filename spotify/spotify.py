@@ -29,7 +29,7 @@ class SpotifyExtension(Actor):
         self._elapsed_timer_count = 0
         self._bitrate = "320"
         self._sample_rate = 44100
-        self._initial_volume = "100"
+        self._initial_volume = "95"
         self._bit_depth = "S16"
         self._audio_codec = "Ogg"
         self._name = self._config['system']['hostname']
@@ -180,6 +180,7 @@ class SpotifyExtension(Actor):
                 "--backend", self._backend,
                 "--onevent", on_event_path,
                 "--initial-volume", self._initial_volume,
+                "--enable-volume-normalisation",
                 "--device-type", "avr",
                 "--device", self._device,
             ]

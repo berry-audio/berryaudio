@@ -11,6 +11,7 @@ import websockets
 
 from zeroconf.asyncio import AsyncZeroconf, AsyncServiceBrowser
 from zeroconf._exceptions import NotRunningException
+
 from core.models import Album, Track, TlTrack, Source
 from pathlib import Path
 from core.actor import Actor
@@ -37,7 +38,6 @@ DEFAULT_CONFIG = {
     "buffer": 200,
 }
 
-
 class SnapcastExtension(Actor):
     def __init__(self, core, db, config):
         super().__init__()
@@ -52,7 +52,7 @@ class SnapcastExtension(Actor):
         self._server = None
         self._server_ws = None
         self._server_notification_task = None
-        self._server_list = []
+        self._server_list = None
         self._device = self._config["playback"]["output_device"]
         self.servers = {}
         self.jsonrpc_timeout = 5
@@ -68,7 +68,7 @@ class SnapcastExtension(Actor):
                         name =  "Snapcast",
                         albums = frozenset([Album(name = "Unknown")]),
                     ))
-
+        self._zc_tasks = set()
 
     async def on_start_service(self):
         await self._core.request("playback.set_metadata", tl_track=self._tl_track)
@@ -84,20 +84,45 @@ class SnapcastExtension(Actor):
 
     """Zeroconf default callbacks"""
 
-    def add_service(self, **kwargs):
-        asyncio.create_task(self._handle_service(kwargs))
-        # logger.info('ADDED')
-
-    def update_service(self, **kwargs):
-        asyncio.create_task(self._handle_service(kwargs))
-        # logger.info('UPDATED')
-
-
     def remove_service(self, **kwargs):
-        name = kwargs.get("name")
-        if name:
-            self.servers.pop(name, None)
-        # logger.info('REMOVED')
+        task = asyncio.create_task(self._service_handler(kwargs))
+        self._zc_tasks.add(task)
+        task.add_done_callback(self._zc_tasks.discard)
+
+    async def _service_handler(self,kwargs):
+        service_state = str(kwargs.get('state_change'))
+        service_type = kwargs.get("service_type")
+        service_name = kwargs.get("name")
+        
+        if service_state == 'ServiceStateChange.Added':
+            if service_name not in self.servers:
+                await self._handle_service(kwargs)
+
+            if service_name in self.servers:    
+                if self.servers[service_name]['status'] == 'unavailable':
+                    status = await self.on_get_status(self.servers[service_name]['ip'])
+                    if status:
+                        stream_status = (
+                            status.get("server", {})
+                                .get("streams", [{}])[0]
+                                .get("status")
+                        )
+                        self.servers[service_name]['connected'] = self.servers[service_name]['ip'] == self._server
+                        self.servers[service_name]['status'] = stream_status
+                    self._core.send(event="snapcast_added", server=self.servers[service_name])
+                    logger.info(f"Snapcast added server '{service_name}'")
+            
+        if service_state == 'ServiceStateChange.Removed':
+            if service_name in self.servers:
+                if self.servers[service_name]['status'] != 'unavailable':
+                    self.servers[service_name]['status'] = 'unavailable'
+                    self.servers[service_name]['connected'] = False
+                    self._core.send(event="snapcast_removed", server=self.servers[service_name])
+                    logger.warning(f"Snapcast removed server '{service_name}'")
+                    await self._send_state_update()
+                    self.servers.pop(service_name)
+                    self._server_list = list(self.servers.values())     
+                        
 
 
     async def _handle_service(self, kwargs):
@@ -127,14 +152,16 @@ class SnapcastExtension(Actor):
                 info.server.rstrip(".") if info.server else "Unknown"
             ).removesuffix(".local")
 
+            if self._local_hostname == hostname:
+                return
 
-            self.servers[hostname] = {
+            self.servers[service_name] = {
                 "service_name": service_name,
                 "name": hostname,
                 "ip": ips[0],
                 "port": info.port,
                 "connected": False,
-                "status": None,
+                "status": 'unavailable',
             }
 
         except NotRunningException:
@@ -178,11 +205,12 @@ class SnapcastExtension(Actor):
 
     async def _send_state_update(self):
         status = await self.on_get_status()
-        self._core.send(event="snapcast_state_changed", status=status)
+        self._core.send(event="snapcast_state_changed", server=status.get('server'))
 
 
     async def _send_connection_update(self, ip):
         servers = await self.on_servers(rescan=False)
+
         for server in servers:
             if server.get("ip") == ip:
                 if self._connected:
@@ -209,6 +237,14 @@ class SnapcastExtension(Actor):
 
         self._db.init_extension("snapcast", DEFAULT_CONFIG)
 
+        AsyncServiceBrowser(
+            self.zeroconf.zeroconf,
+            SERVICE_TYPE,
+            handlers=[
+                self.remove_service,
+            ],
+        )
+        
         await self._init_snapserver()
         logger.info("Started")
 
@@ -253,17 +289,18 @@ class SnapcastExtension(Actor):
 
             self._server = SNAPCAST_LOCAL_IP
 
+            async def _on_connected():
+                await self._start_notification_listener()
+                await self._send_connection_update(self._server)
+                await self._send_state_update()     
+
             def _log(stream, label):
                 for line in iter(stream.readline, ""):
                     logger.debug(line.strip())
 
                     if "successfully established" in line:
                         self._loop.call_soon_threadsafe(
-                            asyncio.create_task, self._start_notification_listener()
-                        )
-
-                        self._loop.call_soon_threadsafe(
-                            asyncio.create_task, self._send_state_update()                    
+                            asyncio.create_task, _on_connected()
                         )
 
                 stream.close()
@@ -391,43 +428,26 @@ class SnapcastExtension(Actor):
     """api callbacks methods"""
 
     async def on_servers(self, rescan: bool = False):
-        AsyncServiceBrowser(
-            self.zeroconf.zeroconf,
-            SERVICE_TYPE,
-            handlers=[
-                self.add_service,
-                self.update_service,
-                self.remove_service,
-            ],
-        )
-
         if rescan:
             logger.info("Discovering Snapcast servers via Avahi (mDNS)...")
             await asyncio.sleep(DISCOVERY_TIME)
-            self._server_list = list(self.servers.values())
+
+        self._server_list = list(self.servers.values())
 
         servers = []
         for server in self._server_list:
-            if self._local_hostname != server["name"]:
-                server["connected"] = self._server == server.get("ip")
+            server["connected"] = self._server == server.get("ip")
+            server["status"] = "unavailable"
 
-                try:
-                    status = await self.on_get_status(ip=server.get("ip"))
-                    if status:
-                        stream_status = (
-                            status.get("server", {})
-                                .get("streams", [{}])[0]
-                                .get("status")
-                        )
-                        server["status"] = stream_status or "unavailable"
-
-                except Exception as e:
-                    logger.error(
-                        f"Error getting status from {server.get('name')}: {e}"
-                    )
-
-                servers.append(server)
-                
+            status = await self.on_get_status(server.get("ip"))
+            if status:
+                stream_status = (
+                    status.get("server", {})
+                        .get("streams", [{}])[0]
+                        .get("status")
+                )
+                server["status"] = stream_status
+            servers.append(server)
 
         self._server_list = servers
         if rescan:
@@ -469,18 +489,20 @@ class SnapcastExtension(Actor):
         server = ip or self._server
         if not server:
             return {}
-        
+
         request = {
-            "id": 1, 
-            "jsonrpc": 
-            "2.0", 
+            "id": 1,
+            "jsonrpc": "2.0",
             "method": "Server.GetStatus",
-            }
-        
-        result = await self._send_request(
-            server, request, JSONRPC_PORT
-        )
-        
+        }
+
+        try:
+            result = await self._send_request(
+                server, request, JSONRPC_PORT
+            )
+        except (OSError, ConnectionError, TimeoutError, asyncio.TimeoutError) as exc:
+            return {}
+
         if not result:
             return {}
 
@@ -555,7 +577,6 @@ class SnapcastExtension(Actor):
 
                 client = params.get("client", {})
                 host = client.get("host", {})
-
                 name = host.get("name", self._local_hostname)
                 ip = host.get("ip", self._server)
                 os = host.get("os", "unknown")
