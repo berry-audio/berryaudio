@@ -29,5 +29,7 @@ export enum EVENTS {
   SNAPCAST_STATE_CHANGED = "snapcast_state_changed",
   SNAPCAST_CONNECTED = "snapcast_connected",
   SNAPCAST_DISCONNECTED = "snapcast_disconnected",
+  SNAPCAST_REMOVED = "snapcast_removed",
+  SNAPCAST_ADDED = "snapcast_added",
   SNAPCAST_NOTIFICATION = "snapcast_notification"
 }

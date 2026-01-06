@@ -51,10 +51,10 @@ const Player = () => {
   return (
     <>
       <div className="z-5">
-        <div className="seek-slider h-0.5 overflow-hidden">
-          <PositionSlider className="h-0.5 dark:bg-neutral-950 bg-neutral-200" />
+        <div className="seek-slider h-1 overflow-hidden">
+          <PositionSlider className="h-1 dark:bg-black bg-neutral-200" />
         </div>
-        <div className="lg:flex hidden px-4 py-2 items-center dark:bg-neutral-900  bg-neutral-100">
+        <div className="lg:flex hidden px-4 py-2 items-center dark:bg-neutral-950  bg-neutral-100">
           <div className="w-3/8">
             <button
               onClick={() =>
@@ -124,7 +124,7 @@ const Player = () => {
         </div>
 
         {/* Mini Player  */}
-        <div className="lg:hidden flex items-center justify-between relative bg-neutral-900">
+        <div className="lg:hidden flex items-center justify-between relative bg-neutral-950">
           <div className="flex items-center p-2 w-4/6 z-20 relative">
             <button
               onClick={() =>
@@ -134,7 +134,7 @@ const Player = () => {
             >
               <div className="flex items-center">
                 <div
-                  className={`overflow-hidden rounded-[3px] mr-3 min-w-10 grayscale-25`}
+                  className={`overflow-hidden rounded-[3px] mr-3 min-w-10 w-10 grayscale-25`}
                 >
                   {image  ? (
                     <img
