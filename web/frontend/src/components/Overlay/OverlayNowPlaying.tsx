@@ -1,9 +1,5 @@
-import React, { useEffect } from "react";
-import {
-  CaretDownIcon,
-  UserIcon,
-  VinylRecordIcon,
-} from "@phosphor-icons/react";
+import React from "react";
+import { CaretDownIcon, UserIcon, VinylRecordIcon } from "@phosphor-icons/react";
 import { useDispatch, useSelector } from "react-redux";
 import { getAlbums, getArtists, getImage, getSourceName } from "@/util";
 import { ICON_SM, ICON_WEIGHT } from "@/constants";
@@ -33,44 +29,24 @@ const OverlayNowPlaying = () => {
   const { overlay } = useSelector((state: any) => state.overlay);
   const { source } = useSelector((state: any) => state.player);
 
-  const { current_track, playback_state } = useSelector(
-    (state: any) => state.player
-  );
+  const { current_track, playback_state } = useSelector((state: any) => state.player);
 
   const image = getImage(current_track?.track.images?.[0]?.uri);
 
-  useEffect(() => {
-    if (["bluetooth", "spotify", "shairportsync"].includes(source.type)) {
-      dispatch({ type: OVERLAY_EVENTS.OVERLAY_NOWPLAYING });
-    }
-  }, [source]);
-
   const ButtonCollapse = () => {
     return (
-      <ButtonIcon
-        className="hover:bg-black opacity-60 z-51 absolute top-12 right-4"
-        onClick={() => dispatch({ type: OVERLAY_EVENTS.OVERLAY_CLOSE })}
-      >
+      <ButtonIcon className="hover:bg-black opacity-60 z-51 absolute top-12 right-4" onClick={() => dispatch({ type: OVERLAY_EVENTS.OVERLAY_CLOSE })}>
         <CaretDownIcon weight={ICON_WEIGHT} size={ICON_SM} />
       </ButtonIcon>
     );
   };
 
   return (
-    <Overlay
-      show={overlay === OVERLAY_EVENTS.OVERLAY_NOWPLAYING}
-      full
-      className="dark text-white"
-      zindex={30}
-    >
-      <div className="bg-black w-full h-full absolute">
+    <Overlay show={overlay === OVERLAY_EVENTS.OVERLAY_NOWPLAYING} full className="dark text-white" zindex={30}>
+      <div className="bg-background w-full h-full absolute">
         <div
           className="h-full bg-cover blur-3xl opacity-80"
-          style={
-            overlay === OVERLAY_EVENTS.OVERLAY_NOWPLAYING
-              ? { backgroundImage: `url(${image})` }
-              : {}
-          }
+          style={overlay === OVERLAY_EVENTS.OVERLAY_NOWPLAYING ? { backgroundImage: `url(${image})` } : {}}
         ></div>
       </div>
       <Menu />
@@ -79,7 +55,7 @@ const OverlayNowPlaying = () => {
         <ButtonCollapse />
         <div className="h-600-hide -mt-[30px] px-6 relative z-50">
           <div className="flex items-center justify-center">
-            <div className="aspect-square grayscale-25 shadow-[1px_14px_21px_-6px_rgba(0,0,0,0.2)] h-[270px] w-[270px] md:h-[350px] md:w-[350px] h-600-img h-800-400-img overflow-hidden rounded-sm">
+            <div className="aspect-square grayscale-25 shadow-[1px_14px_21px_-6px_rgba(0,0,0,0.2)] h-[270px] w-[270px] md:h-[350px] md:w-[350px] h-600-img h-800-400-img overflow-hidden rounded-xl">
               {image ? (
                 <img
                   src={image}
@@ -93,12 +69,8 @@ const OverlayNowPlaying = () => {
             </div>
           </div>
           <div className="flex items-center justify-center mt-5">
-            <h2 className="lg:text-4xl lg:mb-1 text-3xl font-semibold  dark:text-white max-w-80">
-              {current_track?.track.name ? (
-                <ScrollingText text={current_track?.track.name} />
-              ) : (
-                getSourceName(source.type)
-              )}
+            <h2 className="lg:text-4xl lg:mb-1 text-3xl font-semibold  max-w-80">
+              {current_track?.track.name ? <ScrollingText text={current_track?.track.name} /> : getSourceName(source.type)}
             </h2>
           </div>
 
@@ -107,9 +79,7 @@ const OverlayNowPlaying = () => {
               <div className="max-w-80">
                 <ScrollingText
                   text={`${getArtists(current_track?.track.artists)} ${
-                    current_track?.track.album?.name
-                      ? " · " + current_track?.track.album.name
-                      : ""
+                    current_track?.track.album?.name ? " · " + current_track?.track.album.name : ""
                   }`}
                 />
               </div>
@@ -125,9 +95,7 @@ const OverlayNowPlaying = () => {
               </div>
             ) : current_track?.track?.albums?.length ? (
               <div className="flex items-center">
-                <ScrollingText
-                  text={`${getAlbums(current_track?.track?.albums)}`}
-                />
+                <ScrollingText text={`${getAlbums(current_track?.track?.albums)}`} />
               </div>
             ) : (
               <></>
@@ -135,11 +103,8 @@ const OverlayNowPlaying = () => {
           </div>
 
           <div className="flex items-center justify-center mt-2 w-full ">
-            <div className="mt-6 seek-slider-np max-w-800 w-100">
-              <PositionSlider
-                className={"rounded-full"}
-                showElapsedNumber={true}
-              />
+            <div className="mt-6 seek-slider max-w-800 w-100">
+              <PositionSlider className={"rounded-full"} showElapsedNumber={true} />
             </div>
           </div>
 
@@ -170,18 +135,12 @@ const OverlayNowPlaying = () => {
               <img
                 src="/assets/disc.png"
                 className={`transition-transform duration-500 ease-in-out transform ${
-                  playback_state === PLAYBACK_STATE.PLAYING
-                    ? "translate-x-7 animate-spin"
-                    : "translate-x-0"
+                  playback_state === PLAYBACK_STATE.PLAYING ? "translate-x-7 animate-spin" : "translate-x-0"
                 }`}
               />
-              <div className="shadow-[1px_14px_21px_-6px_rgba(0,0,0,0.2)] absolute top-0 rounded-[6px] overflow-hidden h-full aspect-square">
+              <div className="shadow-[1px_14px_21px_-6px_rgba(0,0,0,0.2)] absolute top-0 rounded-lg overflow-hidden h-full aspect-square">
                 {image ? (
-                  <img
-                    src={image}
-                    alt={current_track?.track.album?.name}
-                    className={"object-cover rounded-xs h-full w-full bg-black"}
-                  />
+                  <img src={image} alt={current_track?.track.album?.name} className={"object-cover rounded-xs h-full w-full "} />
                 ) : (
                   <Directory width={"100%"} height={"100%"} type={REF.ALBUM} />
                 )}
@@ -190,25 +149,15 @@ const OverlayNowPlaying = () => {
 
             <div className={`w-11/12 overflow-hidden`}>
               <h2 className="lg:text-4xl lg:mb-1 text-2xl sm:text-3xl font-semibold">
-                {current_track?.track.name ? (
-                  <ScrollingText text={current_track?.track.name} />
-                ) : (
-                  getSourceName(source.type)
-                )}
+                {current_track?.track.name ? <ScrollingText text={current_track?.track.name} /> : getSourceName(source.type)}
               </h2>
 
               {current_track?.track.artists.length ? (
                 <div className="mt-2 flex items-center">
-                  <UserIcon
-                    weight={ICON_WEIGHT}
-                    size={ICON_SM}
-                    className="mr-2"
-                  />
+                  <UserIcon weight={ICON_WEIGHT} size={ICON_SM} className="mr-2" />
                   <ScrollingText
                     text={`${getArtists(current_track?.track.artists)} ${
-                      current_track?.track.album?.name
-                        ? " · " + current_track?.track.album.name
-                        : ""
+                      current_track?.track.album?.name ? " · " + current_track?.track.album.name : ""
                     }`}
                   />
                 </div>
@@ -217,20 +166,12 @@ const OverlayNowPlaying = () => {
               )}
 
               <div className="mt-3">
-                {["bluetooth", "spotify", "shairportsync", "snapcast"].includes(
-                  source.type
-                ) ? (
+                {["bluetooth", "spotify", "shairportsync", "snapcast"].includes(source.type) ? (
                   <Source />
                 ) : current_track?.track?.albums?.length ? (
                   <div className="flex items-center">
-                    <VinylRecordIcon
-                      weight={ICON_WEIGHT}
-                      size={ICON_SM}
-                      className="mr-2"
-                    />
-                    <ScrollingText
-                      text={`${getAlbums(current_track?.track?.albums)}`}
-                    />
+                    <VinylRecordIcon weight={ICON_WEIGHT} size={ICON_SM} className="mr-2" />
+                    <ScrollingText text={`${getAlbums(current_track?.track?.albums)}`} />
                   </div>
                 ) : (
                   <></>
@@ -264,11 +205,8 @@ const OverlayNowPlaying = () => {
               </div>
               <ButtonQueue />
             </div>
-            <div className="mt-3 seek-slider-np md:max-w-800  w-full">
-              <PositionSlider
-                className={"rounded-full"}
-                showElapsedNumber={true}
-              />
+            <div className="mt-3 seek-slider md:max-w-800  w-full">
+              <PositionSlider className={"rounded-full"} showElapsedNumber={true} />
             </div>
           </div>
         </div>

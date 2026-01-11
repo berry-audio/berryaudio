@@ -32,61 +32,30 @@ interface CoverList {
  * @param {string} props.selected - Highlighted
  * @returns {JSX.Element} The rendered cover list element.
  */
-const CoverList = ({
-  type = REF.TRACK,
-  no,
-  loading = false,
-  image,
-  title,
-  subtitle,
-  duration,
-  selected = false,
-}: CoverList) => {
+const CoverList = ({ type = REF.TRACK, no, loading = false, image, title, subtitle, duration, selected = false }: CoverList) => {
   return (
     <div className="flex items-center w-full">
-      {no && (
-        <div className="-ml-1 mr-4 text-sm text-neutral-500 w-[10px] text-center">
-          {formatNo(no)}
-        </div>
-      )}
+      {no && <div className="-ml-1 mr-4 text-sm text-secondary w-[10px] text-center">{formatNo(no)}</div>}
       <ListImageWrapper>
         {loading && (
-          <div className="absolute w-full h-full flex items-center justify-center z-10 dark:bg-black/80 bg-white/80">
+          <div className="absolute w-full h-full flex items-center justify-center z-10 dark:background/80 ">
             <Spinner />
           </div>
         )}
-        {image ? (
-          <img
-            src={image}
-            alt={title}
-            className="object-cover aspect-square w-full grayscale-25"
-          />
-        ) : (
-          <Directory type={type} />
-        )}
+        {image ? <img src={image} alt={title} className="object-cover aspect-square w-full grayscale-25" /> : <Directory type={type} />}
       </ListImageWrapper>
       <div className="text-left flex-grow w-0 pr-5">
-        <h2 className={`text-lg font-medium tracking-tight dark:text-white flex`}>
+        <h2 className={`text-lg font-medium tracking-tight flex`}>
           <TruncateText>{title}</TruncateText>
-          {selected && (
-            <MusicNotesIcon
-              className="text-yellow-700 inline-block ml-1 mt-[6px]"
-              weight={'fill'}
-              size={15}
-              
-            />
-          )}
+          {selected && <MusicNotesIcon className="text-primary inline-block ml-1 mt-[6px]" weight={"fill"} size={15} />}
         </h2>
-        {
-          subtitle && (
-             <div className={`${window.innerHeight < 400 ? "mt-0" : "-mt-1"} text-neutral-500 font-medium`}>
-          <TruncateText>{subtitle as string}</TruncateText>
-        </div>
-          )
-        }
-       
+        {subtitle && (
+          <div className={`${window.innerHeight < 400 ? "mt-0" : "-mt-1"} text-secondary font-medium`}>
+            <TruncateText>{subtitle as string}</TruncateText>
+          </div>
+        )}
       </div>
-      {duration && <div className="mr-2 text-neutral-500 text-sm">{duration}</div>}
+      {duration && <div className="mr-2 text-secondary text-sm">{duration}</div>}
     </div>
   );
 };

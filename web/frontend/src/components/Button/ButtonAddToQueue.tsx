@@ -11,15 +11,7 @@ const ButtonAddToQueue = ({ item }: { item: Ref }) => {
 
   return (
     <ButtonIcon onClick={() => handleAddToQueue(item)} className="mr-1">
-      {loading ? (
-        <Spinner />
-      ) : (
-        <PlusIcon
-          weight={ICON_WEIGHT}
-          size={ICON_SM}
-          className="dark:text-white text-black"
-        />
-      )}
+      {loading ? <Spinner /> : <PlusIcon weight={ICON_WEIGHT} size={ICON_SM} />}
     </ButtonIcon>
   );
 };

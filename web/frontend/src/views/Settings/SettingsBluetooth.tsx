@@ -76,11 +76,10 @@ const SettingsBluetooth = () => {
       <div className="w-full">
         <div className="flex justify-between items-center">
           <div className="flex  items-center">
-            <RenderIcon type={item.icon} className={`mr-2 ${item.connected ? "text-yellow-700" : ""}`} />
+            <RenderIcon type={item.icon} className={`mr-2 ${item.connected ? "text-primary" : ""}`} />
             <div className="text-lg font-medium">
               <div className="w-full">
                 <div>{item.name}</div>
-                <div className="mb-1  text-neutral-500 text-left text-sm">{item.address}</div>
               </div>
             </div>
           </div>

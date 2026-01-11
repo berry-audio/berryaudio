@@ -28,21 +28,12 @@ interface Cover {
  * @param {React.ReactNode} props.actions - attach component as menu.
  * @returns {JSX.Element} The rendered cover section.
  */
-const Cover = ({
-  type = REF.TRACK,
-  loading = false,
-  image,
-  title,
-  subtitle,
-  shadow = false,
-  actions,
-  onClick,
-}: Cover) => {
+const Cover = ({ type = REF.TRACK, loading = false, image, title, subtitle, shadow = false, actions, onClick }: Cover) => {
   return (
     <div className="w-full">
       <button onClick={onClick} className="w-full cursor-pointer  shadow-1xl">
         <div
-          className={`overflow-hidden rounded-[3px] transition-all relative bg-white dark:bg-neutral-800 ${
+          className={`overflow-hidden rounded-md transition-all relative bg-white dark:bg-neutral-800 ${
             shadow ?? "shadow-[1px_14px_21px_-6px_rgba(0,0,0,0.1)]"
           }`}
         >
@@ -52,29 +43,19 @@ const Cover = ({
             </div>
           )}
 
-          {image ? (
-            <img
-              src={image}
-              alt={title}
-              className="object-cover w-full scale-101 aspect-square grayscale-25 "
-            />
-          ) : (
-            <Directory type={type} />
-          )}
+          {image ? <img src={image} alt={title} className="object-cover w-full scale-101 aspect-square grayscale-25 " /> : <Directory type={type} />}
         </div>
       </button>
       <div className="flex justify-between">
         <div className="overflow-hidden text-left">
           {title && (
-            <h2
-              className={`text-lg font-medium tracking-tight dark:text-white`}
-            >
-             <TruncateText>{title}</TruncateText>
+            <h2 className={`text-lg font-medium tracking-tight `}>
+              <TruncateText>{title}</TruncateText>
             </h2>
           )}
 
           {subtitle && (
-            <div className="text-neutral-500 font-medium">
+            <div className="text-secondary font-medium">
               <TruncateText>{subtitle}</TruncateText>
             </div>
           )}

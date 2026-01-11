@@ -5,12 +5,19 @@ import { EVENTS } from "@/constants/events";
 const initialState: SnapcastState = {
   status: {},
   servers: [],
+  dragging: false,
 };
 
 export const snapcastReducer = (state = initialState, action: any): SnapcastState => {
   const { type, payload } = action;
 
   switch (type) {
+    case INFO_EVENTS.SNAPCAST_VOLUME_DRAGGING:
+      return {
+        ...state,
+        dragging: payload,
+      };
+
     case INFO_EVENTS.SNAPCAST_SCAN_COMPLETED:
       return {
         ...state,
@@ -57,6 +64,7 @@ export const snapcastReducer = (state = initialState, action: any): SnapcastStat
         }
 
         case "Client.OnVolumeChanged": {
+          if (state.dragging) return state;
           const params = payload.params;
 
           const groups: any = state.status?.groups?.map((group: any) => ({
@@ -79,16 +87,6 @@ export const snapcastReducer = (state = initialState, action: any): SnapcastStat
             status: {
               ...state.status,
               groups,
-            },
-          };
-        }
-
-        case "Server.OnUpdate": {
-          const params = payload.params;
-          return {
-            ...state,
-            status: {
-              ...params.server,
             },
           };
         }

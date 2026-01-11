@@ -119,13 +119,12 @@ export const getCodecName = (format: string) => {
 export const getSourceName = (type: string) => {
   if (!type) return "Unknown";
 
-  type SourceType = "bluetooth" | "spotify" | "shairportsync" | "none";
+  type SourceType = "bluetooth" | "spotify" | "shairportsync";
 
   const mapping: Record<SourceType, string> = {
     bluetooth: "Bluetooth",
     spotify: "Spotify Connect",
     shairportsync: "Airplay",
-    none: " ",
   };
 
   return mapping[type as SourceType] || type;

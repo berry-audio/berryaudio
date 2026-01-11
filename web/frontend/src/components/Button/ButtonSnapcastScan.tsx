@@ -10,7 +10,7 @@ const ButtonSnapcastScan = () => {
 
   return (
     <ButtonIcon onClick={() => fetchServers(true)} className="mr-1">
-      {loading ? <Spinner /> : <ArrowsClockwiseIcon weight={ICON_WEIGHT} size={ICON_SM} className="dark:text-white text-black" />}
+      {loading ? <Spinner /> : <ArrowsClockwiseIcon weight={ICON_WEIGHT} size={ICON_SM} />}
     </ButtonIcon>
   );
 };

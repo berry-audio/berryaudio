@@ -41,8 +41,8 @@ const Overlay = ({
     <div
       className={clsx(
         overlay
-          ? "bg-black w-full h-[100vh] absolute flex justify-center items-center text-center text-white top-0 left-0 right-0"
-          : `dark:bg-[#141414] bg-neutral-100 w-full ${
+          ? "bg-background w-full h-[100vh] absolute flex justify-center items-center text-center top-0 left-0 right-0"
+          : `bg-background w-full ${
               full
                 ? "top-[0px] bottom-0"
                 : `top-[48px] ${

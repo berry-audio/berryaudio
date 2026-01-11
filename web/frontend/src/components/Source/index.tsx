@@ -29,7 +29,7 @@ const Source = ({
   };
 
   return (
-    source?.state?.connected && (
+    source?.state?.connected ? (
       <div className={`flex items-center ${className}`}>
         {!hideIcon && (
           <div
@@ -43,7 +43,7 @@ const Source = ({
 
         {!hideText && <div>{source_name}</div>}
       </div>
-    )
+    ) : (<>No device connected</>)
   );
 };
 

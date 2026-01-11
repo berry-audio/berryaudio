@@ -151,7 +151,7 @@ const Storage = () => {
                   {item.label}
                 </div>
               </div>
-              <div className="mb-1  text-neutral-500 text-left">{`${
+              <div className="mb-1  text-secondary text-left">{`${
                 mounted
                   ? `${formatBytes(item.free)} available of ${formatBytes(
                       item.total
@@ -165,9 +165,9 @@ const Storage = () => {
           </div>
         </div>
 
-        <div className="w-full dark:bg-neutral-950 bg-gray-200 rounded-full h-[3px] mt-3 mb-1">
+        <div className="w-full bg-popover rounded-full h-1 mt-3 mb-1">
           <div
-            className={`${mounted ? "bg-yellow-700" : ""} h-[3px] rounded-full`}
+            className={`${mounted ? "bg-primary" : ""} h-1 rounded-full`}
             style={{ width: `${item.percent}%` }}
           ></div>
         </div>

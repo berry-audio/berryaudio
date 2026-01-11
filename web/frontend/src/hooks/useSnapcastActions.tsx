@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useDispatch } from "react-redux";
 import { useSnapcastService } from "@/services/snapcast";
-import { INFO_EVENTS } from "@/store/constants";
+import { DIALOG_EVENTS, INFO_EVENTS } from "@/store/constants";
 import { EVENTS } from "@/constants/events";
 
 export function useSnapcastActions() {
@@ -18,6 +18,8 @@ export function useSnapcastActions() {
       type: INFO_EVENTS.SNAPCAST_SCAN_COMPLETED,
       payload: response,
     });
+
+    getServerStatus();
     setLoading(false);
   };
 
@@ -32,9 +34,14 @@ export function useSnapcastActions() {
     setLoading(false);
   };
 
+  const showServerInfo = () => {
+    dispatch({ type: DIALOG_EVENTS.DIALOG_SNAPCAST_INFO });
+  };
+
   return {
     fetchServers,
     getServerStatus,
+    showServerInfo,
     loading,
   };
 }

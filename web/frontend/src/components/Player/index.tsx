@@ -1,10 +1,11 @@
 import React, { useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { usePlaybackService } from "@/services/playback";
+import { usePlayerActions } from "@/hooks/usePlayerActions";
 import { getArtists, getImage, getSourceName } from "@/util";
 import { PLAYBACK_STATE } from "@/constants/states";
 import { REF } from "@/constants/refs";
-import { OVERLAY_EVENTS, PLAYER_EVENTS } from "@/store/constants";
+import { PLAYER_EVENTS } from "@/store/constants";
 
 import VolumeSlider from "./VolumeSlider";
 import PositionSlider from "./PositionSlider";
@@ -22,11 +23,10 @@ const Player = () => {
   const dispatch = useDispatch();
 
   const { getCurrentTrackPos } = usePlaybackService();
-  const { source } = useSelector((state: any) => state.player);
-  const { current_track, playback_state } = useSelector(
-    (state: any) => state.player
-  );
+  const { openNowPlayingOverlay } = usePlayerActions()
 
+  const { source } = useSelector((state: any) => state.player);
+  const { current_track, playback_state } = useSelector((state: any) => state.player);
   const image = getImage(current_track?.track.images?.[0]?.uri);
 
   const fetch_pos = async () => {
@@ -50,52 +50,42 @@ const Player = () => {
 
   return (
     <>
-      <div className="z-5">
-        <div className="seek-slider h-1 overflow-hidden">
-          <PositionSlider className="h-1 dark:bg-black bg-neutral-200" />
+      <div className="z-5 bg-neutral-900 dark:bg-neutral-950 text-white">
+        <div className="seek-slider seek-slider-mini h-1 overflow-hidden">
+          <PositionSlider/>
         </div>
-        <div className="lg:flex hidden px-4 py-2 items-center dark:bg-neutral-950  bg-neutral-100">
+        <div className="lg:flex hidden px-4 py-2 items-center ">
           <div className="w-3/8">
             <button
-              onClick={() =>
-                dispatch({ type: OVERLAY_EVENTS.OVERLAY_NOWPLAYING })
-              }
+              onClick={openNowPlayingOverlay}
               className="flex items-center cursor-pointer w-full  text-left"
             >
               <div className="flex items-center grow">
-                <div className="overflow-hidden flex-none rounded-[3px] mr-3 grayscale-25 w-[50px]  min-w-[50px]">
+                <div className="overflow-hidden flex-none rounded-sm mr-3 grayscale-25 w-[50px]  min-w-[50px]">
                   {image ? (
-                    <img
-                      src={image}
-                      alt={current_track?.track.album?.name}
-                      className={"object-cover aspect-square w-full"}
-                    />
+                    <img src={image} alt={current_track?.track.album?.name} className={"object-cover aspect-square w-full"} />
                   ) : (
-                    <Directory type={REF.ALBUM}/>
+                    <Directory type={REF.ALBUM} />
                   )}
                 </div>
-                <div className="overflow-hidden max-w-80">
-                  <h2 className="text-xl tracking-tight dark:text-white text-neutral-950">
-                    {current_track?.track.name ? (
-                      <ScrollingText text={current_track?.track.name} />
-                    ) : (
-                      getSourceName(source.type)
-                    )}
-                  </h2>
-                  <div className="text-sm text-neutral-500 overflow-hidden">
-                   {
-                      current_track?.track.artists.length ? 
-                       <ScrollingText
-                      text={`${getArtists(current_track?.track.artists)} ${
-                        current_track?.track.album?.name
-                          ? " · " + current_track?.track.album?.name
-                          : ""
-                      }`}
-                    />: 
-                      <Source hideIcon={true}/>
-                    }
+                {source.type && (
+                  <div className="overflow-hidden max-w-80">
+                    <h2 className="text-xl tracking-tight ">
+                      {current_track?.track.name ? <ScrollingText text={current_track?.track.name} /> : getSourceName(source.type)}
+                    </h2>
+                    <div className="text-secondary overflow-hidden">
+                      {current_track?.track.artists.length ? (
+                        <ScrollingText
+                          text={`${getArtists(current_track?.track.artists)} ${
+                            current_track?.track.album?.name ? " · " + current_track?.track.album?.name : ""
+                          }`}
+                        />
+                      ) : (
+                        <Source hideIcon={true} />
+                      )}
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             </button>
           </div>
@@ -111,12 +101,10 @@ const Player = () => {
           <div className="w-3/8 text-right">
             <div className="flex justify-end text-right items-center">
               <div className="flex items-center gap-3 w-50 max-w-xs mr-5">
-                <VolumeSlider classname="volume-slider "/>
+                <VolumeSlider classname="volume-slider " />
               </div>
               <div className="flex items-center">
-                <div className="mr-2">
-                 
-                </div>
+                <div className="mr-2"></div>
                 <ButtonQueue />
               </div>
             </div>
@@ -124,60 +112,41 @@ const Player = () => {
         </div>
 
         {/* Mini Player  */}
-        <div className="lg:hidden flex items-center justify-between relative bg-neutral-950">
+        <div className="lg:hidden flex items-center justify-between relative bg-neutral-950 text-white">
           <div className="flex items-center p-2 w-4/6 z-20 relative">
-            <button
-              onClick={() =>
-                dispatch({ type: OVERLAY_EVENTS.OVERLAY_NOWPLAYING })
-              }
-              className="w-full cursor-pointer text-left"
-            >
+            <button onClick={openNowPlayingOverlay} className="w-full cursor-pointer text-left">
               <div className="flex items-center">
-                <div
-                  className={`overflow-hidden rounded-[3px] mr-3 min-w-10 w-10 grayscale-25`}
-                >
-                  {image  ? (
-                    <img
-                      src={image}
-                      alt={current_track?.track.album?.name}
-                      className={`object-cover aspect-square w-full`}
-                    />
+                <div className={`overflow-hidden rounded-sm mr-3 min-w-10 w-10 grayscale-25`}>
+                  {image ? (
+                    <img src={image} alt={current_track?.track.album?.name} className={`object-cover aspect-square w-full`} />
                   ) : (
-                    <Directory type={REF.ALBUM}/>
+                    <Directory type={REF.ALBUM} />
                   )}
                 </div>
-                <div className="text-left overflow-hidden">
-                  <h2
-                    className={`text-lg font-medium tracking-tight text-white`}
-                  >
-                    {current_track?.track.name ? (
-                      <ScrollingText text={current_track?.track.name} />
-                    ) : (
-                      getSourceName(source.type)
-                    )}
-                  </h2>
-                  <div className=" text-neutral-500 -mt-0.5 lg:-mt-1">
-                    {
-                      current_track?.track.artists.length ? 
-                       <ScrollingText
-                      text={`${getArtists(current_track?.track.artists)} ${
-                        current_track?.track.album?.name
-                          ? " · " + current_track?.track.album?.name
-                          : ""
-                      }`}
-                    />: 
-                      <Source hideIcon={true}/>
-                    }
-                   
+                {source.type && (
+                  <div className="text-left overflow-hidden">
+                    <h2 className={`text-lg font-medium tracking-tight text-white`}>
+                      {current_track?.track.name ? <ScrollingText text={current_track?.track.name} /> : getSourceName(source.type)}
+                    </h2>
+                    <div className=" text-secondary -mt-0.5 lg:-mt-1 text-sm">
+                      {current_track?.track.artists.length ? (
+                        <ScrollingText
+                          text={`${getArtists(current_track?.track.artists)} ${
+                            current_track?.track.album?.name ? " · " + current_track?.track.album?.name : ""
+                          }`}
+                        />
+                      ) : (
+                        <Source hideIcon={true} />
+                      )}
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             </button>
           </div>
 
           <div className="flex items-center w-2/6 justify-end z-20 relative text-white">
-            <div className="mr-2">
-            </div>
+            <div className="mr-2"></div>
             <PlayPauseButton />
           </div>
         </div>

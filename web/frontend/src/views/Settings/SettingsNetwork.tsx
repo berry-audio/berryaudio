@@ -26,8 +26,8 @@ const SettingsNetwork = () => {
 
   const ListTextItem = ({ title, desc }: { title: string; desc: string }) => {
     return (
-      <div className="flex mt-2 text-neutral-500">
-        <div className="w-40 flex dark:text-white text-black">{title}:</div>
+      <div className="flex mt-2 text-secondary">
+        <div className="w-40 flex">{title}:</div>
         <div className="flex-1 flex flex-col">{desc}</div>
       </div>
     );
@@ -70,15 +70,12 @@ const SettingsNetwork = () => {
           </div>
           <div className="text-lg font-medium">
             <div className="w-full">
-              <div className={`${network.connected ? "text-yellow-700" : "dark:text-neutral-300 text-neutral-950"} flex `}>
-                {network.ssid == "" ? "unknown" : network.ssid}
-              </div>
-              <div className="mb-1  text-neutral-500 text-left text-sm">{network.bssid}</div>
+              <div className={`${network.connected ? "text-primary" : ""} flex `}>{network.ssid == "" ? "unknown" : network.ssid}</div>
             </div>
           </div>
         </div>
         <div className="flex items-center">
-          <div className="flex text-neutral-500 mr-1">{network.security ? <LockIcon weight={ICON_WEIGHT} size={ICON_SM} /> : ""}</div>
+          <div className="flex text-secondary mr-1">{network.security ? <LockIcon weight={ICON_WEIGHT} size={ICON_SM} /> : ""}</div>
           <div className="-mr-2">
             <ActionMenu items={actionItems} />
           </div>
@@ -108,16 +105,16 @@ const SettingsNetwork = () => {
                 {getNetworkDeviceName(device?.device)} {device?.device}
               </div>
             </div>
-            <div className="mb-1  text-neutral-500 text-left">
+            <div className="mb-1  text-secondary text-left">
               <ListTextItem desc={device?.connection} title="connection" />
             </div>
-            <div className="mb-1  text-neutral-500 text-left">
+            <div className="mb-1  text-secondary text-left">
               <ListTextItem desc={device?.mac_address} title="mac address" />
             </div>
-            <div className="mb-1  text-neutral-500 text-left">
+            <div className="mb-1  text-secondary text-left">
               <ListTextItem desc={device?.ipv4_address} title="ipv4 address" />
             </div>
-            <div className="mb-1  text-neutral-500 text-left">
+            <div className="mb-1  text-secondary text-left">
               <ListTextItem desc={device?.state} title="state" />
             </div>
           </div>
@@ -139,7 +136,7 @@ const SettingsNetwork = () => {
                 {getNetworkDeviceName(ifname)} {ifname}
               </div>
             </div>
-            <div className="mb-1  text-neutral-500 text-left">
+            <div className="mb-1  text-secondary text-left">
               <ListTextItem desc="unavailable" title="status" />
             </div>
           </div>

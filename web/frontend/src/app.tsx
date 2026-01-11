@@ -30,7 +30,7 @@ const App = () => {
               <Layout>
                 <Routes key={location.pathname}>
                   <Route path="/" element={<Start />} />
-                  <Route path="/bluetooth" element={<Start />} />
+                  <Route path="/bluetooth" element={<SettingsBluetooth />} />
                   <Route path="/spotify" element={<Start />} />
                   <Route path="/shairportsync" element={<Start />} />
                   <Route path="/snapcast" element={<SettingsSnapcast />} />

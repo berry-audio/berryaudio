@@ -10,11 +10,7 @@ const ButtonInfo = ({ item }: { item: Ref }) => {
 
   return (
     <ButtonIcon onClick={() => handleArtistInfo(item)}>
-      <InfoIcon
-        weight={ICON_WEIGHT}
-        size={ICON_SM}
-        className="dark:text-white text-black"
-      />
+      <InfoIcon weight={ICON_WEIGHT} size={ICON_SM} />
     </ButtonIcon>
   );
 };

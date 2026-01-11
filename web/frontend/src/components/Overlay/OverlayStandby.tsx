@@ -16,13 +16,13 @@ const OverlayStandby = () => {
   }, [power_state]);
 
   return (
-    <Overlay zindex={100} show={power_state.standby} overlay>
+    <Overlay zindex={100} show={power_state.standby} overlay className="bg-black">
       <div className="top-5 right-5 absolute"><ButtonWake/></div>
       <div>
-        <div className="items-center justify-center flex w-full h-full text-6xl">
+        <div className="items-center justify-center flex w-full h-full text-[70px] font-black">
           <DateTime time />
         </div>
-        <div className="items-center justify-center flex w-full h-full text-[20px] font-extralight">
+        <div className="items-center justify-center flex w-full h-full text-[30px] -mt-5 opacity-50">
           <DateTime weekday />
         </div>
       </div>

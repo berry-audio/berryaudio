@@ -133,7 +133,7 @@ const OverlayLibrary = () => {
                         </div>
                       )}
                       {/* {itemsDetail?.comment && (
-                        <div className="text-sm text-neutral-500 mt-3 mb-5">
+                        <div className="text-sm text-secondary mt-3 mb-5">
                           <TruncateText>{itemsDetail?.comment}</TruncateText>
                         </div>
                       )} */}

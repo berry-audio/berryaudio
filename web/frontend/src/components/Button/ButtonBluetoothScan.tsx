@@ -12,7 +12,7 @@ const ButtonBluetoothScan = () => {
 
   return (
     <ButtonIcon onClick={() => fetchDevices(true)} className="mr-1" disabled={!adapter_state?.powered}>
-      {loading ? <Spinner /> : <ArrowsClockwiseIcon weight={ICON_WEIGHT} size={ICON_SM} className="dark:text-white text-black" />}
+      {loading ? <Spinner /> : <ArrowsClockwiseIcon weight={ICON_WEIGHT} size={ICON_SM} />}
     </ButtonIcon>
   );
 };

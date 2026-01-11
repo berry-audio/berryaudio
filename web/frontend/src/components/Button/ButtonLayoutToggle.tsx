@@ -13,19 +13,11 @@ const ButtonLayoutToggle = ({ layoutType, setLayoutype }: ButtonLayoutToggle) =>
     <div className="flex h-[50px] items-center">
       {layoutType === "list" ? (
         <ButtonIcon onClick={() => setLayoutype("grid")}>
-          <DotsNineIcon
-            weight={ICON_WEIGHT}
-            size={ICON_SM}
-            className="dark:text-white text-black"
-          />
+          <DotsNineIcon weight={ICON_WEIGHT} size={ICON_SM} />
         </ButtonIcon>
       ) : (
         <ButtonIcon onClick={() => setLayoutype("list")}>
-          <ListBulletsIcon
-            weight={ICON_WEIGHT}
-            size={ICON_SM}
-            className="dark:text-white text-black"
-          />
+          <ListBulletsIcon weight={ICON_WEIGHT} size={ICON_SM} />
         </ButtonIcon>
       )}
     </div>

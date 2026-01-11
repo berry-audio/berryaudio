@@ -32,9 +32,7 @@ const DialogScanArtist = () => {
   return (
     <Modal
       title="Artist Information"
-      onClose={() =>
-        dispatch({ type: DIALOG_EVENTS.DIALOG_CLOSE }) && setScanStatus(false)
-      }
+      onClose={() => dispatch({ type: DIALOG_EVENTS.DIALOG_CLOSE }) && setScanStatus(false)}
       isOpen={true}
       buttonText="Start Download"
       buttonLoading={isScanInProgress}
@@ -44,35 +42,32 @@ const DialogScanArtist = () => {
         <>
           {isScanInProgress ? (
             <>
-              <p>Scan in progress — do not close this window.</p>
+              <p className="text-secondary">Scan in progress — do not close this window.</p>
               <div className="flex items-center">
                 <InfoIcon weight={ICON_WEIGHT} size={20} className="mr-1" />
-                <span>
-                  Updated: {progress.updated} | Downloaded:{" "}
-                  {progress.downloaded} | N/A: {progress.unavailable}
+                <span className="text-secondary">
+                  Updated: {progress.updated} | Downloaded: {progress.downloaded} | N/A: {progress.unavailable}
                 </span>
               </div>
             </>
           ) : (
             <>
               <div className="flex items-center">
-                <span>Scan completed successfully.</span>
+                <span className="text-secondary">Scan completed successfully.</span>
               </div>
               <div className="flex items-center">
                 <InfoIcon weight={ICON_WEIGHT} size={20} className="mr-1" />
-                <span>
-                  Updated: {progress.updated} | Downloaded:{" "}
-                  {progress.downloaded} | N/A: {progress.unavailable}
+                <span className="text-secondary">
+                  Updated: {progress.updated} | Downloaded: {progress.downloaded} | N/A: {progress.unavailable}
                 </span>
               </div>
             </>
           )}
         </>
       ) : (
-        <p>
-          Berryaudio will now scan your music library and fetch artist
-          information automatically from AudioDB.com. This may take a few
-          minutes — Continue?
+        <p className="text-secondary">
+          Berryaudio will now scan your music library and fetch artist information automatically from AudioDB.com. This may take a few minutes —
+          Continue?
         </p>
       )}
     </Modal>

@@ -1,35 +1,28 @@
-import { ReactElement, useState } from "react";
+import { ReactElement } from "react";
 import { useNavigate } from "react-router-dom";
-import { useDispatch, useSelector } from "react-redux";
+import { useSelector } from "react-redux";
 import { useSourceService } from "@/services/source";
-import { ICON_LG, ICON_WEIGHT } from "@/constants";
-import { DIALOG_EVENTS, OVERLAY_EVENTS } from "@/store/constants";
 import {
   AirplayIcon,
   BluetoothIcon,
   GearIcon,
   GlobeHemisphereWestIcon,
-  HardDrivesIcon,
   PlaylistIcon,
   SpeakerHifiIcon,
   SpotifyLogoIcon,
+  UsbIcon,
   VinylRecordIcon,
 } from "@phosphor-icons/react";
 import { Swiper, SwiperSlide } from "swiper/react";
-import {
-  FreeMode,
-  Keyboard,
-  Mousewheel,
-  Pagination,
-  Scrollbar,
-} from "swiper/modules";
-import '../../../node_modules/swiper/swiper.css';
-import '../../../node_modules/swiper/modules/free-mode.css';
-import '../../../node_modules/swiper/modules/pagination.css';
+import { FreeMode, Keyboard, Mousewheel, Pagination, Scrollbar } from "swiper/modules";
+import { ICON_LG, ICON_WEIGHT } from "@/constants";
+
+import "../../../node_modules/swiper/swiper.css";
+import "../../../node_modules/swiper/modules/free-mode.css";
+import "../../../node_modules/swiper/modules/pagination.css";
 
 import ButtonStandby from "@/components/Button/ButtonStandby";
 import LayoutHeightWrapper from "@/components/Wrapper/LayoutHeightWrapper";
-import Spinner from "@/components/Spinner";
 import Page from "@/components/Page";
 
 type SourceItem = {
@@ -54,7 +47,7 @@ const sources: SourceItem[] = [
   },
   {
     name: "Storage",
-    icon: <HardDrivesIcon weight={ICON_WEIGHT} size={ICON_LG} />,
+    icon: <UsbIcon weight={ICON_WEIGHT} size={ICON_LG} />,
     alias: "storage",
   },
   {
@@ -91,43 +84,33 @@ const sources: SourceItem[] = [
 
 const Start = () => {
   const navigate = useNavigate();
-  const dispatch = useDispatch();
 
   const { setSource } = useSourceService();
   const { source } = useSelector((state: any) => state.player);
-  const { adapter_state } = useSelector((state: any) => state.bluetooth);
-
-  const [isLoading, setIsLoading] = useState<string>("");
 
   const onClickHandler = async (item: SourceItem) => {
-    setIsLoading(item.alias);
     if (["bluetooth", "spotify", "shairportsync"].includes(item.alias)) {
-      if (await setSource(item.alias)) {
-        dispatch({ type: OVERLAY_EVENTS.OVERLAY_NOWPLAYING });
-
-        if (item.alias === "bluetooth" && !adapter_state.connected) {
-          dispatch({ type: DIALOG_EVENTS.DIALOG_BLUETOOTH_NOT_CONNECTED });
-        }
-      }
-    } else {
-      navigate(`/${item.alias}`);
+      await setSource(item.alias);
     }
-    setIsLoading("");
+    navigate(`/${item.alias}`);
   };
 
   return (
-    <Page title="Start" rightComponent={ 
-      <div className="flex h-[50px] items-center mr-4">
-        <ButtonStandby/>
-      </div>
-    }>
+    <Page
+      title="Source"
+      rightComponent={
+        <div className="flex h-[50px] items-center mr-4">
+          <ButtonStandby />
+        </div>
+      }
+    >
       <LayoutHeightWrapper>
         <div className="px-4 flex items-center h-full">
           <div className="w-full">
             <Swiper
               modules={[FreeMode, Keyboard, Mousewheel, Pagination, Scrollbar]}
               spaceBetween={10}
-              slidesPerView={3}
+              slidesPerView={4}
               freeMode={true}
               resistance={false}
               touchReleaseOnEdges={true}
@@ -140,16 +123,16 @@ const Start = () => {
               }}
               breakpoints={{
                 640: {
-                  slidesPerView: 4,
+                  slidesPerView: 5,
                 },
                 768: {
-                  slidesPerView: 5,
+                  slidesPerView: 6,
                 },
                 1024: {
-                  slidesPerView: 5,
+                  slidesPerView: 6,
                 },
                 1280: {
-                  slidesPerView: 5,
+                  slidesPerView: 6,
                 },
               }}
               keyboard={{
@@ -162,16 +145,12 @@ const Start = () => {
                     key={item.alias}
                     disabled={item.disabled}
                     onClick={() => onClickHandler(item)}
-                    className={`grayscale-40 touch-pan-x bg-neutral-900 dark:bg-neutral-950 rounded-sm  text-white  flex items-center justify-center aspect-square overflow-hidden w-full mr-2
-                bg-radial-[at_15%_5%]  cursor-pointer ${item.disabled ? "opacity-30 from-neutral-500 to-neutral-950" :  source.type === item.alias
-                    ? "from-yellow-950 to-yellow-950"
-                    : "from-yellow-700 to-yellow-950 hover:from-yellow-800 "}`}
+                    className={`touch-pan-x rounded-lg flex items-center justify-center aspect-square overflow-hidden w-full transition-all duration-200
+                cursor-pointer ${item.disabled ? "opacity-30" : source.type === item.alias ? "text-primary" : " hover:opacity-70"}`}
                   >
                     <div className="flex flex-col items-center">
-                      <div className="mb-2">
-                        {isLoading === item.alias ? <Spinner /> : item.icon}
-                      </div>
-                      <div>{item.name}</div>
+                      <div className="mb-2">{item.icon}</div>
+                      <div className="flex">{item.name}</div>
                     </div>
                   </button>
                 </SwiperSlide>
@@ -181,7 +160,7 @@ const Start = () => {
             <div className="custom-pagination flex gap-2 items-center justify-center mt-4"></div>
           </div>
         </div>
-        </LayoutHeightWrapper>
+      </LayoutHeightWrapper>
     </Page>
   );
 };

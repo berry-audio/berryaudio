@@ -10,11 +10,7 @@ const ButtonAddToPlaylist = ({ item }: { item: Ref }) => {
 
   return (
     <ButtonIcon onClick={() => handleAddToPlaylist(item)}>
-      <PlaylistIcon
-        weight={ICON_WEIGHT}
-        size={ICON_SM}
-        className="dark:text-white text-black"
-      />
+      <PlaylistIcon weight={ICON_WEIGHT} size={ICON_SM} />
     </ButtonIcon>
   );
 };

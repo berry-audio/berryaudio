@@ -32,7 +32,7 @@ const DialogEditNetwork = ({ item }: { item: NetworkConnectionInfo }) => {
         {getNetworkDeviceName(item.device)}
         {item.device}
       </div>
-      <div className="pt-2 pb-4 text-neutral-500 text-sm">
+      <div className="pt-2 pb-4 text-secondary">
         Changing network settings may cause you to lose access. Please ensure your settings are correct before applying.
       </div>
 

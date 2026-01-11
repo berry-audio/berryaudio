@@ -95,6 +95,7 @@ export interface MediaPlayer {
   repeat_mode: REPEAT_MODE;
   shuffle_mode: SHUFFLE_MODE;
   volume: number;
+  volume_dragging:boolean
   mute: boolean;
   elapsed_ms: number;
   current_track: TlTrack;
@@ -105,7 +106,7 @@ export interface MediaPlayer {
 }
 
 export interface Source {
-  type: string;
+  type?: string;
   controls?: string[];
   state?: {
     connected?: boolean;
@@ -160,6 +161,7 @@ export interface SnapcastState {
     streams?: [];
   };
   servers: SnapcastServer[];
+  dragging:boolean
 }
 
 export interface StorageDevice {
@@ -276,10 +278,14 @@ export type ViewMode = "list" | "grid";
 export interface PcmDevice {
   device: string;
   name: string;
-  channels_min: number;
-  channels_max: number;
-  formats: string[];
-  supported_rates: string[];
+  channels_min?: number;
+  channels_max?: number;
+  formats?: string[];
+  supported_rates?: string[];
+  card_name: string;
+  card_index: number;
+  mixer_controls: string[];
+  description: string;
 }
 
 export interface SelectOption {

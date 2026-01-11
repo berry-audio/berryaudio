@@ -15,10 +15,10 @@ const ButtonQueue = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
-  const onClickHandler = ()=>{
-    dispatch({ type: OVERLAY_EVENTS.OVERLAY_CLOSE })
-    navigate("/queue")
-  }
+  const onClickHandler = () => {
+    dispatch({ type: OVERLAY_EVENTS.OVERLAY_CLOSE });
+    navigate("/queue");
+  };
 
   return (
     <ButtonIcon onClick={onClickHandler}>

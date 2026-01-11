@@ -1,10 +1,10 @@
-import { PLAYER_EVENTS } from "../constants";
+import { INFO_EVENTS, PLAYER_EVENTS } from "../constants";
 import { PLAYBACK_STATE, REPEAT_MODE, SHUFFLE_MODE } from "@/constants/states";
 import { EVENTS } from "@/constants/events";
 import { MediaPlayer, Source } from "@/types";
 
 const initialSource: Source = {
-  type: "none",
+  type: undefined,
   controls: [],
   state: { connected: false },
 };
@@ -15,6 +15,7 @@ const initialMediaPlayer: MediaPlayer = {
   repeat_mode: REPEAT_MODE.REPEAT_OFF,
   shuffle_mode: SHUFFLE_MODE.SHUFFLE_OFF,
   volume: 0,
+  volume_dragging: false,
   mute: false,
   elapsed_ms: 0,
   current_track_cover: undefined,
@@ -59,10 +60,7 @@ const initialMediaPlayer: MediaPlayer = {
   is_standby: false,
 };
 
-export const playerReducer = (
-  state = initialMediaPlayer,
-  action: any
-): MediaPlayer => {
+export const playerReducer = (state = initialMediaPlayer, action: any): MediaPlayer => {
   const { type, payload } = action;
 
   switch (type) {
@@ -103,16 +101,24 @@ export const playerReducer = (
         current_track: payload.tl_track,
       };
 
+    case INFO_EVENTS.MIXER_VOLUME_DRAGGING:
+      return {
+        ...state,
+        volume_dragging: payload,
+      };
+
     case EVENTS.VOLUME_CHANGED:
+      if (state.volume_dragging) return state;
       return {
         ...state,
         volume: payload.volume,
       };
+
     case EVENTS.MIXER_MUTE:
       return {
         ...state,
         mute: payload.mute,
-      };  
+      };
     case EVENTS.OPTIONS_CHANGED:
       return {
         // todo

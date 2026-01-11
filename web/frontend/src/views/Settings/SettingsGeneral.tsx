@@ -44,7 +44,10 @@ const SettingsGeneral = () => {
       }
     >
       <div className="lg:px-0 px-6 py-3 lg:w-90">
-        <Form
+
+
+         <SelectPcmDevices />
+        {/* <Form
           form={form}
           layout="vertical"
           onFinish={onFinish}
@@ -53,8 +56,8 @@ const SettingsGeneral = () => {
           <Form.Item
             label={
               <div>
-                <div className=" dark:text-white  text-black font-bold">Hostname</div>
-                <div className=" text-neutral-500">
+                <div className="font-bold">Hostname</div>
+                <div className="text-secondary">
                  Name shown to others on the network.
                 </div>
               </div>
@@ -67,8 +70,8 @@ const SettingsGeneral = () => {
 
           <Form.Item label={
               <div>
-                <div className=" dark:text-white  text-black font-bold">Output device</div>
-                <div className=" text-neutral-500">
+                <div className="font-bold">Output device</div>
+                <div className=" text-secondary">
                   Your audio output device (DAC or loopback).
                 </div>
               </div>
@@ -76,11 +79,13 @@ const SettingsGeneral = () => {
             <SelectPcmDevices />
           </Form.Item>
 
+           <SelectPcmDevices />
+
           <Form.Item
             label={
               <div>
-                <div className=" dark:text-white  text-black font-bold">Mixer Device</div>
-                <div className=" text-neutral-500">
+                <div className="font-bold">Mixer Device</div>
+                <div className=" text-secondary">
                   Volume control device. If no hardware volume is available, software control should be used.
                 </div>
               </div>
@@ -92,8 +97,8 @@ const SettingsGeneral = () => {
 
           <Form.Item label={
               <div>
-                <div className="dark:text-white  text-black font-bold">Initial Volume</div>
-                <div className=" text-neutral-500">
+                <div className="font-bold">Initial Volume</div>
+                <div className=" text-secondary">
                   The initial volume when the device starts
                 </div>
               </div>
@@ -103,15 +108,15 @@ const SettingsGeneral = () => {
 
           <Form.Item label={
               <div>
-                <div className="dark:text-white  text-black font-bold">Timezone</div>
-                <div className=" text-neutral-500">
+                <div className="font-bold">Timezone</div>
+                <div className=" text-secondary">
                   Select the Timezone to  display the current date & time on the player
                 </div>
               </div>
             } name={["system", "timezone"]}>
             <SelectTimezone />
           </Form.Item>
-        </Form>
+        </Form> */}
       </div>
     </Page>
   );

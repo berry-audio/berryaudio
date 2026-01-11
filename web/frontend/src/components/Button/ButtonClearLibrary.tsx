@@ -9,14 +9,8 @@ const ButtonClearLibrary = () => {
   const dispatch = useDispatch();
 
   return (
-    <ButtonIcon
-      onClick={() => dispatch({ type: DIALOG_EVENTS.DIALOG_CLEAR_LIBRARY })}
-    >
-      <TrashIcon
-        weight={ICON_WEIGHT}
-        size={ICON_SM}
-        className="dark:text-white text-black"
-      />
+    <ButtonIcon onClick={() => dispatch({ type: DIALOG_EVENTS.DIALOG_CLEAR_LIBRARY })}>
+      <TrashIcon weight={ICON_WEIGHT} size={ICON_SM} />
     </ButtonIcon>
   );
 };

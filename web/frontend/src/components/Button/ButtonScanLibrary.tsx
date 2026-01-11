@@ -10,14 +10,11 @@ import ButtonIcon from "@/components/Button/ButtonIcon";
  *
  * @returns {JSX.Element} The rendered clear playlist button.
  */
-const ButtonScanLibrary = ({disabled}:{disabled?:boolean}) => {
+const ButtonScanLibrary = ({ disabled }: { disabled?: boolean }) => {
   const dispatch = useDispatch();
 
   return (
-    <ButtonIcon
-      onClick={() => dispatch({ type: DIALOG_EVENTS.DIALOG_SCAN_LIBRARY })}
-      disabled={disabled}
-    >
+    <ButtonIcon onClick={() => dispatch({ type: DIALOG_EVENTS.DIALOG_SCAN_LIBRARY })} disabled={disabled}>
       <ArrowsClockwiseIcon weight={ICON_WEIGHT} size={ICON_SM} />
     </ButtonIcon>
   );

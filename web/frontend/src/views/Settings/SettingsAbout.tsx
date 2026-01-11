@@ -99,7 +99,7 @@ const SettingsAbout = () => {
     desc: string;
   }) => {
     return (
-      <div className="flex mt-2 text-neutral-500">
+      <div className="flex mt-2 text-secondary">
         <div className="w-25 flex">{title}:</div>
         <div className="flex-1 flex flex-col">{desc}</div>
       </div>
@@ -117,12 +117,12 @@ const SettingsAbout = () => {
   }) => {
     return (
       <div>
-        <div className="text-lg font-medium flex items-center">{title}</div>
+        <div className="font-medium flex items-center">{title}</div>
         <div className="w-full">
-          <div className="mb-1  text-neutral-500">{desc}</div>
-          <div className="w-full dark:bg-neutral-950 bg-gray-200 rounded-full h-[3px] mt-3 mb-1">
+          <div className="mb-1 text-secondary">{desc}</div>
+          <div className="w-full bg-popover rounded-full h-1 mt-3 mb-1">
             <div
-              className="bg-yellow-700 h-[3px] rounded-full"
+              className="bg-primary h-1 rounded-full"
               style={{ width: `${percent}%` }}
             ></div>
           </div>

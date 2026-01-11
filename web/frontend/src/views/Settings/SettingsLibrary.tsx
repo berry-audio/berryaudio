@@ -62,7 +62,7 @@ const SettingsLibrary = () => {
               pathList.map((path: string) => (
                 <div
                   key={path}
-                  className="pl-4 pr-2 py-2 rounded-sm bg-neutral-200 mt-1 flex items-center justify-between dark:bg-neutral-950 dark:text-white"
+                  className="pl-4 pr-2 py-2 rounded-sm mt-1 flex items-center justify-between bg-popover"
                 >
                   <div className="flex items-center overflow-hidden">
                     <FolderIcon
