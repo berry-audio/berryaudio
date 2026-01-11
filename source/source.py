@@ -6,7 +6,7 @@ from core.types import PlaybackState
 logger = logging.getLogger(__name__)
 
 SOURCES = {
-    "none",
+    None,
     "local", 
     "storage", 
     "radio", 
@@ -21,7 +21,7 @@ class SourceExtension(Actor):
         super().__init__()
         self._core = core
         self._db = db
-        self._source = Source(type='none', controls=[], state={'connected': False}) 
+        self._source = Source(type=None, controls=[], state={'connected': False}) 
 
 
     async def on_start(self):
@@ -51,21 +51,22 @@ class SourceExtension(Actor):
         if current == previous:
             return True
 
-        if current not in SOURCES:
-            logger.error(f"Unknown {current} source type")
-            raise ValueError(f"Unknown {current} source type")
-        
-        start_method = f"{current}.start_service"
-        stop_method = f"{previous}.stop_service"
-       
-        if self._core.is_callable(stop_method):
-            if await self._core.request(stop_method):
-                logger.info(f"Stopping {previous} service")
-            else:
-                logger.error(f"Failed to stop service for source {previous}")
-                raise RuntimeError(f"Failed to stop service for source {previous}")
-        
-        if type is not 'none':
+        if current in SOURCES:
+            start_method = f"{current}.start_service"
+            stop_method = f"{previous}.stop_service"
+
+            if self._core.is_callable(stop_method) and previous is not None:
+                if await self._core.request(stop_method):
+                    logger.info(f"Stopping {previous} service")
+                else:
+                    logger.error(f"Failed to stop service for source {previous}")
+                    raise RuntimeError(f"Failed to stop service for source {previous}")
+        else:
+            if current is not None:
+                logger.error(f"Unknown {current} source type")
+                raise ValueError(f"Unknown {current} source type")
+     
+        if type is not None:
             if self._core.is_callable(start_method):
                 logger.info(f"Starting {current} service")
                 await self._core.request(start_method)

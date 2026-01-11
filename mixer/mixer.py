@@ -1,6 +1,7 @@
 import logging
 import alsaaudio
 import math
+import asyncio
 
 from core.actor import Actor
 from .mixer_utils import get_playback_devices
@@ -35,7 +36,10 @@ class MixerExtension(Actor):
                 for control in preferred_controls:
                     if control in mixer_controls:
                         try:
-                            self._mixer = alsaaudio.Mixer(control=control, cardindex=mixer_index)
+                            self._mixer = alsaaudio.Mixer(
+                                control=control, 
+                                cardindex=mixer_index
+                            )
                             self.on_set_volume(self._initial_volume)
                             logger.info(f"Using mixer control -> {control} ")
                         except alsaaudio.ALSAAudioError as e:
@@ -90,12 +94,21 @@ class MixerExtension(Actor):
        
 
     def on_set_volume(self, volume: int = 0):
-        self._mixer.setvolume(self.volume_to_mixer_volume(volume))
+        loop = asyncio.get_running_loop()
+
+        loop.create_task(
+            asyncio.to_thread(
+                self._mixer.setvolume,
+                self.volume_to_mixer_volume(volume)
+            )
+        )
         self._core.send(event="volume_changed", volume=volume)
-        return True
+        return volume
       
 
     def volume_to_mixer_volume(self, volume):
+        if volume == 0:
+            return 0
         mixer_volume = (
             self._min_volume
             + volume * (self._max_volume - self._min_volume) / 100.0

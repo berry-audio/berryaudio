@@ -53,6 +53,8 @@ class SnapcastExtension(Actor):
         self._server_ws = None
         self._server_notification_task = None
         self._server_list = None
+        self._reader: asyncio.StreamReader | None = None
+        self._writer: asyncio.StreamWriter | None = None
         self._device = self._config["playback"]["output_device"]
         self.servers = {}
         self.jsonrpc_timeout = 5
@@ -91,7 +93,6 @@ class SnapcastExtension(Actor):
 
     async def _service_handler(self,kwargs):
         service_state = str(kwargs.get('state_change'))
-        service_type = kwargs.get("service_type")
         service_name = kwargs.get("name")
         
         if service_state == 'ServiceStateChange.Added':
@@ -170,24 +171,40 @@ class SnapcastExtension(Actor):
 
     """Snapcast functions"""
 
-    async def _send_request(self, ip, request, port=JSONRPC_PORT):
+    async def _connect(self, ip):
         if not ip:
             raise RuntimeError("Invalid or no IP address defined")
+        
+        await self._disconnect()
+        self._reader, self._writer = await asyncio.open_connection(ip, JSONRPC_PORT)
+            
 
-        reader, writer = await asyncio.open_connection(ip, port)
-        writer.write((json.dumps(request) + "\n").encode())
-        await writer.drain()
+    async def _disconnect(self):
+        """Properly close the connection"""
+        if self._writer:
+            try:
+                self._writer.close()
+                await self._writer.wait_closed()
+            except Exception as e:
+                logger.debug(f"Error closing connection: {e}")
+            finally:
+                self._writer = None
+                self._reader = None
+                self._connected_ip = None
 
-        response = await reader.readline()
-        writer.close()
-        await writer.wait_closed()
 
-        result = json.loads(response.decode())
-
-        if "error" in result:
-            raise RuntimeError(result["error"])
-
-        return result.get("result")
+    async def _send_request(self, request):
+        self._writer.write((json.dumps(request) + "\n").encode())
+        await self._writer.drain()
+        try:
+            response = await asyncio.wait_for(self._reader.readline(), timeout=0.1)
+            if response:
+                result = json.loads(response.decode())
+                if "error" in result:
+                    print("Snapcast error:", result["error"])
+                return result.get("result")
+        except asyncio.TimeoutError:
+            return None
 
 
     async def _get_reverse_dns(self, ip):
@@ -487,6 +504,7 @@ class SnapcastExtension(Actor):
 
     async def on_get_status(self, ip=None):
         server = ip or self._server
+
         if not server:
             return {}
 
@@ -495,13 +513,15 @@ class SnapcastExtension(Actor):
             "jsonrpc": "2.0",
             "method": "Server.GetStatus",
         }
-
+    
         try:
-            result = await self._send_request(
-                server, request, JSONRPC_PORT
-            )
+            await self._connect(server)
+            result = await self._send_request(request)
+            
         except (OSError, ConnectionError, TimeoutError, asyncio.TimeoutError) as exc:
             return {}
+
+        await self._disconnect()
 
         if not result:
             return {}
@@ -513,25 +533,30 @@ class SnapcastExtension(Actor):
         return result
 
 
-    async def on_set_volume(self, client_id, volume, mute=False):
+    async def on_set_volume(self, client_id, volume=None, mute=False):
         if not self._server:
             raise RuntimeError(f"Not connected to Snapcast server")
 
         if not client_id:
             raise RuntimeError("client id not specified")
-
+      
         request = {
             "id": 1,
             "jsonrpc": "2.0",
             "method": "Client.SetVolume",
-            "params": {"id": client_id, "volume": {"muted": mute, "percent": volume}},
+            "params": {
+                "id": client_id, 
+                "volume": {
+                    "muted": mute, 
+                    "percent": volume
+                    }
+                },
         }
-
-        return await self._send_request(self._server, request, JSONRPC_PORT)
+        await self._connect(self._server)
+        return await self._send_request(request)
 
 
     """Snapcast notification listener functions"""
-
     async def _stop_notification_listener(self):
         """Stop notification listener"""
         if self._server_notification_task:
@@ -581,7 +606,6 @@ class SnapcastExtension(Actor):
                 ip = host.get("ip", self._server)
                 os = host.get("os", "unknown")
                 
-
                 if method == "Client.OnConnect":
                     logger.info(f"Client {name} ({ip}) [{os}] connected")
 
@@ -592,11 +616,12 @@ class SnapcastExtension(Actor):
                     logger.info(f"Client {name} ({ip}) [{os}] stream status changed")
 
                 self._core.send(
-                    event="snapcast_notification",
-                    method=method,
-                    params=params,
-                )
-                    
+                        event="snapcast_notification",
+                        method=method,
+                        params=params,
+                    )
+                
+                
         except asyncio.CancelledError:
             logger.debug("Notification listener cancelled")
 

@@ -59,7 +59,7 @@ class SystemExtension(Actor):
         self._is_standby = state
         self._core.send(event='system_power_state', state=self.on_get_power_state())
 
-        await self._core.request("source.set", type="none")
+        await self._core.request("source.set", type=None)
         await self._core.request("bluetooth.adapter_set_state", state=False)
 
         if state:
