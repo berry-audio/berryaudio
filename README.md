@@ -1,7 +1,7 @@
 ![Description](/web/frontend/public/assets/berryaudio_logo_dark.png)
 
 
-Berryaudio is a diy open source audiophile audio player / streamer (Server & Client) for **[Raspberry Pi](https://www.raspberrypi.com/)** designed for for pure music listening experience with a beautifully crafted, responsive, touch-optimized user interface.
+Berryaudio is an open source audiophile audio streamer (Server & Client) for **[Raspberry Pi](https://www.raspberrypi.com/)** designed for for pure music listening experience with a beautifully crafted, responsive, touch-optimized user interface.
  — No ads, no subscription, just pure rich, high-resolution playback and a sleek beautiful responsive UI for your DAC setup.
 
 Built using  **gstreamer**, **python** as server, **reactjs** & **typescript** as client, designed for smooth performance across touch displays, Building your own custom music system headless or with an attached display.
