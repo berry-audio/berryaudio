@@ -536,9 +536,6 @@ class SnapcastExtension(Actor):
     async def on_set_volume(self, client_id, volume=None, mute=False):
         if not self._server:
             raise RuntimeError(f"Not connected to Snapcast server")
-
-        if not client_id:
-            raise RuntimeError("client id not specified")
       
         request = {
             "id": 1,

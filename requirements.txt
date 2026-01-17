@@ -5,7 +5,7 @@ aiosignal==1.4.0
 annotated-types==0.7.0
 asyncio-glib==0.1
 attrs==25.4.0
--e git+https://github.com/berry-audio/berryaudio.git@9e73a4c703df4956df21a9ba8f0975271e02413c#egg=berryaudio
+-e git+https://github.com/berry-audio/berryaudio.git@79192ae7f49522a9d0ae58d8923c49ed0d9fc778#egg=berryaudio
 camilladsp @ git+https://github.com/HEnquist/pycamilladsp.git@15d9b7c434b8e795bcad25783b75d5354acdb840
 camilladsp_plot @ git+https://github.com/HEnquist/pycamilladsp-plot.git@dfec8e5acc4446421c8da7281b0625fc12b4162e
 certifi==2025.10.5
@@ -15,6 +15,7 @@ dbus-python==1.4.0
 frozenlist==1.8.0
 gbulb==0.6.6
 idna==3.11
+ifaddr==0.2.0
 jsonschema==4.25.1
 jsonschema-specifications==2025.9.1
 multidict==6.7.0
@@ -30,7 +31,6 @@ pydantic_core==2.41.5
 pydbus==0.6.0
 PyGObject==3.48.2
 pyudev==0.24.4
-pywifi==1.1.12
 PyYAML==6.0.3
 referencing==0.37.0
 requests==2.32.5
@@ -40,4 +40,6 @@ typing-inspection==0.4.2
 typing_extensions==4.15.0
 urllib3==2.5.0
 websocket-client==1.9.0
+websockets==15.0.1
 yarl==1.22.0
+zeroconf==0.148.0

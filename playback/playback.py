@@ -302,9 +302,9 @@ class PlaybackExtension(Actor):
 
 
     async def on_next(self, from_ui: bool = True) -> bool:
-        next_track = await self._core.request("tracklist.next_track", from_ui=from_ui)
-        await self._load_uri(next_track.track.uri, next_track.tlid)
-        if next_track:
+        next_track = await self._core.request("tracklist.next_track", from_ui=from_ui)        
+        if next_track is not None:
+            await self._load_uri(next_track.track.uri, next_track.tlid)
             self._stop()
             self._play()
         else:
@@ -314,8 +314,8 @@ class PlaybackExtension(Actor):
 
     async def on_previous(self, from_ui: bool = True) -> bool:
         previous_track = await self._core.request("tracklist.previous_track", from_ui=from_ui)
-        await self._load_uri(previous_track.track.uri, previous_track.tlid)
-        if previous_track:
+        if previous_track is not None:
+            await self._load_uri(previous_track.track.uri, previous_track.tlid)
             self._stop()
             self._play()
         else:
