@@ -95,7 +95,6 @@ export interface MediaPlayer {
   repeat_mode: REPEAT_MODE;
   shuffle_mode: SHUFFLE_MODE;
   volume: number;
-  volume_dragging:boolean
   mute: boolean;
   elapsed_ms: number;
   current_track: TlTrack;
@@ -119,17 +118,21 @@ export interface Source {
 }
 
 export interface BluetoothDevice {
-  path: string;
-  adapter?: string;
-  name: string;
   address: string;
+  name: string;
+  profile: string | null;
   alias: string;
   icon: string;
-  paired?: boolean;
-  trusted?: boolean;
-  bonded?: boolean;
-  connected?: boolean;
-  class?: number;
+  paired: boolean;
+  trusted: boolean;
+  connected: boolean;
+  soft_volume: boolean;
+  volume: number[];
+  channels: number | null;
+  audio_codec: string | null;
+  sample_rate: number | null;
+  bit_depth: string | null;
+  uuids: string[] | null;
 }
 
 export interface AdapterState {
@@ -161,7 +164,7 @@ export interface SnapcastState {
     streams?: [];
   };
   servers: SnapcastServer[];
-  dragging:boolean
+  dragging: boolean;
 }
 
 export interface StorageDevice {

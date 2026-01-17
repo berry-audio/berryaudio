@@ -29,8 +29,9 @@ export const bluetoothReducer = (
        return { ...state, adapter_state: payload.state }; 
     case EVENTS.BLUETOOTH_CONNECTED:
     case EVENTS.BLUETOOTH_DISCONNECTED:
+    case EVENTS.BLUETOOTH_UPDATED:
       const filter_devices = state.devices.filter(
-        (device) => device.path !== payload.device.path
+        (device) => device.address !== payload.device.address
       );
       return {
         ...state,
@@ -41,7 +42,7 @@ export const bluetoothReducer = (
       };
     case EVENTS.BLUETOOTH_REMOVED:
         const filter_removed_devices = state.devices.filter(
-        (device) => device.path !== payload.device.path
+        (device) => device.address !== payload.device.address
       );
       return {
         ...state,

@@ -1,15 +1,6 @@
-import { CustomSelect } from "@/types";
-import { Select } from "antd";
+import SelectComboBox from "./SelectComboBox";
 
-/**
- * Select component for Timezone.
- *
- * @template T - Type of the selected value.
- * @param {T} value - Current value.
- * @param {(value: T) => void} onChange - Called on value change.
- * @param {import('antd').SelectProps<T>} [rest] - Other Select props.
- */
-const SelectTimezone = ({ value, onChange, ...rest }: CustomSelect) => {
+const SelectTimezone = ({ onChange, initialValue }: any) => {
   const timezones = [
     "Africa/Abidjan",
     "Africa/Accra",
@@ -444,16 +435,16 @@ const SelectTimezone = ({ value, onChange, ...rest }: CustomSelect) => {
   }));
 
   return (
-    <Select
-      showSearch
-      placeholder="Select Timezone"
-      optionFilterProp="label"
-      options={timezoneOptions}
-      size="large"
-      value={value}
-      onChange={onChange}
-      {...rest}
-    />
+    <SelectComboBox
+          items={timezoneOptions.map((zone) => ({
+            label: zone.label,
+            value: zone.value,
+          }))}
+          initialValue={initialValue}
+          onChange={onChange}
+          placeholder="Select Timezone"
+        />
+
   );
 };
 

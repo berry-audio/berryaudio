@@ -89,7 +89,7 @@ const Start = () => {
   const { source } = useSelector((state: any) => state.player);
 
   const onClickHandler = async (item: SourceItem) => {
-    if (["bluetooth", "spotify", "shairportsync"].includes(item.alias)) {
+    if (["spotify", "shairportsync"].includes(item.alias)) {
       await setSource(item.alias);
     }
     navigate(`/${item.alias}`);

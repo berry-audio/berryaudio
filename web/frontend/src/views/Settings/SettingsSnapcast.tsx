@@ -216,7 +216,7 @@ const SettingsSnapcast = () => {
             <div className="flex w-full flex-col items-center justify-center text-center">
               <SpeakerHifiIcon weight={ICON_WEIGHT} size={ICON_SM} />
               <h2 className="mt-2 font-medium">No Servers Found</h2>
-              <p className="mb-4 w-80 text-secondary">Scan to search for available servers on the network</p>
+              <p className="mb-4 w-80 text-secondary">Scan for available servers on the network</p>
             </div>
           )}
 

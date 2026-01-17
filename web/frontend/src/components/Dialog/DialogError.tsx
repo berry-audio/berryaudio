@@ -18,7 +18,7 @@ const DialogError = ({ item }: { item: any }) => {
       buttonText="Close"
       buttonOnClick={onClickClose}
     >
-      {item.message || "An unknown error occurred."}
+     <div className="text-muted"> {item.message || "An unknown error occurred."}</div>
     </Modal>
   );
 };

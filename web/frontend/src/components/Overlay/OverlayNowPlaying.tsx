@@ -103,7 +103,7 @@ const OverlayNowPlaying = () => {
           </div>
 
           <div className="flex items-center justify-center mt-2 w-full ">
-            <div className="mt-6 seek-slider max-w-800 w-100">
+            <div className="mt-6 seek-slider-overlay max-w-800 w-100">
               <PositionSlider className={"rounded-full"} showElapsedNumber={true} />
             </div>
           </div>
@@ -205,7 +205,7 @@ const OverlayNowPlaying = () => {
               </div>
               <ButtonQueue />
             </div>
-            <div className="mt-3 seek-slider md:max-w-800  w-full">
+            <div className="mt-3 seek-slider-overlay md:max-w-800  w-full">
               <PositionSlider className={"rounded-full"} showElapsedNumber={true} />
             </div>
           </div>

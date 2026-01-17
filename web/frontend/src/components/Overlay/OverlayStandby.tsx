@@ -16,7 +16,7 @@ const OverlayStandby = () => {
   }, [power_state]);
 
   return (
-    <Overlay zindex={100} show={power_state.standby} overlay className="bg-black">
+    <Overlay zindex={100} show={power_state.standby} overlay className="bg-black text-white">
       <div className="top-5 right-5 absolute"><ButtonWake/></div>
       <div>
         <div className="items-center justify-center flex w-full h-full text-[70px] font-black">
