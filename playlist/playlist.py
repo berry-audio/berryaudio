@@ -97,7 +97,7 @@ class PlaylistExtension(Actor):
                 (name, id)
             )
             logger.debug(f"{uri} updated")
-            self._core.send(event='playlists_updated')
+            self._core.send(target="web", event='playlists_updated')
             return True
         raise ValueError("id or name not provided")
     
@@ -110,7 +110,7 @@ class PlaylistExtension(Actor):
                 (id,)
             )
             logger.debug(f"{uri} deleted")
-            self._core.send(event='playlists_updated')
+            self._core.send(target="web", event='playlists_updated')
             return True
     
 
@@ -129,7 +129,7 @@ class PlaylistExtension(Actor):
             )
         )
         logger.debug(f"{playlist_name} created")
-        self._core.send(event='playlists_updated')
+        self._core.send(target="web", event='playlists_updated')
         return True
        
        
@@ -162,7 +162,7 @@ class PlaylistExtension(Actor):
                 "UPDATE playlist SET tracks = ? WHERE id = ?",
                 (json.dumps(to_serialize(new_tl_tracks)), id)
         )
-        self._core.send(event='playlist_updated')
+        self._core.send(target="web", event='playlist_updated')
         return True
     
 
@@ -177,7 +177,7 @@ class PlaylistExtension(Actor):
                     (json.dumps(tl_tracks_updated), id)
             )
             logger.debug(f"Track {tlid} removed from {uri}")
-            self._core.send(event='playlist_updated')
+            self._core.send(target="web", event='playlist_updated')
             return self.on_item(uri)
 
 
@@ -202,5 +202,5 @@ class PlaylistExtension(Actor):
                     (json.dumps(to_serialize(tl_tracks)), playlist_id)
             )    
         
-        self._core.send(event='playlists_updated')
+        self._core.send(target="web", event='playlists_updated')
         return True

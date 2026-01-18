@@ -40,7 +40,7 @@ class SourceExtension(Actor):
         """Updates source information from renderers"""
         if self._source.type == source.type:
             self._source = source
-            self._core.send(event="source_updated", source=self._source)
+            self._core.send(target="web", event="source_updated", source=self._source)
 
 
     async def on_set(self, type: str | None) -> bool:
@@ -71,13 +71,13 @@ class SourceExtension(Actor):
                 logger.info(f"Starting {current} service")
                 await self._core.request(start_method)
                 self._source = Source(type=type, controls=[], state={'connected': False}) 
-                self._core.send(event="source_changed", source=self._source)
+                self._core.send(target="web", event="source_changed", source=self._source)
             else:
                 logger.error(f"Failed to start service for source {current}")
                 raise RuntimeError(f"Failed to start service for source {current}")    
         else:
             self._source = Source(type=type, controls=[], state={'connected': False}) 
-            self._core.send(event="source_changed", source=self._source)
+            self._core.send(target="web", event="source_changed", source=self._source)
 
         return True
 

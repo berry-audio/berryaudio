@@ -4,17 +4,46 @@ import platform
 import socket
 import subprocess
 import re
-import os, time
+import os
+import socket
 import threading
 import netifaces
 
+from tzlocal import get_localzone
 from datetime import datetime
 from zoneinfo import ZoneInfo
 from core.actor import Actor
 
+
+logging.getLogger("tzlocal").setLevel(logging.WARNING)
+
+tz = get_localzone()
 logger = logging.getLogger(__name__)
 
+
+def get_timezone():
+    try:
+        tz = get_localzone()
+        timezone_name = tz.key
+    except Exception:
+        try:
+            with open("/etc/timezone") as f:
+                timezone_name = f.read().strip()
+        except FileNotFoundError:
+            timezone_name = ""
+    return timezone_name
+
+
+def get_hostname():
+    return socket.gethostname() or "berryaudio"
+
+
 class SystemExtension(Actor):
+    default_config = {
+        "hostname": get_hostname(),
+        "timezone": get_timezone(),
+    }
+
     def __init__(self, core, db, config):
         super().__init__()
         self._core = core
@@ -24,12 +53,10 @@ class SystemExtension(Actor):
         self._stop_event = threading.Event()
         self._is_standby = True
 
-
     async def on_start(self):
-        logger.info("Started")
         self._thread = threading.Thread(target=self.send_time_update, daemon=True)
         self._thread.start()
-
+        logger.info("Started")
 
     async def on_stop(self):
         self._stop_event.set()  # signal the thread to stop
@@ -37,27 +64,27 @@ class SystemExtension(Actor):
             self._thread.join()  # wait for it to exit immediately
         logger.info("Stopped")
 
-
     async def on_event(self, message):
         pass
 
-
     def send_time_update(self):
         while not self._stop_event.is_set():
-            self._core.send(event='system_time_updated', datetime=self.on_datetime())
+            self._core.send(
+                target="web", event="system_time_updated", datetime=self.on_datetime()
+            )
             self._stop_event.wait(timeout=30)
 
-
     def on_datetime(self):
-        tz = ZoneInfo(self._config['system']['timezone'])
+        tz = ZoneInfo(self._config["system"]["timezone"])
         now = datetime.now(tz)
         time = now.strftime("%Y-%m-%dT%H:%M:%S")
         return time
 
-
-    async def on_standby(self, state:bool):
+    async def on_standby(self, state: bool):
         self._is_standby = state
-        self._core.send(event='system_power_state', state=self.on_get_power_state())
+        self._core.send(
+            target="web", event="system_power_state", state=self.on_get_power_state()
+        )
 
         await self._core.request("source.set", type=None)
         await self._core.request("bluetooth.adapter_set_state", state=False)
@@ -65,48 +92,30 @@ class SystemExtension(Actor):
         if state:
             logger.info("System going into Standby...")
         else:
-            logger.info("System wakeup...")    
+            logger.info("System wakeup...")
         return True
-    
 
     def on_get_power_state(self):
         return {"standby": self._is_standby}
-
 
     def on_shutdown(self):
         os.system("sudo shutdown -h now")
         return True
 
-
     def on_reboot(self):
         os.system("sudo shutdown -r now")
         return True
-
 
     def on_set_hostname(self, hostname: str):
         subprocess.run(["sudo", "hostnamectl", "set-hostname", hostname], check=True)
         logger.info(f"Hostname changed to: {hostname}")
 
-
     def get_temperature(self):
         try:
-            result = subprocess.run(["vcgencmd", "measure_temp"], capture_output=True, text=True)
+            result = subprocess.run(
+                ["vcgencmd", "measure_temp"], capture_output=True, text=True
+            )
             output = result.stdout.strip()
-            match = re.search(r"[\d\.]+", output)
-            if match:
-                return float(match.group(0)) 
-            return 0
-        except FileNotFoundError:
-            return 0    
-        
-
-    def get_volts(self, target=0):
-        try:
-            cmd = ["vcgencmd", "measure_volts"]
-            if target:
-                cmd.append(target)
-            result = subprocess.run(cmd, capture_output=True, text=True)
-            output = result.stdout.strip()  
             match = re.search(r"[\d\.]+", output)
             if match:
                 return float(match.group(0))
@@ -114,6 +123,19 @@ class SystemExtension(Actor):
         except FileNotFoundError:
             return 0
 
+    def get_volts(self, target=0):
+        try:
+            cmd = ["vcgencmd", "measure_volts"]
+            if target:
+                cmd.append(target)
+            result = subprocess.run(cmd, capture_output=True, text=True)
+            output = result.stdout.strip()
+            match = re.search(r"[\d\.]+", output)
+            if match:
+                return float(match.group(0))
+            return 0
+        except FileNotFoundError:
+            return 0
 
     def get_hardware_model(self):
         try:
@@ -125,14 +147,16 @@ class SystemExtension(Actor):
         try:
             with open("/proc/cpuinfo") as f:
                 for line in f:
-                    if line.startswith("Model") or line.startswith("Hardware") or line.startswith("model name"):
+                    if (
+                        line.startswith("Model")
+                        or line.startswith("Hardware")
+                        or line.startswith("model name")
+                    ):
                         return line.strip()
         except FileNotFoundError:
             pass
 
         return platform.uname().machine
-
-
 
     def on_info(self):
         system = platform.system()
@@ -146,44 +170,44 @@ class SystemExtension(Actor):
         version = info.version
 
         mem = psutil.virtual_memory()
-        mem_used = mem.used / (1024 ** 3)
-        mem_total = mem.total / (1024 ** 3)
+        mem_used = mem.used / (1024**3)
+        mem_total = mem.total / (1024**3)
         mem_percent = mem.percent
 
-        disk = psutil.disk_usage('/')
-        disk_used = disk.used / (1024 ** 2)  
-        disk_total = disk.total / (1024 ** 2) 
+        disk = psutil.disk_usage("/")
+        disk_used = disk.used / (1024**2)
+        disk_total = disk.total / (1024**2)
         disk_percent = disk.percent
 
         system_info = {
             "os": f"{system} ({machine})",
             "hostname": hostname,
             "model": self.get_hardware_model(),
-            "software":"1.2.0",
+            "software": "1.2.0",
             "version": version,
             "cpu": {
                 "volts": self.get_volts("core"),
                 "usage_percent": cpu_percent,
                 "cores": cpu_cores,
-                "temperature": self.get_temperature()
+                "temperature": self.get_temperature(),
             },
             "memory": {
                 "mem_used": mem_used,
                 "mem_total": mem_total,
-                "mem_percent": mem_percent
+                "mem_percent": mem_percent,
             },
             "disk": {
                 "disk_used": disk_used,
                 "disk_total": disk_total,
-                "disk_percent": disk_percent
+                "disk_percent": disk_percent,
             },
-            "network": {}
+            "network": {},
         }
 
         for interface in netifaces.interfaces():
             addrs = netifaces.ifaddresses(interface)
             if netifaces.AF_INET in addrs:
                 for addr in addrs[netifaces.AF_INET]:
-                    system_info["network"][interface] = addr['addr']
+                    system_info["network"][interface] = addr["addr"]
 
         return system_info

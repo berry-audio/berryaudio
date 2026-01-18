@@ -59,8 +59,8 @@ class BluetoothExtension(Actor):
         self._volume = 0
         self._tl_track = TlTrack(0, track=Track())
         self._name = self._config["system"]["hostname"]
-        self._device_aplay = self._config["playback"]["output_device"]
-        self._device = "hw:CARD=DAC,DEV=0"
+        self._device_playback = self._config["mixer"]["output_audio"]
+        self._device_soundcard = self._config["mixer"]["output_device"]
         self._proc_aplay = None
         self._proc_agent = None
         self._source = Source(type="bluetooth", controls=[], state={"connected": False})
@@ -127,6 +127,7 @@ class BluetoothExtension(Actor):
 
     async def on_stop_service(self):
         if self._mode == MODE_RX:
+            await self._core.request("playback.clear")
             devices = await self.on_devices()
             for device in devices:
                 if device.get("connected"):
@@ -157,7 +158,7 @@ class BluetoothExtension(Actor):
                 cmd = [
                     BLUETOOTH_APLAY_PATH,
                     "--pcm",
-                    self._device_aplay,
+                    self._device_playback,
                     "--profile-a2dp",
                 ]
                 self._proc_aplay = subprocess.Popen(
@@ -196,7 +197,9 @@ class BluetoothExtension(Actor):
         if not connected_device:
             return
 
-        self._core.send(event="bluetooth_device_connected", device=connected_device)
+        self._core.send(
+            target="web", event="bluetooth_device_connected", device=connected_device
+        )
         logger.info(
             f'Bluetooth device connected: {connected_device.get("name")} {connected_device.get("address")} ({self._mode})'
         )
@@ -235,7 +238,7 @@ class BluetoothExtension(Actor):
             )
             await self.on_set_volume(
                 address=connected_device.get("address"),
-                volume=current_mixer_volume,
+                volume=current_mixer_volume if current_mixer_volume else connected_device.get("volume"),
                 soft_volume=BLUEALSA_SOFT_VOLUME,
             )
 
@@ -244,7 +247,9 @@ class BluetoothExtension(Actor):
                 self._core._request("playback.set_state", state=PlaybackState.STOPPED)
 
         connected_device = await self.on_device(address)
-        self._core.send(event="bluetooth_device_updated", device=connected_device)
+        self._core.send(
+            target="web", event="bluetooth_device_updated", device=connected_device
+        )
 
     async def _handle_disconnected(self, interface_name):
         address = self._bluez_path_to_addr(interface_name)
@@ -267,6 +272,7 @@ class BluetoothExtension(Actor):
                     await self._core.request("source.set", type=None)
 
         self._core.send(
+            target="web",
             event="bluetooth_device_disconnected",
             device=disconnected_device,
         )
@@ -305,12 +311,16 @@ class BluetoothExtension(Actor):
 
             if "Discoverable" in properties:
                 self._core.send(
-                    event="bluetooth_state_changed", state=self.on_adapter_get_state()
+                    target="web",
+                    event="bluetooth_state_changed",
+                    state=self.on_adapter_get_state(),
                 )
 
             if "Pairable" in properties:
                 self._core.send(
-                    event="bluetooth_state_changed", state=self.on_adapter_get_state()
+                    target="web",
+                    event="bluetooth_state_changed",
+                    state=self.on_adapter_get_state(),
                 )
 
             if "Powered" in properties:
@@ -588,7 +598,9 @@ class BluetoothExtension(Actor):
 
             ADAPTER.RemoveDevice(path)
 
-            self._core.send(event="bluetooth_device_removed", device=device_info)
+            self._core.send(
+                target="web", event="bluetooth_device_removed", device=device_info
+            )
             logger.info(
                 f"Bluetooth device removed: {device_info.get('name')} {address}"
             )
@@ -724,11 +736,11 @@ class BluetoothExtension(Actor):
 
     async def _update_pcm(self, new_pcm=None):
         """Switches between PCM Device and bluealsa for RX/TX Mode"""
-        if not self._device:
+        if not self._device_soundcard:
             new_pcm = "null_device"
 
         if new_pcm is None:
-            new_pcm = self._device
+            new_pcm = self._device_soundcard
 
         with open(ASOUNDRC_PATH, "r") as f:
             content = f.read()

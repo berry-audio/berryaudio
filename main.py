@@ -3,11 +3,11 @@ import asyncio_glib
 import argparse
 import logging
 import signal
-import gbulb 
+import gbulb
 import gi
 
-gi.require_version('Gst', '1.0')
-gi.require_version('GstPbutils', '1.0')
+gi.require_version("Gst", "1.0")
+gi.require_version("GstPbutils", "1.0")
 
 from core.core import Core
 from core.actor import Actor
@@ -22,6 +22,7 @@ if USE_GBULB:
 
 logger = None
 
+
 async def async_main(verbose=False):
     global logger
     log_level = logging.DEBUG if verbose else logging.INFO
@@ -32,11 +33,11 @@ async def async_main(verbose=False):
     core = Core()
     extensions = [
         "config",
-        "mixer",
-        "tracklist", 
-        "web", 
-        "radio",
         "system",
+        "mixer",
+        "tracklist",
+        "web",
+        "radio",
         "source",
         "spotify",
         "shairportsync",
@@ -47,7 +48,7 @@ async def async_main(verbose=False):
         "playlist",
         "playback",
         "network",
-        "snapcast"
+        "snapcast",
     ]
     await core.load_extensions_by_name(extensions)
 
@@ -59,7 +60,7 @@ async def async_main(verbose=False):
     for sig in (signal.SIGINT, signal.SIGTERM):
         loop.add_signal_handler(sig, stop_event.set)
     try:
-        await stop_event.wait()  
+        await stop_event.wait()
     finally:
         logger.warning("Stopping extensions")
         await core.stop_all()
@@ -68,12 +69,15 @@ async def async_main(verbose=False):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("-v", "--verbose", action="store_true", help="Enable debug logging")
+    parser.add_argument(
+        "-v", "--verbose", action="store_true", help="Enable debug logging"
+    )
     args = parser.parse_args()
     try:
         asyncio.run(async_main(args.verbose))
     except (KeyboardInterrupt, asyncio.CancelledError):
         pass
+
 
 def welcome():
     banner = r"""

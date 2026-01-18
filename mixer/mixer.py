@@ -10,13 +10,21 @@ logger = logging.getLogger(__name__)
 
 
 class MixerExtension(Actor):
+    default_config = {
+        "output_device": "plughw:CARD=Headphones,DEV=0",
+        "output_audio": "hw:CARD=Loopback,DEV=0",
+        "volume_default": 50,
+        "volume_software_control": False,
+        "volume_device": None,
+    }
+
     def __init__(self, core, db, config):
         super().__init__()
         self._core = core
         self._db = db
         self._config = config
-        self._device = self._config["mixer"]["mixer_device"]
-        self._initial_volume = self._config["mixer"]["initial_volume"]
+        self._device = None
+        self._initial_volume = None
         self._mixer = None
         self._min_volume = 0
         self._max_volume = 100
@@ -24,6 +32,9 @@ class MixerExtension(Actor):
         self._volume_event_task = None
 
     async def on_start(self):
+        self._device = self._config["mixer"]["volume_device"]
+        self._initial_volume = self._config["mixer"]["volume_default"]
+
         alsa_mixers = self.on_get_playback_devices()
 
         for mixer in alsa_mixers:
@@ -59,7 +70,9 @@ class MixerExtension(Actor):
     def on_set_mute(self, mute: int):
         try:
             self._mixer.setmute(int(mute))
-            self._core.send(event="mixer_mute", mute=self.on_get_mute())
+            self._core.send(
+                target=["web", "bluetooth"], event="mixer_mute", mute=self.on_get_mute()
+            )
             return True
         except alsaaudio.ALSAAudioError as exc:
             logger.error(f"Setting mute state failed: {exc}")
@@ -79,7 +92,12 @@ class MixerExtension(Actor):
             return None
 
     def on_get_volume(self):
-        channels = self._mixer.getvolume()
+        try:
+            channels = self._mixer.getvolume()
+        except alsaaudio.ALSAAudioError as e:
+            return None
+        except Exception as e:
+            return None
         if not channels:
             return None
         elif channels.count(channels[0]) == len(channels):
@@ -88,6 +106,7 @@ class MixerExtension(Actor):
             return None
 
     def on_set_volume(self, volume: int = 0):
+        self._core.send(target="bluetooth", event="volume_changed", volume=volume)
         self.on_set_mute(False)
         loop = asyncio.get_running_loop()
 
@@ -103,7 +122,7 @@ class MixerExtension(Actor):
         async def _delayed_volume_event(volume: int):
             try:
                 await asyncio.sleep(0.2)
-                self._core.send(event="volume_changed", volume=volume)
+                self._core.send(target="web", event="volume_changed", volume=volume)
             except asyncio.CancelledError:
                 pass
 

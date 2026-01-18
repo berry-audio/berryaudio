@@ -2,41 +2,63 @@ import asyncio
 import importlib
 import logging
 
+from collections import defaultdict
 from core.db import DBConnection
 
 logger = logging.getLogger(__name__)
+
 
 class Core:
     def __init__(self):
         self.db = DBConnection()
         self.extensions = []
+        self.routes = defaultdict(list)
         self.tasks = []
         self._responses = {}
         self._loop = asyncio.get_running_loop()
 
-
     async def load_extensions_by_name(self, extension_names):
+        extensions_to_start = []
+
         for name in extension_names:
             module = importlib.import_module(name)
             ext_class = getattr(module, "Extension")
-            ext = ext_class(core=self, db=self.db, config=self.db.get_config())
+
+            default_config = getattr(ext_class, "default_config", {})
+
+            self.db.init_extension(name, default_config)
+            config = self.db.get_config()
+
+            ext = ext_class(core=self, db=self.db, config=config)
             ext.set_loop(self._loop)
+
+            ext._module_name = name
             self.extensions.append(ext)
+            self.routes[name].append(ext)
+            extensions_to_start.append(ext)
+
+        for ext in extensions_to_start:
             task = asyncio.create_task(ext.run())
             self.tasks.append(task)
-       
-
 
     async def send_to(self, name: str, message):
         for ext in self.extensions:
             if ext.__class__.__name__.lower().startswith(name.lower()):
                 await ext.send(message)
 
+    def send(self, *, target: str | list[str] | None = None, **kwargs):
+        if target is None:
+            targets = self.extensions
+        else:
+            if isinstance(target, str):
+                target = [target]
 
-    def send(self, **kwargs):
-        for ext in self.extensions:
-            ext.send(kwargs)
+            targets = {ext for name in target for ext in self.routes.get(name, [])}
 
+        msg = dict(kwargs)
+
+        for ext in targets:
+            ext.send(msg)
 
     def is_callable(self, full_method: str) -> bool:
         if "." not in full_method:
@@ -53,17 +75,15 @@ class Core:
                     return True
         return False
 
-
     def _request(self, full_method, **params):
         if self._loop is None or self._loop.is_closed():
-            return  
+            return
         try:
             self._loop.call_soon_threadsafe(
                 lambda: asyncio.create_task(self.request(full_method, **params))
             )
         except RuntimeError:
             pass
-
 
     async def request(self, full_method, **params):
         logger.debug(f"Requested {full_method} params={params}")
@@ -74,9 +94,11 @@ class Core:
         for ext in self.extensions:
             if ext.__class__.__name__.lower().startswith(ext_name.lower()):
                 handler = getattr(ext, f"on_{method_name}", None)
-                
+
                 if not callable(handler):
-                    raise ValueError(f"Method {method_name} not found in extension {ext_name}")
+                    raise ValueError(
+                        f"Method {method_name} not found in extension {ext_name}"
+                    )
 
                 if asyncio.iscoroutinefunction(handler):
                     return await handler(**params)
@@ -85,11 +107,9 @@ class Core:
 
         raise ValueError(f"Extension {ext_name} not found")
 
-
     async def handle_response(self, message_id, response):
         if message_id in self._responses:
             self._responses[message_id].set_result(response)
-
 
     async def stop_all(self):
         for ext in self.extensions:
@@ -99,4 +119,4 @@ class Core:
             try:
                 self.db.close()
             except Exception as e:
-                logger.error(f"Error closing database: {e}")   
+                logger.error(f"Error closing database: {e}")
