@@ -1,20 +1,20 @@
-import { CAMILLA_DSP_URL, ICON_SM, ICON_WEIGHT } from "@/constants";
+import { ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  BluetoothIcon,
-  CpuIcon,
-  GearIcon,
-  InfoIcon,
-  NetworkIcon,
-  ShareNetworkIcon,
-  SpeakerHifiIcon,
-  StackIcon,
-} from "@phosphor-icons/react";
+import { BluetoothIcon, CpuIcon, GearIcon, InfoIcon, NetworkIcon, SpeakerHifiIcon, StackIcon } from "@phosphor-icons/react";
+import { ICON_SM, ICON_WEIGHT } from "@/constants";
 
 import Page from "@/components/Page";
 import ListMenu from "@/components/ListMenu";
 
-const SettingsItems = [
+export interface SettingsItem {
+  name: string;
+  alias: string;
+  icon: ReactNode;
+  url: string;
+  disabled?: boolean;
+}
+
+const SettingsItems: SettingsItem[] = [
   {
     name: "General",
     alias: "general",
@@ -43,21 +43,14 @@ const SettingsItems = [
     name: "Camilla DSP",
     alias: "camilladsp",
     icon: <CpuIcon weight={ICON_WEIGHT} size={ICON_SM} />,
-    url: CAMILLA_DSP_URL,
+    url: "/settings/dsp",
   },
-  {
-    name: "Network Sharing",
-    alias: "network",
-    icon: <ShareNetworkIcon weight={ICON_WEIGHT} size={ICON_SM} />,
-    url: "/settings/network-sharing",
-    disabled: true,
-  },
+
   {
     name: "Multiroom",
     alias: "multiroom",
     icon: <SpeakerHifiIcon weight={ICON_WEIGHT} size={ICON_SM} />,
-    url: "/settings/multiroom",
-    disabled: true,
+    url: "/settings/snapcast",
   },
   {
     name: "About",
@@ -71,25 +64,13 @@ const Settings = () => {
   const navigate = useNavigate();
 
   const onClickHandler = async (source: any) => {
-    if (source.url) {
-      if (source.alias === "camilladsp") {
-        window.open(source.url, "_self");
-      } else {
-        navigate(source.url);
-      }
-    }
+    if (source.url) navigate(source.url);
   };
 
   return (
     <Page backButton title="Settings">
-      {SettingsItems.map((source, index: number) => (
-        <ListMenu
-          key={index}
-          name={source.name}
-          icon={source.icon}
-          onClick={() => onClickHandler(source)}
-          disabled={source?.disabled}
-        />
+      {SettingsItems.map((source: SettingsItem, index: number) => (
+        <ListMenu key={index} name={source.name} icon={source.icon} onClick={() => onClickHandler(source)} disabled={source?.disabled} />
       ))}
     </Page>
   );

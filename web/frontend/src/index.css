@@ -38,6 +38,7 @@
   --destructive: oklch(0.577 0.245 27.325);
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
+  --input-foreground: oklch(10.668% 0.00001 271.152);
   --ring: oklch(0.708 0 0);
   --primary: #87602a;
   --primary-foreground: #ffffff;
@@ -45,7 +46,7 @@
   --secondary-foreground: oklch(0.205 0 0);
   --accent: #87602a;
   --accent-foreground: #ffffff;
-  --button-hover: #d4d4d4;
+  --button-hover: rgba(189, 189, 189, 0.5);
 }
 .dark {
   --background: #131313;
@@ -61,6 +62,7 @@
   --destructive: oklch(0.704 0.191 22.216);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
+  --input-foreground: oklch(100% 0.00011 271.152);
   --ring: oklch(0.556 0 0);
   --button-hover: rgba(0, 0, 0, 0.5);
 }
@@ -75,9 +77,20 @@
     border-color: var(--foreground);
     border-top-color: transparent;
   }
-  .bg-popover {
+  .bg-input {
     background-color: var(--popover);
   }
+  .bg-input:hover {
+    color: var(--input-foreground);
+  }
+  .bg-popover {
+    background-color: var(--popover);
+    color: var(--popover-foreground) !important;
+  }
+ .bg-popover:hover {
+    color: var(--primary-foreground) !important;
+  }
+
   .bg-accent {
     background-color: var(--accent);
   }
@@ -98,6 +111,9 @@
   }
   .text-muted {
     color: var(--muted);
+  }
+   .bg-input-foreground {
+    background-color: var(--input-foreground);
   }
 }
 @layer base {

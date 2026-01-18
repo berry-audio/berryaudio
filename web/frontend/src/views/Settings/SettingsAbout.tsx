@@ -30,7 +30,7 @@ export interface SystemInfo {
     disk_total: number;
     disk_percent: number;
   };
-   network: {
+  network: {
     lo: string;
     wlan0: string;
   };
@@ -59,15 +59,15 @@ const defaultSystemInfo: SystemInfo = {
     disk_percent: 0,
   },
   network: {
-    lo: 'None',
-    wlan0: 'None',
+    lo: "None",
+    wlan0: "None",
   },
 };
 
 const SettingsAbout = () => {
   const { getSystemInfo } = useSystemService();
   const [systemInfo, setSystemInfo] = useState<SystemInfo>(defaultSystemInfo);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
 
   useEffect(() => {
     setIsLoading(true);
@@ -91,13 +91,7 @@ const SettingsAbout = () => {
     };
   }, []);
 
-  const ListHardwareItem = ({
-    title,
-    desc,
-  }: {
-    title: string;
-    desc: string;
-  }) => {
+  const ListHardwareItem = ({ title, desc }: { title: string; desc: string }) => {
     return (
       <div className="flex mt-2 text-secondary">
         <div className="w-25 flex">{title}:</div>
@@ -106,25 +100,14 @@ const SettingsAbout = () => {
     );
   };
 
-  const ListUsageItem = ({
-    title,
-    desc,
-    percent,
-  }: {
-    title: React.ReactNode;
-    desc: string;
-    percent: number;
-  }) => {
+  const ListUsageItem = ({ title, desc, percent }: { title: React.ReactNode; desc: string; percent: number }) => {
     return (
       <div>
         <div className="font-medium flex items-center">{title}</div>
         <div className="w-full">
           <div className="mb-1 text-secondary">{desc}</div>
           <div className="w-full bg-popover rounded-full h-1 mt-3 mb-1">
-            <div
-              className="bg-primary h-1 rounded-full"
-              style={{ width: `${percent}%` }}
-            ></div>
+            <div className="bg-primary h-1 rounded-full" style={{ width: `${percent}%` }}></div>
           </div>
         </div>
       </div>
@@ -142,28 +125,18 @@ const SettingsAbout = () => {
           <ListUsageItem
             title={
               <>
-                <HardDriveIcon
-                  weight={ICON_WEIGHT}
-                  size={ICON_SM}
-                  className="mr-2"
-                />
+                <HardDriveIcon weight={ICON_WEIGHT} size={ICON_SM} className="mr-2" />
                 Disk
               </>
             }
-            desc={`${formatSize(
-              systemInfo?.disk?.disk_used
-            )} used of ${formatSize(systemInfo?.disk?.disk_total)}`}
+            desc={`${formatSize(systemInfo?.disk?.disk_used)} used of ${formatSize(systemInfo?.disk?.disk_total)}`}
             percent={systemInfo?.disk?.disk_percent}
           />
           <div className="w-full grid xs:grid-cols-2 gap-4 grid-cols-2 mt-6">
             <ListUsageItem
               title={
                 <>
-                  <CpuIcon
-                    weight={ICON_WEIGHT}
-                    size={ICON_SM}
-                    className="mr-2"
-                  />
+                  <CpuIcon weight={ICON_WEIGHT} size={ICON_SM} className="mr-2" />
                   CPU
                 </>
               }
@@ -174,17 +147,11 @@ const SettingsAbout = () => {
             <ListUsageItem
               title={
                 <>
-                  <MemoryIcon
-                    weight={ICON_WEIGHT}
-                    size={ICON_SM}
-                    className="mr-2"
-                  />
+                  <MemoryIcon weight={ICON_WEIGHT} size={ICON_SM} className="mr-2" />
                   Memory
                 </>
               }
-              desc={`${systemInfo?.memory?.mem_used.toFixed(
-                2
-              )}GB used of ${systemInfo?.memory?.mem_total.toFixed(2)}GB`}
+              desc={`${systemInfo?.memory?.mem_used.toFixed(2)}GB used of ${systemInfo?.memory?.mem_total.toFixed(2)}GB`}
               percent={systemInfo?.memory?.mem_percent}
             />
           </div>

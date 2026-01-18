@@ -27,7 +27,7 @@ import ButtonBluetoothScan from "@/components/Button/ButtonBluetoothScan";
 import ButtonBluetoothToggle from "@/components/Button/ButtonBluetoothToggle";
 import NoItems from "@/components/ListItem/NoItems";
 
-const SettingsBluetooth = () => {
+const Bluetooth = () => {
   const connected = useSelector((state: any) => state.socket.connected);
   const dispatch = useDispatch();
 
@@ -158,4 +158,4 @@ const SettingsBluetooth = () => {
   );
 };
 
-export default SettingsBluetooth;
+export default Bluetooth;

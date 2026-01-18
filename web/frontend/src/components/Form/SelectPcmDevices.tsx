@@ -4,32 +4,30 @@ import { PcmDevice } from "@/types";
 
 import SelectComboBox from "./SelectComboBox";
 
-function SelectPcmDevices({ onChange, initialValue }: any) {
-  const { getPlaybackDevices } = useMixerService();
+interface SelectPcmDevicesProps {
+  value?: string | null;
+  onChange: (value: string | null) => void;
+  placeholder?: string;
+}
 
+function SelectPcmDevices({ ...props }: SelectPcmDevicesProps) {
+  const { getPlaybackDevices } = useMixerService();
   const [pcmDevices, setPcmDevices] = useState<PcmDevice[]>([]);
 
-  const fetchPlaybackDevices = async () => {
-    const response = await getPlaybackDevices();
-    setPcmDevices(response);
-  };
-
   useEffect(() => {
+    const fetchPlaybackDevices = async () => {
+      const response = await getPlaybackDevices();
+      setPcmDevices(response);
+    };
     fetchPlaybackDevices();
   }, []);
 
-  return (
-    <SelectComboBox
-      items={pcmDevices?.map((device) => ({
-        label: device.card_name,
-        value: device.device,
-        description: device.device,
-      }))}
-      initialValue={initialValue}
-      onChange={onChange}
-      placeholder="Select device"
-    />
-  );
+  const items = pcmDevices.map((device) => ({
+    label: device.card_name,
+    value: device.device,
+    description: device.device,
+  }));
+  return <SelectComboBox items={items} {...props} />;
 }
 
 export default SelectPcmDevices;

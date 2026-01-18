@@ -1,6 +1,12 @@
 import SelectComboBox from "./SelectComboBox";
 
-const SelectTimezone = ({ onChange, initialValue }: any) => {
+interface SelectTimezoneProps {
+  value?: string;
+  placeholder?: string;
+  onChange: (value: string | null) => void;
+}
+
+const SelectTimezone = ({ ...props }: SelectTimezoneProps) => {
   const timezones = [
     "Africa/Abidjan",
     "Africa/Accra",
@@ -436,15 +442,12 @@ const SelectTimezone = ({ onChange, initialValue }: any) => {
 
   return (
     <SelectComboBox
-          items={timezoneOptions.map((zone) => ({
-            label: zone.label,
-            value: zone.value,
-          }))}
-          initialValue={initialValue}
-          onChange={onChange}
-          placeholder="Select Timezone"
-        />
-
+      items={timezoneOptions.map((zone) => ({
+        label: zone.label,
+        value: zone.value,
+      }))}
+      {...props}
+    />
   );
 };
 
