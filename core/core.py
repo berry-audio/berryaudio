@@ -20,6 +20,8 @@ class Core:
     async def load_extensions_by_name(self, extension_names):
         extensions_to_start = []
 
+        self.db.init_db()
+        
         for name in extension_names:
             module = importlib.import_module(name)
             ext_class = getattr(module, "Extension")

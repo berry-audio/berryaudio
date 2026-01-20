@@ -88,7 +88,7 @@ class SearchExtension(Actor):
                      uri=f"album:{row.album_id}",
                      name=row.album_name,
                      date=row.album_year or None,
-                     images=[Image(uri=row.album_image or "/images/no_cover.jpg")]
+                     images=[Image(uri=row.album_image)] if row.album_image else []
                      )
                  ])
 
@@ -97,7 +97,7 @@ class SearchExtension(Actor):
                  Artist(
                      uri=f"artist:{row.artist_id}",
                      name=row.artist_name,
-                     images=[Image(uri=row.artist_image or "/images/no_cover.jpg")]
+                     images=[Image(uri=row.artist_image)] if row.artist_image else []
                      )
                  ])
         if row.genre:
@@ -127,6 +127,6 @@ class SearchExtension(Actor):
         if row.comment:
             obj["comment"] = row.comment   
 
-        if row.image:
-            obj["images"] = [Image(uri=row.image or "/images/no_cover.jpg")]
+        obj["images"] = [Image(uri=row.image)] if row.image else []
+       
         return obj
