@@ -3,6 +3,7 @@ import { useConfigService } from "@/services/config";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { Input } from "@/components/ui/input";
+import { InputNumber } from "@/components/Form/InputNumber";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useDispatch } from "react-redux";
 import { DIALOG_EVENTS } from "@/store/constants";
@@ -25,6 +26,7 @@ export const formSchema = z.object({
       .refine((val) => val !== null && val.length > 0, {
         message: "Audio output device is required",
       }),
+    volume_default: z.number(),
     output_audio: z
       .string()
       .nullable()
@@ -119,10 +121,26 @@ const SettingsGeneral = () => {
             <div className="mb-6">
               <FormField
                 control={form.control}
+                name="mixer.volume_default"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-md block font-medium text-muted">Initial Volume</FormLabel>
+                    <FormControl>
+                      <InputNumber {...field} max={100} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <div className="mb-6">
+              <FormField
+                control={form.control}
                 name="mixer.volume_device"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-md block font-medium text-muted">Volume device</FormLabel>
+                    <FormLabel className="text-md block font-medium text-muted">Volume control device</FormLabel>
                     <FormControl>
                       <SelectPcmDevices placeholder="Select Device" {...field} />
                     </FormControl>

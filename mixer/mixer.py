@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 class MixerExtension(Actor):
     default_config = {
         "output_device": "plughw:CARD=Headphones,DEV=0",
-        "output_audio": "hw:CARD=Loopback,DEV=0",
+        "output_audio": "plughw:CARD=Loopback,DEV=0",
         "volume_default": 50,
         "volume_software_control": False,
         "volume_device": None,

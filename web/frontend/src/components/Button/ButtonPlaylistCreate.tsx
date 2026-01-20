@@ -9,8 +9,7 @@ import { ICON_SM, ICON_WEIGHT } from "@/constants";
 import Modal from "@/components/Modal";
 import ButtonIcon from "@/components/Button/ButtonIcon";
 
-
-const ButtonPlaylistCreate = ({fromQueue = false} :{ fromQueue?:boolean}) => {
+const ButtonPlaylistCreate = ({ fromQueue = false }: { fromQueue?: boolean }) => {
   const dispatch = useDispatch();
 
   const { createItem } = usePlaylistService();
@@ -22,9 +21,9 @@ const ButtonPlaylistCreate = ({fromQueue = false} :{ fromQueue?:boolean}) => {
 
   const onClickCreateHandler = async () => {
     setIsloading(true);
-    const tl_tracks = fromQueue ? current_playlist : []
+    const tl_tracks = fromQueue ? current_playlist : [];
     await createItem(playlistName, tl_tracks);
-    dispatch({ type: INFO_EVENTS.PLAYLISTS_UPDATED })
+    dispatch({ type: INFO_EVENTS.PLAYLISTS_UPDATED });
     setIsloading(false);
     setShowCreateModal(false);
   };
@@ -44,15 +43,17 @@ const ButtonPlaylistCreate = ({fromQueue = false} :{ fromQueue?:boolean}) => {
         buttonText="Create"
         buttonLoading={isLoading}
         buttonOnClick={onClickCreateHandler}
-        buttonDisabled={playlistName === ''}
+        buttonDisabled={playlistName === ""}
       >
+        <div className="py-2">
           <Input
             type="text"
             placeholder="Playlist Name"
             value={playlistName}
             onChange={(e) => setPlaylistName(e.target.value)}
-            onClickClear={()=>setPlaylistName('')}
+            onClickClear={() => setPlaylistName("")}
           />
+        </div>
       </Modal>
     </>
   );

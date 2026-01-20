@@ -29,12 +29,7 @@ const calculateCols = () => {
   else return 8;
 };
 
-const Grid = ({
-  query,
-  getDirectory,
-  onClickCallback,
-  onClickActionCallback,
-}: Grid) => {
+const Grid = ({ query, getDirectory, onClickCallback, onClickActionCallback }: Grid) => {
   const dispatch = useDispatch();
 
   const loadMoreCount = 3;
@@ -59,11 +54,7 @@ const Grid = ({
 
       if (currentOffset > startOffset) {
         setStartOffset(currentOffset);
-        const response = await getDirectory(
-          query,
-          loadMoreCount * columns,
-          currentOffset
-        );
+        const response = await getDirectory(query, loadMoreCount * columns, currentOffset);
         setItems((prev: any) => [...prev, ...response]);
       }
     },
@@ -72,9 +63,9 @@ const Grid = ({
   const fetch = async () => {
     setIsLoading(true);
 
-    const response = await getDirectory(query, loadMoreCount * columns, 0) || [];
-    if(!response.length && [REF.ARTIST, REF.ALBUM, REF.GENRE, REF.TRACK].includes(query)){
-      dispatch({ type: DIALOG_EVENTS.DIALOG_ADD_LIBRARY })
+    const response = (await getDirectory(query, loadMoreCount * columns, 0)) || [];
+    if (!response.length && [REF.ARTIST, REF.ALBUM, REF.GENRE, REF.TRACK].includes(query)) {
+      dispatch({ type: DIALOG_EVENTS.DIALOG_ADD_LIBRARY });
     }
 
     setItems(response);
@@ -92,7 +83,6 @@ const Grid = ({
   useEffect(() => {
     fetch();
   }, [query]);
-
 
   useEffect(() => {
     const handler = () => {

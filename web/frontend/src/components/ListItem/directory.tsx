@@ -33,7 +33,7 @@ const Directory = ({ type, width = "auto", height = "auto" }: { type?: REF; widt
   return (
     <div
       style={{ width, height }}
-      className={`bg-neutral-900 dark:bg-neutral-800  text-white  flex items-center justify-center aspect-square w-full overflow-hidden ${
+      className={`bg-neutral-950 dark:bg-neutral-800  text-white  flex items-center justify-center aspect-square w-full overflow-hidden ${
         type === REF.ALBUM ? "grayscale-25 bg-radial-[at_15%_5%] from-yellow-700 to-yellow-950" : "grayscale-25"
       }`}
     >

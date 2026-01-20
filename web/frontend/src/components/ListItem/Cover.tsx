@@ -33,7 +33,7 @@ const Cover = ({ type = REF.TRACK, loading = false, image, title, subtitle, shad
     <div className="w-full">
       <button onClick={onClick} className="w-full cursor-pointer  shadow-1xl">
         <div
-          className={`overflow-hidden rounded-md transition-all relative bg-white dark:bg-neutral-800 ${
+          className={`overflow-hidden rounded-md transition-all relative  ${
             shadow ?? "shadow-[1px_14px_21px_-6px_rgba(0,0,0,0.1)]"
           }`}
         >
