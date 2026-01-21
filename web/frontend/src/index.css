@@ -49,7 +49,7 @@
   --button-hover: rgba(189, 189, 189, 0.5);
 }
 .dark {
-  --background: #131313;
+  --background: #1f1f1f;
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.205 0 0);
   --card-foreground: oklch(0.985 0 0);

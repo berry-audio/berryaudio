@@ -1,11 +1,11 @@
-import { CheckCircleIcon, CircleIcon } from "@phosphor-icons/react";
+import { CheckCircleIcon, CircleIcon, PlaylistIcon } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
 import { useDispatch } from "react-redux";
 import { usePlaylistService } from "@/services/playlist";
 import { useLocalService } from "@/services/local";
 import { Ref, Track } from "@/types";
 import { DIALOG_EVENTS } from "@/store/constants";
-import { ICON_SM } from "@/constants";
+import { ICON_SM, ICON_WEIGHT } from "@/constants";
 import { REF } from "@/constants/refs";
 
 import Modal from "@/components/Modal";
@@ -14,13 +14,14 @@ import CoverList from "@/components/ListItem/coverList";
 import ItemWrapper from "@/components/Wrapper/ItemWrapper";
 import ItemPadding from "@/components/Wrapper/ItemPadding";
 import useVirtual from "react-cool-virtual";
+import NoItems from "../ListItem/NoItems";
 
 const DialogAddToPlaylist = ({ item }: { item: Ref }) => {
   const dispatch = useDispatch();
   const query = REF.PLAYLIST;
 
   const { onAdd, getDirectory } = usePlaylistService();
-  const { getDirectory:getDirectoryLocal } = useLocalService();
+  const { getDirectory: getDirectoryLocal } = useLocalService();
 
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isButtonLoading, setIsButtonLoading] = useState<boolean>(false);
@@ -32,11 +33,7 @@ const DialogAddToPlaylist = ({ item }: { item: Ref }) => {
   const [startOffset, setStartOffset] = useState<number>(0);
 
   const onClickSelectPlaylist = (item: Ref) => {
-    setSelectedItems((prev) =>
-      prev.includes(item.uri)
-        ? prev.filter((uri) => uri !== item.uri)
-        : [...prev, item.uri]
-    );
+    setSelectedItems((prev) => (prev.includes(item.uri) ? prev.filter((uri) => uri !== item.uri) : [...prev, item.uri]));
   };
 
   const onClickAddHandler = async (item: Ref) => {
@@ -79,11 +76,7 @@ const DialogAddToPlaylist = ({ item }: { item: Ref }) => {
 
       if (currentOffset > startOffset) {
         setStartOffset(currentOffset);
-        const response = await getDirectory(
-          query,
-          loadMoreCount,
-          currentOffset
-        );
+        const response = await getDirectory(query, loadMoreCount, currentOffset);
         setItems((prev: any) => [...prev, ...response]);
       }
     },
@@ -122,16 +115,9 @@ const DialogAddToPlaylist = ({ item }: { item: Ref }) => {
               const item = items[index] || [];
               return (
                 <ItemWrapper key={index}>
-                  <button
-                    className="w-full cursor-pointer"
-                    onClick={() => onClickSelectPlaylist(item)}
-                  >
+                  <button className="w-full cursor-pointer" onClick={() => onClickSelectPlaylist(item)}>
                     <ItemPadding>
-                      <CoverList
-                        type={REF.PLAYLIST}
-                        title={item.name}
-                        subtitle={`${String(item.length)} Tracks`}
-                      />
+                      <CoverList type={REF.PLAYLIST} title={item.name} subtitle={`${String(item.length)} Tracks`} />
                       {selectedItems.includes(item.uri) ? (
                         <CheckCircleIcon weight="fill" size={ICON_SM} />
                       ) : (
@@ -143,6 +129,7 @@ const DialogAddToPlaylist = ({ item }: { item: Ref }) => {
               );
             })}
           </div>
+          {!items.length && <NoItems title="No playlists" icon={<PlaylistIcon weight={ICON_WEIGHT} size={ICON_SM} />} />}
         </div>
       )}
     </Modal>

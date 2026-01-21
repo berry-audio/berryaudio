@@ -50,7 +50,7 @@ const SettingsItems: SettingsItem[] = [
     name: "Multiroom",
     alias: "multiroom",
     icon: <SpeakerHifiIcon weight={ICON_WEIGHT} size={ICON_SM} />,
-    url: "/settings/snapcast",
+    url: "/settings/multiroom",
   },
   {
     name: "About",

@@ -18,6 +18,7 @@ import {
 import { EVENTS } from "@/constants/events";
 import { INFO_EVENTS } from "@/store/constants";
 import { ICON_SM, ICON_WEIGHT, ICON_XS } from "@/constants";
+import { REF } from "@/constants/refs";
 
 import Page from "@/components/Page";
 import ActionMenu from "@/components/Actions";
@@ -28,6 +29,7 @@ import Spinner from "@/components/Spinner";
 import NoItems from "@/components/ListItem/NoItems";
 import ButtonSnapcastScan from "@/components/Button/ButtonSnapcastScan";
 import ButtonIcon from "@/components/Button/ButtonIcon";
+import Directory from "@/components/ListItem/directory";
 
 const Snapcast = () => {
   const navigate = useNavigate();
@@ -77,11 +79,16 @@ const Snapcast = () => {
       <div className="w-full">
         <div className="flex justify-between items-center">
           <div className="flex items-center">
-            <HardDriveIcon size={ICON_SM} weight={ICON_WEIGHT} className={`mr-3 ${item?.connected ? "text-primary" : ""}`} />
             <div className="text-lg font-medium">
-              <div className="w-full">
-                <div className="flex items-center text-xl font-medium">
-                  {item?.name} <RenderStatus />
+              <div className="w-full flex mt-1">
+                <div className={`overflow-hidden rounded-sm mr-3 min-w-13 w-13 h-13 grayscale-25 ${item?.connected ? "text-primary" : ""}`}>
+                  <Directory type={REF.ROOM} variant={item?.connected ? "primary" : ""} />
+                </div>
+                <div>
+                  <div className="flex items-center text-xl font-medium">
+                    {item?.name} <RenderStatus />
+                  </div>
+                  <div className="flex items-center text-muted -mt-0.5">{item?.ip == '127.0.0.1' && 'This room - '} {item?.status} </div>
                 </div>
               </div>
             </div>
@@ -90,17 +97,17 @@ const Snapcast = () => {
             <ActionMenu items={actionItems} />
           </div>
         </div>
-        <div className="mt-3">
-          {status?.server?.host?.name === item?.name && status?.groups?.length && (
-            status.groups.map((group: any) =>
+        {status?.server?.host?.name === item?.name && status?.groups?.length > 0 && (
+          <div className="mt-3">
+            {status.groups.map((group: any) =>
               group?.clients?.map((client: any, index: number) => (
                 <div className="mt-5" key={index}>
-                    <ListClient item={client} />
+                  <ListClient item={client} />
                 </div>
-              ))
-            )
-          )}
-        </div>
+              )),
+            )}
+          </div>
+        )}
       </div>
     );
   };
@@ -206,7 +213,7 @@ const Snapcast = () => {
           </div>
 
           <div className="mr-4">
-            <ButtonIcon onClick={() => navigate("/settings/snapcast")}>
+            <ButtonIcon onClick={() => navigate("/settings/multiroom")}>
               <GearIcon weight={ICON_WEIGHT} size={ICON_SM} />
             </ButtonIcon>
           </div>
@@ -219,7 +226,6 @@ const Snapcast = () => {
         </LayoutHeightWrapper>
       ) : (
         <>
-        
           {servers.length ? (
             servers.map((item: SnapcastServer, index: number) => (
               <ItemWrapper key={index}>
@@ -229,15 +235,13 @@ const Snapcast = () => {
               </ItemWrapper>
             ))
           ) : (
-             <LayoutHeightWrapper>
+            <LayoutHeightWrapper>
               <NoItems
                 title="No rooms Found"
                 desc={"Scan for available rooms on the network"}
                 icon={<HardDriveIcon weight={ICON_WEIGHT} size={ICON_SM} />}
               />
             </LayoutHeightWrapper>
-
-          
           )}
         </>
       )}

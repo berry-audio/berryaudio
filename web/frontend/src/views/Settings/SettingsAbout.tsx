@@ -132,7 +132,7 @@ const SettingsAbout = () => {
             desc={`${formatSize(systemInfo?.disk?.disk_used)} used of ${formatSize(systemInfo?.disk?.disk_total)}`}
             percent={systemInfo?.disk?.disk_percent}
           />
-          <div className="w-full grid xs:grid-cols-2 gap-4 grid-cols-2 mt-6">
+          <div className="w-full grid md:grid-cols-2 gap-4 mt-6">
             <ListUsageItem
               title={
                 <>

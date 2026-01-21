@@ -107,7 +107,7 @@ const ActionMenu: React.FC<ActionMenuProps> = ({ items }) => {
             isDrawerOpen ? "translate-y-0" : "translate-y-full"
           }`}
         >
-          {items.map(renderButton)}
+          <div className="bg-popover">{items.map(renderButton)}</div>
         </div>
       </div>
     </div>

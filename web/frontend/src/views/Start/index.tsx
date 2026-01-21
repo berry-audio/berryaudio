@@ -73,7 +73,7 @@ const sources: SourceItem[] = [
   {
     name: "Multiroom",
     icon: <SpeakerHifiIcon weight={ICON_WEIGHT} size={ICON_LG} />,
-    alias: "snapcast",
+    alias: "multiroom",
   },
   {
     name: "Settings",

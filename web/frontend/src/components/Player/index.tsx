@@ -65,7 +65,7 @@ const Player = () => {
                   {image ? (
                     <img src={image} alt={current_track?.track.album?.name} className={"object-cover aspect-square w-full"} />
                   ) : (
-                    <Directory type={REF.ALBUM} />
+                    <Directory type={REF.ALBUM} variant="primary"/>
                   )}
                 </div>
                 {source.type && (
@@ -120,7 +120,7 @@ const Player = () => {
                   {image ? (
                     <img src={image} alt={current_track?.track.album?.name} className={`object-cover aspect-square w-full`} />
                   ) : (
-                    <Directory type={REF.ALBUM} />
+                    <Directory type={REF.ALBUM} variant="primary"/>
                   )}
                 </div>
                 {source.type && (
