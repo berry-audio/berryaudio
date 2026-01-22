@@ -27,7 +27,9 @@ const DialogClearLibrary = () => {
       buttonLoading={buttonLoading}
       buttonOnClick={onClickClearLibrary}
     >
-      Are you sure you want to clear your library? <br /> This cannot be undone.
+      <span className="text-secondary">
+        Are you sure you want to clear your library? <br /> This cannot be undone.{" "}
+      </span>
     </Modal>
   );
 };

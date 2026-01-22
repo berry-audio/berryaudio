@@ -9,14 +9,8 @@ const ButtonStandby = () => {
   const dispatch = useDispatch();
 
   return (
-    <ButtonIcon
-      onClick={() => dispatch({ type: DIALOG_EVENTS.DIALOG_POWER_OPTIONS })}
-    >
-      <PowerIcon
-        weight={ICON_WEIGHT}
-        size={ICON_SM}
-        className="dark:text-white text-neutral-950"
-      />
+    <ButtonIcon onClick={() => dispatch({ type: DIALOG_EVENTS.DIALOG_POWER_OPTIONS })}>
+      <PowerIcon weight={ICON_WEIGHT} size={ICON_SM} />
     </ButtonIcon>
   );
 };

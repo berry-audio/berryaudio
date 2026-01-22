@@ -28,7 +28,7 @@ const ListMenu = ({
       >
           <ItemPadding>
             <div className="flex items-center">
-              <span className="mr-4 text-black dark:text-white">{icon}</span>
+              <span className="mr-4 ">{icon}</span>
               <span>{name}</span>
             </div>
             <div className="flex items-center">

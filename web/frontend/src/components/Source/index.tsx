@@ -4,6 +4,7 @@ import { ICON_SM, ICON_WEIGHT } from "@/constants";
 import {
   AirplayIcon,
   BluetoothIcon,
+  SpeakerHifiIcon,
   SpotifyLogoIcon,
 } from "@phosphor-icons/react";
 
@@ -24,10 +25,11 @@ const Source = ({
     spotify: <SpotifyLogoIcon weight={ICON_WEIGHT} size={ICON_SM} />,
     shairportsync: <AirplayIcon weight={ICON_WEIGHT} size={ICON_SM} />,
     bluetooth: <BluetoothIcon weight={ICON_WEIGHT} size={ICON_SM} />,
+    snapcast: <SpeakerHifiIcon weight={ICON_WEIGHT} size={ICON_SM} />
   };
 
   return (
-    source?.state?.connected && (
+    source?.state?.connected ? (
       <div className={`flex items-center ${className}`}>
         {!hideIcon && (
           <div
@@ -41,7 +43,7 @@ const Source = ({
 
         {!hideText && <div>{source_name}</div>}
       </div>
-    )
+    ) : (<>No device connected</>)
   );
 };
 

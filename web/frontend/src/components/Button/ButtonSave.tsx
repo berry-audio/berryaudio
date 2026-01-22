@@ -4,26 +4,10 @@ import { ICON_SM, ICON_WEIGHT } from "@/constants";
 import ButtonIcon from "./ButtonIcon";
 import Spinner from "../Spinner";
 
-const ButtonSave = ({
-  onClick,
-  isLoading,
-  disabled,
-}: {
-  onClick: () => void;
-  isLoading?: boolean;
-  disabled?: boolean;
-}) => {
+const ButtonSave = ({ onClick, isLoading, disabled }: { onClick: () => void; isLoading?: boolean; disabled?: boolean }) => {
   return (
     <ButtonIcon onClick={onClick} className="mr-1" disabled={disabled}>
-      {isLoading ? (
-        <Spinner />
-      ) : (
-        <ArrowsClockwiseIcon
-          weight={ICON_WEIGHT}
-          size={ICON_SM}
-          className="dark:text-white text-black"
-        />
-      )}
+      {isLoading ? <Spinner /> : <ArrowsClockwiseIcon weight={ICON_WEIGHT} size={ICON_SM} />}
     </ButtonIcon>
   );
 };

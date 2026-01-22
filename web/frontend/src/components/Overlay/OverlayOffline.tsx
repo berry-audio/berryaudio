@@ -13,14 +13,12 @@ const OverlayOffline = () => {
       <NoItems
         title={"Device Offline"}
         desc={
-          <span className="text-white/50">
-            Backend is not running please unplug and replug the
-            device
+          <span className="text-secondary">
           </span>
         }
         icon={
           <PlugsIcon
-            className="text-yellow-700"
+            className="text-primary"
             weight={ICON_WEIGHT}
             size={ICON_SM}
           />

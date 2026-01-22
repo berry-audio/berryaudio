@@ -6,7 +6,7 @@ export enum SOCKET_EVENTS {
 
 export enum PLAYER_EVENTS {
    POSITION_UPDATED = "player/position",
-   VOLUME_CHANGED ="player/volume"
+   VOLUME_CHANGED ="player/volume",
 }
 
 export enum INFO_EVENTS {
@@ -16,7 +16,9 @@ export enum INFO_EVENTS {
    BLUETOOTH_SCAN_COMPLETED = 'event/bluetooth/scan/completed',
    BLUETOOTH_STATE_UPDATED = 'event/bluetooth/state/updated',
    WLAN_STATE_UPDATED = 'event/wlan/state/updated',
-   WLAN_SCAN_COMPLETED = 'event/wlan/scan/completed'
+   WLAN_SCAN_COMPLETED = 'event/wlan/scan/completed',
+   SNAPCAST_SCAN_COMPLETED = 'event/snapcast/scan/completed',
+   SNAPCAST_VOLUME_DRAGGING = 'event/snapcast/volume/dragging',
 }
 
 export enum DIALOG_EVENTS {
@@ -35,6 +37,7 @@ export enum DIALOG_EVENTS {
    DIALOG_EDIT_NETWORK = "dialog/network/edit",
    DIALOG_REBOOT = "dialog/system/reboot",
    DIALOG_POWER_OPTIONS = "dialog/system/power",
+   DIALOG_SNAPCAST_INFO = "dialog/snapcast/info",
 }
 
 export enum OVERLAY_EVENTS {

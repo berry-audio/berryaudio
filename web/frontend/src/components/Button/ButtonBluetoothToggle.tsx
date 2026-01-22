@@ -13,7 +13,6 @@ const ButtonBluetoothToggle = () => {
   const { adapter_state } = useSelector((state: any) => state.bluetooth);
   const { getAdapterState, setAdapterState } = useBluetoothService();
 
-
   const toggleBluetooth = async () => {
     const res = await setAdapterState(!adapter_state.powered);
     dispatch({
@@ -34,21 +33,12 @@ const ButtonBluetoothToggle = () => {
     fetchAdapterState();
   }, []);
 
-
   return (
     <ButtonIcon onClick={() => toggleBluetooth()} className="mr-1">
       {adapter_state?.powered ? (
-        <BluetoothIcon
-          weight={ICON_WEIGHT}
-          size={ICON_SM}
-          className={`${adapter_state.discoverable ? 'text-yellow-700' : 'dark:text-white text-black '}`}
-        />
+        <BluetoothIcon weight={ICON_WEIGHT} size={ICON_SM} className={`${adapter_state.discoverable ? "text-primary" : ""}`} />
       ) : (
-        <BluetoothSlashIcon
-          weight={ICON_WEIGHT}
-          size={ICON_SM}
-          className="dark:text-white text-black"
-        />
+        <BluetoothSlashIcon weight={ICON_WEIGHT} size={ICON_SM} />
       )}
     </ButtonIcon>
   );

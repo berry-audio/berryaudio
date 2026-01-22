@@ -7,11 +7,7 @@ const ButtonThemeToggle = () => {
   const { theme, toggleTheme } = useTheme();
   return (
     <ButtonIcon onClick={toggleTheme} className="scale-90">
-      {theme === "dark" ? (
-        <SunIcon weight={ICON_WEIGHT} size={ICON_SM} />
-      ) : (
-        <MoonIcon weight={ICON_WEIGHT} size={ICON_SM} />
-      )}
+      {theme === "dark" ? <SunIcon weight={ICON_WEIGHT} size={ICON_SM} /> : <MoonIcon weight={ICON_WEIGHT} size={ICON_SM} />}
     </ButtonIcon>
   );
 };

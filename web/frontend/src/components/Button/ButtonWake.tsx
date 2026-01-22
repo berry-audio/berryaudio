@@ -8,15 +8,9 @@ const ButtonWake = () => {
   const { setStandby } = useSystemService();
 
   return (
-    <div className="dark">
-    <ButtonIcon onClick={async () => await setStandby(false)}>
-      <PowerIcon
-        weight={ICON_WEIGHT}
-        size={ICON_SM}
-        className="dark:text-white text-neutral-950"
-      />
-    </ButtonIcon>
-    </div>
+      <ButtonIcon onClick={async () => await setStandby(false)}>
+        <PowerIcon weight={ICON_WEIGHT} size={ICON_SM} className="text-white" />
+      </ButtonIcon>
   );
 };
 

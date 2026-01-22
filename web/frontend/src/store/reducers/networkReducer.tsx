@@ -25,7 +25,6 @@ export const networkReducer = (state = initialState, action: any): NetworkState 
       return {
         ...state,
         devices: { ...state.devices, [payload.device.device]: payload.device },
-        networks: payload.networks,
       };
     default:
       return state;

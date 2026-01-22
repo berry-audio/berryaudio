@@ -28,7 +28,7 @@ const DialogReboot = () => {
       buttonLoading={buttonLoading}
       buttonOnClick={onClickHandler}
     >
-      In order for changes to take effect.You need to reboot system.
+   <span className="text-secondary">In order for changes to take effect, you need to reboot the system.</span>
     </Modal>
   );
 };

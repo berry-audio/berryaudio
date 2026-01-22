@@ -1,49 +1,33 @@
 import { useEffect, useState } from "react";
-import { Select } from "antd";
 import { useMixerService } from "@/services/mixer";
-import { CustomSelect, PcmDevice, SelectOption } from "@/types";
+import { PcmDevice } from "@/types";
 
-/**
- * Select component for PCM audio devices.
- *
- * @template T - Type of the selected value.
- * @param {T} value - Current value.
- * @param {(value: T) => void} onChange - Called on value change.
- * @param {import('antd').SelectProps<T>} [rest] - Other Select props.
- */
-const SelectPcmDevices = ({ value, onChange, ...rest }: CustomSelect) => {
+import SelectComboBox from "./SelectComboBox";
+
+interface SelectPcmDevicesProps {
+  value?: string | null;
+  onChange: (value: string | null) => void;
+  placeholder?: string;
+}
+
+function SelectPcmDevices({ ...props }: SelectPcmDevicesProps) {
   const { getPlaybackDevices } = useMixerService();
-
-  const [pcmDevices, setPcmDevices] = useState<SelectOption[]>([]);
-
-  const fetchPlaybackDevices = async () => {
-    const res = await getPlaybackDevices();
-
-    function _convertAplayDevices(devices: PcmDevice[]) {
-      return devices?.map((device) => ({
-        label: device.device,
-        value: device.device,
-      }));
-    }
-
-    setPcmDevices(_convertAplayDevices(res));
-  };
+  const [pcmDevices, setPcmDevices] = useState<PcmDevice[]>([]);
 
   useEffect(() => {
+    const fetchPlaybackDevices = async () => {
+      const response = await getPlaybackDevices();
+      setPcmDevices(response);
+    };
     fetchPlaybackDevices();
   }, []);
 
-  return (
-    <Select
-      placeholder="Available devices"
-      optionFilterProp="label"
-      options={pcmDevices}
-      size="large"
-      value={value}
-      onChange={onChange}
-      {...rest}
-    />
-  );
-};
+  const items = pcmDevices.map((device) => ({
+    label: device.card_name,
+    value: device.device,
+    description: device.device,
+  }));
+  return <SelectComboBox items={items} {...props} />;
+}
 
 export default SelectPcmDevices;

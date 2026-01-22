@@ -56,7 +56,7 @@ const RepeatButton = () => {
    */
   const RenderRepeat = () => {
     const iconClass =
-      repeatMode === REPEAT_MODE.REPEAT_OFF ? "" : "text-yellow-700";
+      repeatMode === REPEAT_MODE.REPEAT_OFF ? "" : "text-primary";
 
     return (
       <span className={iconClass}>

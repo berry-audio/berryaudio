@@ -8,10 +8,10 @@ const DialogEmptyLibrary = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
 
-  const onClickHandler = () =>{
-    navigate('/storage');
+  const onClickHandler = () => {
+    navigate("/storage");
     dispatch({ type: DIALOG_EVENTS.DIALOG_CLOSE });
-  }
+  };
 
   return (
     <Modal
@@ -21,8 +21,11 @@ const DialogEmptyLibrary = () => {
       buttonText="Add Folders"
       buttonOnClick={onClickHandler}
     >
-   Your music library is empty.<br/>
-   You can add music by going to 'Storage' section and then using the 'Add to Library' option.
+      <span className="text-secondary">
+        Your music library is empty.
+        <br />
+        You can add music by going to 'Storage' section and then using the 'Add to Library' option.
+      </span>
     </Modal>
   );
 };

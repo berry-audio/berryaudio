@@ -64,8 +64,8 @@ const ActionMenu: React.FC<ActionMenuProps> = ({ items }) => {
       <button
         key={idx}
         onClick={() => handleAction(idx, item.action as any)}
-        className={`flex w-full items-center gap-2 px-4 py-3 md:py-2 text-left dark:hover:bg-neutral-800 hover:bg-neutral-200 cursor-pointer ${
-          item.disabled ? "opacity-30" : ""
+        className={`flex w-full items-center gap-2 px-4 py-3 md:py-2 text-left cursor-pointer hover:bg-primary hover:text-primary-foreground bg-popover ${
+          item.disabled ? "text-muted! hover:bg-popover disabled:opacity-50" : ""
         }`}
         disabled={item.disabled}
       >
@@ -83,31 +83,31 @@ const ActionMenu: React.FC<ActionMenuProps> = ({ items }) => {
         </ButtonIcon>
 
         {isDropdownOpen && (
-          <div className="absolute overflow-auto max-h-60 right-0 mt-2 w-48 dark:bg-neutral-900 bg-white shadow-lg rounded-md z-10">
+          <div className="absolute overflow-auto max-h-60 right-0 mt-2 w-48 bg-popover shadow-lg rounded-md z-10">
             {items.map(renderButton)}
           </div>
         )}
       </div>
 
       {/* Mobile */}
-      <div className="md:hidden">
+      <div className="md:hidden ">
         <ButtonIcon onClick={() => setDrawerOpen(true)}>
           <DotsThreeIcon size={24} />
         </ButtonIcon>
 
         {isDrawerOpen && (
           <div
-            className="fixed inset-0 bg-black/60 z-10 -top-[48px]"
+            className="fixed inset-0 z-10 -top-[48px]"
             onClick={() => setDrawerOpen(false)}
           />
         )}
 
         <div
-          className={`fixed overflow-auto max-h-60 bottom-[-1px] left-0 right-0 z-10 dark:bg-neutral-900 bg-white rounded-t-sm shadow-lg transform transition-transform duration-200 ${
+          className={`fixed overflow-auto max-h-60 bottom-[-1px] left-0 right-0 z-10 rounded-t-sm shadow-lg transform transition-transform duration-200  ${
             isDrawerOpen ? "translate-y-0" : "translate-y-full"
           }`}
         >
-          {items.map(renderButton)}
+          <div className="bg-popover">{items.map(renderButton)}</div>
         </div>
       </div>
     </div>

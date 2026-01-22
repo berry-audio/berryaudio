@@ -4,7 +4,7 @@ import { EVENTS } from "@/constants/events";
 import { MediaPlayer, Source } from "@/types";
 
 const initialSource: Source = {
-  type: "none",
+  type: undefined,
   controls: [],
   state: { connected: false },
 };
@@ -59,10 +59,7 @@ const initialMediaPlayer: MediaPlayer = {
   is_standby: false,
 };
 
-export const playerReducer = (
-  state = initialMediaPlayer,
-  action: any
-): MediaPlayer => {
+export const playerReducer = (state = initialMediaPlayer, action: any): MediaPlayer => {
   const { type, payload } = action;
 
   switch (type) {
@@ -108,11 +105,12 @@ export const playerReducer = (
         ...state,
         volume: payload.volume,
       };
+
     case EVENTS.MIXER_MUTE:
       return {
         ...state,
         mute: payload.mute,
-      };  
+      };
     case EVENTS.OPTIONS_CHANGED:
       return {
         // todo

@@ -23,7 +23,14 @@ export enum EVENTS {
   BLUETOOTH_CONNECTED = "bluetooth_device_connected",
   BLUETOOTH_DISCONNECTED = "bluetooth_device_disconnected",
   BLUETOOTH_REMOVED = "bluetooth_device_removed",
+  BLUETOOTH_UPDATED = "bluetooth_device_updated",
   BLUETOOTH_STATE_CHANGED = "bluetooth_state_changed",
   NETWORK_STATE_CHANGED = "network_state_changed",
-  NETWORK_DEVICES = "network_devices"
+  NETWORK_DEVICES = "network_devices",
+  SNAPCAST_STATE_CHANGED = "snapcast_state_changed",
+  SNAPCAST_CONNECTED = "snapcast_connected",
+  SNAPCAST_DISCONNECTED = "snapcast_disconnected",
+  SNAPCAST_REMOVED = "snapcast_removed",
+  SNAPCAST_ADDED = "snapcast_added",
+  SNAPCAST_NOTIFICATION = "snapcast_notification"
 }

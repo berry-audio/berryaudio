@@ -16,7 +16,7 @@ const DialogNoBluetooth = () => {
       buttonText="Connect"
       buttonOnClick={()=>navigate('/settings/bluetooth')}
     >
-     To play music, please connect to a Bluetooth device.
+    <span className="text-secondary"> To play music, please connect to a Bluetooth device.</span>
     </Modal>
   );
 };

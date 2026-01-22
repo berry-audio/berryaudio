@@ -5,7 +5,7 @@ import { EVENTS } from "@/constants/events";
 const initialState: BluetoothState = {
   adapter_state: { powered: false, discoverable: false, pairable: false, connected: false },
   device_connected: undefined,
-  devices_available: [],
+  devices: [],
 };
 
 export const bluetoothReducer = (
@@ -18,7 +18,7 @@ export const bluetoothReducer = (
     case INFO_EVENTS.BLUETOOTH_SCAN_COMPLETED:
       return {
         ...state,
-        devices_available: payload.sort(
+        devices: payload?.sort(
           (a: BluetoothDevice, b: BluetoothDevice) =>
             a.name.localeCompare(b.name)
         ),
@@ -29,23 +29,24 @@ export const bluetoothReducer = (
        return { ...state, adapter_state: payload.state }; 
     case EVENTS.BLUETOOTH_CONNECTED:
     case EVENTS.BLUETOOTH_DISCONNECTED:
-      const filter_devices = state.devices_available.filter(
-        (device) => device.path !== payload.device.path
+    case EVENTS.BLUETOOTH_UPDATED:
+      const filter_devices = state.devices.filter(
+        (device) => device.address !== payload.device.address
       );
       return {
         ...state,
-        devices_available: [...filter_devices, { ...payload.device }].sort(
+        devices: [...filter_devices, { ...payload.device }].sort(
           (a: BluetoothDevice, b: BluetoothDevice) =>
             a.name.localeCompare(b.name)
         ),
       };
     case EVENTS.BLUETOOTH_REMOVED:
-        const filter_removed_devices = state.devices_available.filter(
-        (device) => device.path !== payload.device.path
+        const filter_removed_devices = state.devices.filter(
+        (device) => device.address !== payload.device.address
       );
       return {
         ...state,
-        devices_available: [...filter_removed_devices].sort(
+        devices: [...filter_removed_devices].sort(
           (a: BluetoothDevice, b: BluetoothDevice) =>
             a.name.localeCompare(b.name)
         ),

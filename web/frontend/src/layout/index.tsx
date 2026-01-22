@@ -133,7 +133,7 @@ export default function Layout({ children }: { children: any }) {
     <Spinner />
   ) : (
     <>
-      <div className="flex flex-col h-full dark:bg-[#141414] relative bg-neutral-100">
+      <div className="flex flex-col h-full relative">
         <Menu />
         <div className="flex-1 overflow-hidden">{children}</div>
         <Player />

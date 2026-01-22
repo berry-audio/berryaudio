@@ -13,7 +13,7 @@ const ButtonQueueClear = () => {
   const { clear } = useTracklistService();
 
   return (
-    <ButtonIcon onClick={()=>clear()}>
+    <ButtonIcon onClick={() => clear()}>
       <TrashSimpleIcon weight={ICON_WEIGHT} size={ICON_SM} />
     </ButtonIcon>
   );

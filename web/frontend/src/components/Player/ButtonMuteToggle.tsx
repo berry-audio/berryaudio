@@ -12,7 +12,7 @@ const ButtonMuteToggle = () => {
   return (
     <ButtonIcon onClick={async () => await setMixerMute(!mute)}>
       {mute ? (
-        <SpeakerSlashIcon size={ICON_SM} weight={ICON_WEIGHT} className="opacity-30"/>
+        <SpeakerSlashIcon size={ICON_SM} weight={ICON_WEIGHT} className="text-muted"/>
       ) : (
         <SpeakerHighIcon size={ICON_SM} weight={ICON_WEIGHT} />
       )}

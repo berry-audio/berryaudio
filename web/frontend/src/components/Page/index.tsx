@@ -43,7 +43,7 @@ const Page = ({
 
   return (
     <div className="h-full overflow-auto">
-      <div className="flex justify-between h-[50px]">
+      <div className="flex justify-between h-12">
         <div
           className={`pl-4 flex items-center ${
             centerComponent ? "w-1/3" : "sm:w-3/3"
@@ -60,7 +60,7 @@ const Page = ({
           )}
           {title && (
             <h2
-              className={`text-2xl ${backButton && "ml-2"} font-light dark:text-white`}
+              className={`text-2xl ${backButton && "ml-2"} font-light `}
             >
               <TruncateText>{title}</TruncateText>
             </h2>

@@ -34,7 +34,7 @@ class ShairportsyncExtension(Actor):
         self._elapsed_timer_count = 0
         self._pend = False
         self._name = self._config['system']['hostname']
-        self._device = self._config['playback']['output_device']
+        self._device = self._config['mixer']['output_audio']
         self._source_active = False
 
 
@@ -313,7 +313,7 @@ class ShairportsyncExtension(Actor):
                         self._elapsed_timer_count = int(position_ms / 1000)
 
                         if self._source_active:
-                            self._core.send(event="track_position_updated", time_position=position_ms)
+                            self._core.send(target="web", event="track_position_updated", time_position=position_ms)
                             self._core._request("playback.set_time_position", position_ms=position_ms)
                             self._core._request("playback.set_metadata", tl_track=self._tl_track)
                         

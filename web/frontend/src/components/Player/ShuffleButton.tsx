@@ -50,7 +50,7 @@ const ShuffleButton = () => {
     const iconClass =
       shuffleMode === SHUFFLE_MODE.SHUFFLE_OFF
         ? ""
-        : "text-yellow-700";
+        : "text-primary";
 
     return (
       <span className={iconClass}>

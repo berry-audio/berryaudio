@@ -105,7 +105,7 @@ export interface MediaPlayer {
 }
 
 export interface Source {
-  type: string;
+  type?: string;
   controls?: string[];
   state?: {
     connected?: boolean;
@@ -118,17 +118,21 @@ export interface Source {
 }
 
 export interface BluetoothDevice {
-  path: string;
-  adapter?: string;
-  name: string;
   address: string;
+  name: string;
+  profile: string | null;
   alias: string;
   icon: string;
-  paired?: boolean;
-  trusted?: boolean;
-  bonded?: boolean;
-  connected?: boolean;
-  class?: number;
+  paired: boolean;
+  trusted: boolean;
+  connected: boolean;
+  soft_volume: boolean;
+  volume: number[];
+  channels: number | null;
+  audio_codec: string | null;
+  sample_rate: number | null;
+  bit_depth: string | null;
+  uuids: string[] | null;
 }
 
 export interface AdapterState {
@@ -141,7 +145,26 @@ export interface AdapterState {
 export interface BluetoothState {
   adapter_state: AdapterState;
   device_connected: undefined | {};
-  devices_available: BluetoothDevice[];
+  devices: BluetoothDevice[];
+}
+
+export interface SnapcastServer {
+  service_name: string;
+  name: string;
+  ip: string;
+  port: number;
+  connected: boolean;
+  status: "playing" | "idle" | "unavailable";
+}
+
+export interface SnapcastState {
+  status: {
+    groups?: [];
+    server?: {};
+    streams?: [];
+  };
+  servers: SnapcastServer[];
+  dragging: boolean;
 }
 
 export interface StorageDevice {
@@ -258,10 +281,14 @@ export type ViewMode = "list" | "grid";
 export interface PcmDevice {
   device: string;
   name: string;
-  channels_min: number;
-  channels_max: number;
-  formats: string[];
-  supported_rates: string[];
+  channels_min?: number;
+  channels_max?: number;
+  formats?: string[];
+  supported_rates?: string[];
+  card_name: string;
+  card_index: number;
+  mixer_controls: string[];
+  description: string;
 }
 
 export interface SelectOption {

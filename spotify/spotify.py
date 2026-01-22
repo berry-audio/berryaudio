@@ -16,6 +16,12 @@ librespot_path = "/usr/local/bin/librespot"
 on_event_path = Path(__file__).parent / "events.py"
 
 class SpotifyExtension(Actor):
+    default_config = {
+        "bitrate": 320,
+        "bit_depth": "S16",
+        "volume_default": 100,
+        "volume_normalization": True,
+    }
     def __init__(self, core, db, config):
         super().__init__()
         self._core = core
@@ -27,14 +33,15 @@ class SpotifyExtension(Actor):
         self._timer_running = True
         self._timer_paused = False
         self._elapsed_timer_count = 0
-        self._bitrate = "320"
+        self._bitrate = str(self._config['spotify']['bitrate'])
         self._sample_rate = 44100
-        self._initial_volume = "100"
-        self._bit_depth = "S16"
+        self._initial_volume = str(self._config['spotify']['volume_default'])
+        self._volume_normalization = self._config['spotify']['volume_normalization']
+        self._bit_depth = self._config['spotify']['bit_depth']
         self._audio_codec = "Ogg"
         self._name = self._config['system']['hostname']
         self._backend = "alsa"
-        self._device = self._config['playback']['output_device']
+        self._device = self._config['mixer']['output_audio']
         self._source = Source(type='spotify', controls=[], state={'connected': False}) 
         self._source_active = False
 
@@ -93,6 +100,7 @@ class SpotifyExtension(Actor):
                 self._source.state.user_name = event["USER_NAME"]
                 self._source.state.connection_id = event["CONNECTION_ID"]
                 self._source.state.connected = True
+                logger.info(f"Connected to Spotify account: {self._source.state.user_name}")
 
             if event["PLAYER_EVENT"] in ('session_disconnected'):
                 if "connection_id" in self._source.state:
@@ -102,6 +110,7 @@ class SpotifyExtension(Actor):
                 await self._meta_init()
                 await self._core.request("playback.stop_playback")
                 await self._core.request("source.update_source", source=self._source)
+                logger.warning(f"Disconnected from Spotify account: {self._source.state.user_name}")
                 
             if event["PLAYER_EVENT"] in ('session_client_changed'):
                 self._source.state.name = self._source.state.user_name #event["CLIENT_NAME"] not available anymore
@@ -117,18 +126,18 @@ class SpotifyExtension(Actor):
 
             if event["PLAYER_EVENT"] in ('seeked', 'position_correction'):
                 await self._core.request("playback.set_time_position", position_ms=int(event["POSITION_MS"]))    
-                self._core.send(event="track_position_updated", time_position=int(event["POSITION_MS"]))
+                self._core.send(target="web", event="track_position_updated", time_position=int(event["POSITION_MS"]))
 
             if event["PLAYER_EVENT"] in ('playing'):
                 await self._resume_timer()
                 await self._core.request("playback.set_state", state=PlaybackState.PLAYING)
-                self._core.send(event="track_playback_resumed", tl_track=self._tl_track, time_position=int(event["POSITION_MS"]))
+                self._core.send(target="web", event="track_playback_resumed", tl_track=self._tl_track, time_position=int(event["POSITION_MS"]))
 
             if event["PLAYER_EVENT"] in ('paused'):
                 await self._pause_timer()
                 await self._core.request("playback.set_state", state=PlaybackState.PAUSED)
                 await self._core.request("playback.set_time_position", position_ms=int(event["POSITION_MS"]))
-                self._core.send(event="track_playback_paused", tl_track=self._tl_track, time_position=int(event["POSITION_MS"]))                    
+                self._core.send(target="web", event="track_playback_paused", tl_track=self._tl_track, time_position=int(event["POSITION_MS"]))                    
 
             if event["PLAYER_EVENT"] in ('end_of_track', 'unavailable', 'preload_next', 'preloading', 'loading', 'stopped'):
                 pass # TODO
@@ -164,7 +173,7 @@ class SpotifyExtension(Actor):
                 self._tl_track = TlTrack(0, track=track)
                 await self._start_timer()
                 await self._core.request("playback.set_metadata", tl_track=self._tl_track)
-                self._core.send(event="track_playback_started", tl_track=self._tl_track)
+                self._core.send(target="web", event="track_playback_started", tl_track=self._tl_track)
 
             
     def _librespot_init(self):
@@ -178,6 +187,7 @@ class SpotifyExtension(Actor):
                 "--backend", self._backend,
                 "--onevent", on_event_path,
                 "--initial-volume", self._initial_volume,
+                "--enable-volume-normalisation" if self._volume_normalization else "",
                 "--device-type", "avr",
                 "--device", self._device,
             ]

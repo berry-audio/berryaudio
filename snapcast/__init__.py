@@ -1,0 +1,1 @@
+from .snapcast import SnapcastExtension as Extension

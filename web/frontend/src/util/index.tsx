@@ -91,7 +91,10 @@ export const getCodecName = (format: string) => {
     | "MPEG-1 Layer 2 (MP2)"
     | "MPEG-4 AAC"
     | "MPEG-2 AAC"
-    | "Free Lossless Audio Codec (FLAC)";
+    | "Free Lossless Audio Codec (FLAC)"
+    | "Opus (low-latency lossy audio codec)"
+    | "Ogg Opus (Opus audio in Ogg container)"
+    | "Ogg Vorbis (lossy audio codec)";
 
   const mapping: Record<CodecFormat, string> = {
     "DSD (Direct Stream Digital), least significant bit first, planar": "DSD",
@@ -102,6 +105,9 @@ export const getCodecName = (format: string) => {
     "MPEG-4 AAC": "AAC",
     "MPEG-2 AAC": "AAC",
     "Free Lossless Audio Codec (FLAC)": "FLAC",
+    "Opus (low-latency lossy audio codec)": "Opus",
+    "Ogg Opus (Opus audio in Ogg container)": "Opus",
+    "Ogg Vorbis (lossy audio codec)": "Ogg Vorbis",
   };
 
   return mapping[format as CodecFormat] || format;
@@ -113,13 +119,12 @@ export const getCodecName = (format: string) => {
 export const getSourceName = (type: string) => {
   if (!type) return "Unknown";
 
-  type SourceType = "bluetooth" | "spotify" | "shairportsync" | "none";
+  type SourceType = "bluetooth" | "spotify" | "shairportsync";
 
   const mapping: Record<SourceType, string> = {
     bluetooth: "Bluetooth",
     spotify: "Spotify Connect",
     shairportsync: "Airplay",
-    none: " ",
   };
 
   return mapping[type as SourceType] || type;
@@ -252,3 +257,32 @@ export const getNetworkDeviceName = (device: string) => {
     </>
   );
 };
+
+/**
+ * Converts a Unix timestamp (in seconds) into a human-readable relative time.
+ * @param unixSeconds - Unix timestamp in seconds (e.g. Snapcast timestamp)
+ * @returns Human-readable relative time string
+ */
+export const timeAgo = (unixSeconds: number): string => {
+  const nowMs = Date.now();
+  const thenMs = unixSeconds * 1000;
+
+  const diffSeconds = Math.floor((nowMs - thenMs) / 1000);
+
+  if (diffSeconds < 0) return "in the future";
+  if (diffSeconds < 5) return "now";
+  if (diffSeconds < 60) return "few seconds ago";
+
+  const minutes = Math.floor(diffSeconds / 60);
+  if (minutes < 60) {
+    return `${minutes} minute${minutes !== 1 ? "s" : ""} ago`;
+  }
+
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) {
+    return `${hours} hour${hours !== 1 ? "s" : ""} ago`;
+  }
+
+  const days = Math.floor(hours / 24);
+  return `${days} day${days !== 1 ? "s" : ""} ago`;
+}

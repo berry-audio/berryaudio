@@ -30,7 +30,9 @@ const DialogDeletePlaylist = ({ item }: { item: Ref }) => {
       buttonLoading={buttonLoading}
       buttonOnClick={onClickDeletePlaylist}
     >
+      <span className="text-secondary">
         Are you sure you want to delete playlist <i>{item.name}</i>?
+      </span>
     </Modal>
   );
 };

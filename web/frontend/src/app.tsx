@@ -18,8 +18,11 @@ import Radio from "./views/Radio";
 import Playlists from "./views/Playlist";
 import SettingsGeneral from "./views/Settings/SettingsGeneral";
 import SettingsLibrary from "./views/Settings/SettingsLibrary";
-import SettingsBluetooth from "./views/Settings/SettingsBluetooth";
 import SettingsNetwork from "./views/Settings/SettingsNetwork";
+import SettingsCamillaDsp from "./views/Settings/SettingsCamillaDsp";
+import Snapcast from "./views/Snapcast";
+import SettingsSnapcast from "./views/Settings/SettingsSnapcast";
+import Bluetooth from "./views/Bluetooth";
 
 const App = () => {
   return (
@@ -29,9 +32,10 @@ const App = () => {
               <Layout>
                 <Routes key={location.pathname}>
                   <Route path="/" element={<Start />} />
-                  <Route path="/bluetooth" element={<Start />} />
+                  <Route path="/bluetooth" element={<Bluetooth />} />
                   <Route path="/spotify" element={<Start />} />
                   <Route path="/shairportsync" element={<Start />} />
+                  <Route path="/multiroom" element={<Snapcast />} />
                   <Route path="/queue" element={<Queue />} />
                   <Route path="/playlist/:id?" element={<Playlists />} />
                   <Route path="/library/:view?/:id?" element={<Local />} />
@@ -41,8 +45,10 @@ const App = () => {
                   <Route path="/settings/about/" element={<SettingsAbout />} />
                   <Route path="/settings/general/" element={<SettingsGeneral />} />
                   <Route path="/settings/library/" element={<SettingsLibrary />} />
-                  <Route path="/settings/bluetooth/" element={<SettingsBluetooth />} />
+                  <Route path="/settings/bluetooth/" element={<Bluetooth />} />
                   <Route path="/settings/network/" element={<SettingsNetwork />} />
+                  <Route path="/settings/dsp/" element={<SettingsCamillaDsp />} />
+                  <Route path="/settings/multiroom/" element={<SettingsSnapcast />} />
                 </Routes>
               </Layout>
           </Router>

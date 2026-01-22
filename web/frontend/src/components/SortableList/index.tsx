@@ -91,7 +91,7 @@ export default function SortableList({
                     {...provided.dragHandleProps}
                     className={`overflow-hidden md:overflow-visible ${
                       snapshot.isDragging
-                        ? "bg-white dark:bg-neutral-950 rounded-md"
+                        ? "bg-popover rounded-md"
                         : ""
                     }`}
                   >

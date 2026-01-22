@@ -9,19 +9,7 @@ import Spinner from "@/components/Spinner";
 const ButtonPlayAll = ({ item }: { item: Ref }) => {
   const { handlePlayNow, loading } = usePlayNow();
 
-  return (
-    <ButtonIcon onClick={() => handlePlayNow(item)}>
-      {loading ? (
-        <Spinner />
-      ) : (
-        <PlayIcon
-          weight={ICON_WEIGHT}
-          size={ICON_SM}
-          className="dark:text-white text-black"
-        />
-      )}
-    </ButtonIcon>
-  );
+  return <ButtonIcon onClick={() => handlePlayNow(item)}>{loading ? <Spinner /> : <PlayIcon weight={ICON_WEIGHT} size={ICON_SM} />}</ButtonIcon>;
 };
 
 export default ButtonPlayAll;
