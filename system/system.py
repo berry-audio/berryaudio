@@ -9,49 +9,28 @@ import socket
 import threading
 import netifaces
 
-from tzlocal import get_localzone
 from datetime import datetime
 from zoneinfo import ZoneInfo
 from core.actor import Actor
 
-
-logging.getLogger("tzlocal").setLevel(logging.WARNING)
-
-tz = get_localzone()
 logger = logging.getLogger(__name__)
 
 
-def get_timezone():
-    try:
-        tz = get_localzone()
-        timezone_name = tz.key
-    except Exception:
-        try:
-            with open("/etc/timezone") as f:
-                timezone_name = f.read().strip()
-        except FileNotFoundError:
-            timezone_name = ""
-    return timezone_name
-
-
-def get_hostname():
-    return socket.gethostname() or "berryaudio"
-
-
 class SystemExtension(Actor):
-    default_config = {
-        "hostname": get_hostname(),
-        "timezone": get_timezone(),
-    }
-
-    def __init__(self, core, db, config):
+    def __init__(self, name, core, db, config):
         super().__init__()
+        self._name = name
         self._core = core
         self._db = db
         self._config = config
         self._thread = None
         self._stop_event = threading.Event()
         self._is_standby = True
+
+    async def on_config_update(self, config):
+        updated_config = config[self._name]
+        if "hostname" in updated_config:
+            self.on_set_hostname(updated_config.get("hostname"))
 
     async def on_start(self):
         self._thread = threading.Thread(target=self.send_time_update, daemon=True)

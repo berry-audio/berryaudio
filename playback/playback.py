@@ -10,11 +10,13 @@ logger = logging.getLogger(__name__)
 
 
 class PlaybackExtension(Actor):
-    def __init__(self, core, db, config):
+    def __init__(self, name, core, db, config):
         super().__init__()
+        self._name = name
         self._core = core
         self._db = db
         self._config = config
+        self._output_audio = self._config["mixer"]["output_audio"]
         self._state = PlaybackState.STOPPED
         self._playing = False
         self._buffering = False
@@ -39,7 +41,7 @@ class PlaybackExtension(Actor):
         self._capsfilter = Gst.ElementFactory.make("capsfilter", "caps")
         self._sink = Gst.ElementFactory.make("alsasink", "sink")
 
-        self._sink.set_property("device", self._config["mixer"]["output_audio"])
+        self._sink.set_property("device", self._output_audio)
         self._sink.set_property("sync", True)
         self._sink.set_property("buffer-time", 500000)  # 500 ms buffer, microseconds
 

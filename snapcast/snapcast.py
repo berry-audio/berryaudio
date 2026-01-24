@@ -32,22 +32,19 @@ SNAPSERVER_CONFIG_PATH = Path(__file__).parent / "snapserver.conf"
 
 
 class SnapcastExtension(Actor):
-    default_config = {
-        "capture_device": "hw:Loopback,0,1",
-        "playback_device": "plughw:Loopback,1,1",
-        "server": True,
-        "codec": "flac",
-        "chunk": 20,
-        "buffer": 500,
-    }
-
-    def __init__(self, core, db, config):
+    def __init__(self, name, core, db, config):
         super().__init__()
-        self._loop = asyncio.get_running_loop()
+        self._name = name
         self._core = core
         self._db = db
         self._config = config
-        self._local_hostname = socket.gethostname()
+        self._device = self._config["mixer"]["output_audio"]
+        self._server_enabled = self._config["snapcast"]["server"]
+        self._server_playback_device = self._config["snapcast"]["playback_device"]
+        self._server_codec = self._config["snapcast"]["codec"]
+        self._server_chunk = self._config["snapcast"]["chunk"]
+        self._server_buffer = self._config["snapcast"]["buffer"]
+        self._hostname = self._config["system"]["hostname"]
         self._proc_snapclient = None
         self._proc_snapserver = None
         self._prev_server = None
@@ -57,12 +54,6 @@ class SnapcastExtension(Actor):
         self._server_list = None
         self._reader: asyncio.StreamReader | None = None
         self._writer: asyncio.StreamWriter | None = None
-        self._device = self._config["mixer"]["output_audio"]
-        self._server_enabled = self._config["snapcast"]["server"]
-        self._server_playback_device = self._config["snapcast"]["playback_device"]
-        self._server_codec = self._config["snapcast"]["codec"]
-        self._server_chunk = self._config["snapcast"]["chunk"]
-        self._server_buffer = self._config["snapcast"]["buffer"]
         self.servers = {}
         self.jsonrpc_timeout = 5
         self._connected = False
@@ -82,6 +73,7 @@ class SnapcastExtension(Actor):
             ),
         )
         self._zc_tasks = set()
+        self._loop = asyncio.get_running_loop()
 
     async def on_start_service(self):
         await self._core.request("playback.set_metadata", tl_track=self._tl_track)
@@ -172,7 +164,7 @@ class SnapcastExtension(Actor):
                 info.server.rstrip(".") if info.server else "Unknown"
             ).removesuffix(".local")
 
-            # if self._local_hostname == hostname:
+            # if self._hostname == hostname:
             #     return
 
             self.servers[service_name] = {
@@ -311,10 +303,14 @@ class SnapcastExtension(Actor):
                 SNAPSERVER_PATH,
                 "-c",
                 SNAPSERVER_CONFIG_PATH,
-                "--stream.codec", self._server_codec,
-                "--stream.chunk_ms", str(self._server_chunk),
-                "--stream.buffer", str(self._server_buffer),
-                "--stream.source", f"alsa://?name=Loopback&device={self._server_playback_device}&devicename=snapcast",
+                "--stream.codec",
+                self._server_codec,
+                "--stream.chunk_ms",
+                str(self._server_chunk),
+                "--stream.buffer",
+                str(self._server_buffer),
+                "--stream.source",
+                f"alsa://?name=Loopback&device={self._server_playback_device}&devicename=snapcast",
             ]
 
             self._proc_snapserver = subprocess.Popen(
@@ -609,7 +605,7 @@ class SnapcastExtension(Actor):
 
                 client = params.get("client", {})
                 host = client.get("host", {})
-                name = host.get("name", self._local_hostname)
+                name = host.get("name", self._hostname)
                 ip = host.get("ip", self._server)
                 os = host.get("os", "unknown")
 

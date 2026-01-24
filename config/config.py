@@ -1,19 +1,22 @@
 import logging
+
 from core.actor import Actor
 
 logger = logging.getLogger(__name__)
 
+
 class ConfigExtension(Actor):
-    def __init__(self, core, db, config):
+    def __init__(self, name, core, db, config):
         super().__init__()
+        self._name = name
         self._core = core
         self._db = db
         self._config = config
 
     async def on_start(self):
-        config = self._db.get_config()    
+        config = self._db.get_config()
         logger.info(config)
-        
+
     async def on_event(self, message):
         pass
 
@@ -21,11 +24,10 @@ class ConfigExtension(Actor):
         pass
 
     async def on_set(self, config):
-        hostname = config.get('system',{}).get('hostname', None)
-        if hostname:
-            await self._core.request("system.set_hostname", hostname=hostname)
-        logger.info(config)
+        for ext in config:
+            self._core._request(f"{ext}.config_update", config=config)
         self._db.set_config(config)
+        logger.info(config)
         return True
 
     def on_get(self):

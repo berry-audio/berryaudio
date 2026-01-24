@@ -1,0 +1,4 @@
+bitrate: 320
+bit_depth: S16
+volume_default: 100
+volume_normalization: true

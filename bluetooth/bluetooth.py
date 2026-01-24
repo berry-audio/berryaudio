@@ -46,24 +46,25 @@ MODE_RX = "AD2P-sink"
 
 
 class BluetoothExtension(Actor):
-    def __init__(self, core, db, config):
+    def __init__(self, name, core, db, config):
         super().__init__()
-        self._loop = asyncio.get_running_loop()
+        self._name = name
         self._core = core
         self._db = db
         self._config = config
+        self._hostname = self._config["system"]["hostname"]
+        self._device_playback = self._config["mixer"]["output_audio"]
+        self._output_device = self._config["mixer"]["output_device"]
+        self._volume_default = self._config["mixer"]["volume_default"]
         self._mode = MODE_RX
         self._interface_name = None
         self._devices = []
         self._track_mem = None
-        self._volume = 0
         self._tl_track = TlTrack(0, track=Track())
-        self._name = self._config["system"]["hostname"]
-        self._device_playback = self._config["mixer"]["output_audio"]
-        self._device_soundcard = self._config["mixer"]["output_device"]
         self._proc_aplay = None
         self._proc_agent = None
-        self._source = Source(type="bluetooth", controls=[], state={"connected": False})
+        self._source = Source(type=self._name, controls=[], state={"connected": False})
+        self._loop = asyncio.get_running_loop()
 
     async def on_start(self):
         if not os.path.exists(BLUETOOTH_AGENT_PATH):
@@ -108,7 +109,7 @@ class BluetoothExtension(Actor):
             elif event == "mixer_mute" and (mute := message.get("mute")) is not None:
                 await self.on_set_volume(
                     address=address,
-                    volume=self._volume,
+                    volume=self._volume_default,
                     soft_volume=BLUEALSA_SOFT_VOLUME,
                     mute=mute,
                 )
@@ -386,7 +387,7 @@ class BluetoothExtension(Actor):
 
         try:
             if state:
-                ADAPTER.Set(BLUEZ_ADAPTER, "Alias", GLib.Variant("s", self._name))
+                ADAPTER.Set(BLUEZ_ADAPTER, "Alias", GLib.Variant("s", self._hostname))
                 ADAPTER.Set(BLUEZ_ADAPTER, "Powered", GLib.Variant("b", True))
                 ADAPTER.Set(BLUEZ_ADAPTER, "Discoverable", GLib.Variant("b", True))
                 ADAPTER.Set(BLUEZ_ADAPTER, "Pairable", GLib.Variant("b", True))
@@ -644,7 +645,7 @@ class BluetoothExtension(Actor):
         address = address.upper()
         volume = max(0, min(100, volume))
         alsa_volume = round(volume * 127 / 100)
-        self._volume = volume
+        self._volume_default = volume
 
         if mute:
             alsa_volume = 0
@@ -736,11 +737,7 @@ class BluetoothExtension(Actor):
 
     async def _update_pcm(self, new_pcm=None):
         """Switches between PCM Device and bluealsa for RX/TX Mode"""
-        if not self._device_soundcard:
-            new_pcm = "null_device"
-
-        if new_pcm is None:
-            new_pcm = self._device_soundcard
+        new_pcm = new_pcm or self._output_device or "null_device"
 
         with open(ASOUNDRC_PATH, "r") as f:
             content = f.read()

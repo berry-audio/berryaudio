@@ -10,21 +10,28 @@ from core.actor import Actor
 from core.types import PlaybackControls
 from core.util.metadata import Metadata
 from core.models import Image, Album, Artist, Track, Source
-from .storage_utils import get_storage_info, list_paths
+from .utils import get_storage_info, list_paths
 
 logger = logging.getLogger(__name__)
 
+BASE_DIR = Path(__file__).parent.parent / "web" / "www"
+ALBUM_IMAGES_DIR = BASE_DIR / "images" / "storage"
+ALBUM_IMAGES_WEB_PATH = Path("images") / "storage"
+
 
 class StorageExtension(Actor):
-    def __init__(self, core, db, config):
+    def __init__(self, name, core, db, config):
         super().__init__()
+        self._name = name
         self._core = core
+        self._db = db
+        self._config = config
         self._metadata = Metadata("storage")
         self._proc_mount = None
         self._proc_unmount = None
         self._storages = get_storage_info()
         self._source = Source(
-            type="storage",
+            type=self._name,
             controls=[
                 PlaybackControls.SEEK,
                 PlaybackControls.PLAY,
@@ -58,9 +65,18 @@ class StorageExtension(Actor):
 
     def _build_ref(self, uri: str) -> dict:
         cover_path, tags = self._metadata.extract_cover_and_tags(uri)  # id is full path
+        image_uri = None
+
+        if cover_path:
+            image_full_path = Path(ALBUM_IMAGES_DIR) / cover_path
+            image_web_path = Path(ALBUM_IMAGES_WEB_PATH) / cover_path
+
+            if image_full_path.is_file():
+                image_uri = str(image_web_path)
+
         obj: dict = {
             "uri": f"storage:{uri}",
-            "images": [Image(uri=cover_path or "")],
+            "images": [Image(uri=image_uri)] if image_uri else [],
             "artists": frozenset(),
             "albums": frozenset(),
             "composers": frozenset(),

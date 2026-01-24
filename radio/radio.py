@@ -7,20 +7,21 @@ from core.models import Image, RefType, Album, Artist, Ref, Track, Source
 from core.types import PlaybackControls
 
 logger = logging.getLogger(__name__)
-current_path = Path(__file__).resolve().parent.parent
 
-BASE_DIR = Path(__file__).resolve().parent.parent
-RADIO_IMAGE_DIR = BASE_DIR / "web" / "www" 
-RADIO_IMAGE_URI = "/images/radio/"
+STATIONS_PATH = Path(__file__).parent.parent / "radio" / "stations.json"
+BASE_DIR = Path(__file__).resolve().parent.parent / "web" / "www"
+ALBUM_IMAGES_WEB_PATH = Path("images") / "radio"
 
 
 class RadioExtension(Actor):
-    def __init__(self, core, db, config):
+    def __init__(self, name, core, db, config):
         super().__init__()
+        self._name = name
         self._core = core
         self._db = db
+        self._config = config
         self._source = Source(
-            type="radio",
+            type=self._name,
             controls=[
                 PlaybackControls.SEEK,
                 PlaybackControls.PLAY,
@@ -76,15 +77,8 @@ class RadioExtension(Actor):
         )
 
     def _init_stations(self):
-        stations_path = Path(__file__).parent.parent / "radio" / "stations.json"
-
-        with open(stations_path, "r", encoding="utf-8") as f:
+        with open(STATIONS_PATH, "r", encoding="utf-8") as f:
             radios = json.load(f)
-
-        for r in radios:
-            image = r.get("image")
-            if image:
-                r["image"] = RADIO_IMAGE_URI + image
 
         self._db.executemany(
             """
@@ -108,9 +102,12 @@ class RadioExtension(Actor):
         }
 
         if row.image:
-            image_relative = row.image.lstrip("/")
-            image_path = RADIO_IMAGE_DIR / image_relative
-            obj["images"] = [Image(uri=row.image)] if image_path.is_file() else []
+            image_full_path = BASE_DIR / ALBUM_IMAGES_WEB_PATH / row.image
+            image_path = ALBUM_IMAGES_WEB_PATH / row.image
+
+            obj["images"] = (
+                [Image(uri=str(image_path))] if image_full_path.is_file() else []
+            )
 
         if is_track:
             obj["type"] = RefType.TRACK

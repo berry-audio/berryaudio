@@ -2,7 +2,7 @@ import subprocess
 import alsaaudio
 import re
 
-def get_playback_devices():
+def aplay_devices():
     output = subprocess.check_output(["aplay", "-L"], text=True)
     cards = alsaaudio.cards()
     results = []

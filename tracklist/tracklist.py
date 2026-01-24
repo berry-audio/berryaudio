@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 
 class TracklistExtension(Actor):
-    def __init__(self, core, db, config):
+    def __init__(self, name, core, db, config):
         """
         Initialize the tracklist extension.
         Keeps track of playback options (current queue, repeat, single, random),
@@ -17,8 +17,10 @@ class TracklistExtension(Actor):
         Handles and skips to next track if we have playback errors
         """
         super().__init__()
+        self._name = name
         self._core = core
         self._db = db
+        self._config = config
         self._repeat = False
         self._single = False
         self._random = False

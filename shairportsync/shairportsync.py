@@ -1,8 +1,6 @@
 import logging
 import threading
 import subprocess
-import asyncio
-import socket
 import os
 import time
 
@@ -13,172 +11,173 @@ from core.types import PlaybackState
 
 logger = logging.getLogger(__name__)
 
-shairport_path = "/usr/local/bin/shairport-sync"
-shairport_render_path = "/usr/local/bin/shairport-sync-metadata-reader"
-shairport_config_path = Path(__file__).parent / "shairport-sync.conf"
-shairport_render_tmp = "/tmp/shairport-sync-metadata"
+SHAIRPORT_PATH = "/usr/local/bin/shairport-sync"
+SHAIRPORT_RENDER_PATH = "/usr/local/bin/shairport-sync-metadata-reader"
+SHAIRPORT_RENDER_TMP = "/tmp/shairport-sync-metadata"
+
+SHAIRPORT_CONFIG_PATH = Path(__file__).parent / "shairport-sync.conf"
+ALBUM_IMAGES_DIR = Path(__file__).parent.parent / "web" / "www" / "images" / "shairportsync"
+ALBUM_IMAGES_WEB_PATH = Path("images") / "shairportsync"
+
 
 class ShairportsyncExtension(Actor):
-    def __init__(self, core, db, config):
+    def __init__(self, name, core, db, config):
         super().__init__()
+        self._name = name
         self._core = core
         self._db = db
         self._config = config
+        self._hostname = self._config["system"]["hostname"]
+        self._output_audio = self._config["mixer"]["output_audio"]
         self._proc = None
         self._proc_meta = None
-        self._source = Source(type='shairportsync', controls=[], state={'connected': False}) 
+        self._source = Source(type=self._name, controls=[], state={"connected": False})
         self._tl_track = TlTrack(0, track=Track())
         self._timer = None
         self._timer_running = True
         self._timer_paused = False
         self._elapsed_timer_count = 0
         self._pend = False
-        self._name = self._config['system']['hostname']
-        self._device = self._config['mixer']['output_audio']
+
         self._source_active = False
 
-
     async def on_start(self):
-        if not os.path.exists(shairport_path):
+        if not os.path.exists(SHAIRPORT_PATH):
             logger.error("Shairport service missing")
             return
 
-        if not os.path.exists(shairport_render_path):
+        if not os.path.exists(SHAIRPORT_RENDER_PATH):
             logger.error("Shairport meta service missing")
             return
-        
+
         logger.info("Started")
-        
 
     async def on_event(self, message):
         pass
-
 
     async def on_stop(self):
         await self.on_stop_service()
         logger.info("Stopped")
 
-
     async def on_stop_service(self):
         await self._core.request("playback.clear")
         self._source_active = False
         self._stop_timer()
-        
+
         if self._proc is not None:
             self._proc.terminate()
             self._proc.kill()
 
-        if self._proc_meta is not None:    
+        if self._proc_meta is not None:
             self._proc_meta.terminate()
             self._proc_meta.kill()
 
-        logger.debug('Stopped service')          
+        logger.debug("Stopped service")
         return True
-
 
     async def on_start_service(self):
         self._source_active = True
-        if os.path.exists(shairport_path) and os.path.exists(shairport_render_path):
+        if os.path.exists(SHAIRPORT_PATH) and os.path.exists(SHAIRPORT_RENDER_PATH):
             threading.Thread(target=self._shairportsync_init, daemon=True).start()
             threading.Thread(target=self._shairportsync_meta_init, daemon=True).start()
             self._clean_images_dir()
             self._reset_meta()
-            logger.info(f"Started Shairport Sync with name {self._name} on {self._device}")
+            logger.info(
+                f"Started Shairport Sync with name {self._hostname} on {self._output_audio}"
+            )
         else:
-            logger.error(f"Shairport servics missing")          
-        return True 
-    
+            logger.error(f"Shairport servics missing")
+        return True
 
     def _clean_images_dir(self):
-        image_path = Path(__file__).parent.parent / "web" / "www" / "images" / "shairportsync"
-        if image_path.exists() and image_path.is_dir():
-            for item in image_path.iterdir():
+        if ALBUM_IMAGES_DIR.exists() and ALBUM_IMAGES_DIR.is_dir():
+            for item in ALBUM_IMAGES_DIR.iterdir():
                 try:
                     if item.is_file():
                         item.unlink()
                 except Exception as e:
-                    print(f"Failed to delete {item}: {e}")
+                    logger.warning(f"Failed to delete {item}: {e}")
         else:
-            print(f"Directory does not exist: {image_path}")
-           
-
+            logger.warning(f"Directory does not exist: {ALBUM_IMAGES_DIR}")
 
     def _reset_meta(self):
         """Reset metadata handling"""
         self._tl_track = TlTrack(0, track=Track())
         if self._source_active:
             self._core._request("playback.set_metadata", tl_track=self._tl_track)
-    
 
     def _shairportsync_init(self):
         """Starting shairportsync service"""
         cmd = [
-                shairport_path,
-                "--name",self._name,
-                "-c", shairport_config_path,
-                "--timeout", "120",
-                "--", "-d", self._device,
-                "--metadata-enable",
-                "-v"
-              ]  
+            SHAIRPORT_PATH,
+            "--name",
+            self._hostname,
+            "-c",
+            SHAIRPORT_CONFIG_PATH,
+            "--timeout",
+            "120",
+            "--",
+            "-d",
+            self._output_audio,
+            "--metadata-enable",
+            "-v",
+        ]
         self._proc = subprocess.Popen(
-            cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            bufsize=1 
+            cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1
         )
 
         def log(stream, label):
-            for line in iter(stream.readline, ''):
-                if 'warning' in line:
+            for line in iter(stream.readline, ""):
+                if "warning" in line:
                     logger.warning(line.strip())
-                else:    
+                else:
                     logger.debug(line.strip())
-            stream.close()    
+            stream.close()
 
-        threading.Thread(target=log, args=(self._proc.stdout, "STDOUT"), daemon=True).start()
-        threading.Thread(target=log, args=(self._proc.stderr, "STDERR"), daemon=True).start()
-
+        threading.Thread(
+            target=log, args=(self._proc.stdout, "STDOUT"), daemon=True
+        ).start()
+        threading.Thread(
+            target=log, args=(self._proc.stderr, "STDERR"), daemon=True
+        ).start()
 
     def _shairportsync_meta_init(self):
-        if not os.path.exists(shairport_render_tmp):
-            os.mkfifo(shairport_render_tmp)
-            logger.debug(f"Created FIFO: {shairport_render_tmp}")
+        if not os.path.exists(SHAIRPORT_RENDER_TMP):
+            os.mkfifo(SHAIRPORT_RENDER_TMP)
+            logger.debug(f"Created FIFO: {SHAIRPORT_RENDER_TMP}")
 
         self._proc_meta = subprocess.Popen(
             [
-                shairport_render_path, 
-                '--raw',
+                SHAIRPORT_RENDER_PATH,
+                "--raw",
             ],
-            stdin=open(shairport_render_tmp, "rb"),
+            stdin=open(SHAIRPORT_RENDER_TMP, "rb"),
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            text=True
+            text=True,
         )
 
         def _update_picture():
-            image_path = Path(__file__).parent.parent / "web" / "www" / "images" / "shairportsync"
-
-            if not image_path.exists():
-                image_path.mkdir(parents=True, exist_ok=True)
+            if not ALBUM_IMAGES_DIR.exists():
+                ALBUM_IMAGES_DIR.mkdir(parents=True, exist_ok=True)
 
             files = [
-                f for f in list(image_path.glob("cover*.jpg")) + list(image_path.glob("cover*.png"))
+                f
+                for f in list(ALBUM_IMAGES_DIR.glob("cover*.jpg"))
+                + list(ALBUM_IMAGES_DIR.glob("cover*.png"))
                 if f.exists()
             ]
 
             if files:
-                picture_file = files[0]
-                picture_uri = (Image(uri=f"/images/shairportsync/{picture_file.name}"),) 
+                image_path = ALBUM_IMAGES_WEB_PATH / files[0].name
+                picture_uri = (Image(uri=str(image_path)),)
             else:
-                picture_uri = () 
+                picture_uri = ()
 
             _tl_track = self._tl_track.track.copy(update={"images": picture_uri})
             self._tl_track = TlTrack(tlid=0, track=_tl_track)
             if self._source_active:
                 self._core._request("playback.set_metadata", tl_track=self._tl_track)
-
 
         def _parse_metadata_line(line: str):
             line = line.strip()
@@ -200,137 +199,162 @@ class ShairportsyncExtension(Actor):
                 hex_val = parts[1].strip()
                 if hex_val.startswith("0x"):
                     try:
-                        val = bytes.fromhex(hex_val[2:]).decode("utf-8", errors="ignore")
+                        val = bytes.fromhex(hex_val[2:]).decode(
+                            "utf-8", errors="ignore"
+                        )
                     except ValueError:
                         val = hex_val  # not valid hex
                 else:
                     val = hex_val
-            return meta_type, meta_code, val    
+            return meta_type, meta_code, val
 
         # Start processing raw data here
         for line in self._proc_meta.stdout:
-            
+
             try:
                 meta_type, meta_code, val = _parse_metadata_line(line)
-                logger.debug(f"{meta_type}, {meta_code}, {val}") 
+                logger.debug(f"{meta_type}, {meta_code}, {val}")
 
-                if(meta_code == 'conn'): #connected
+                if meta_code == "conn":  # connected
                     self._source.state.connection_id = val
 
-                if(meta_code == 'disc'): #disconnected
+                if meta_code == "disc":  # disconnected
                     self._source.state.connection_id = val
                     self._source.state.connected = False
 
                     if self._source_active:
-                        self._core._request("playback.set_state", state=PlaybackState.STOPPED)
+                        self._core._request(
+                            "playback.set_state", state=PlaybackState.STOPPED
+                        )
                         self._core._request("playback.set_time_position", position_ms=0)
                         self._core._request("source.update_source", source=self._source)
                     self._stop_timer()
                     self._reset_meta()
 
-                if(meta_code == 'ofps'): #sample rate
-                    _tl_track = self._tl_track.track.copy(update={"sample_rate": int(val), "audio_codec": "PCM"})
+                if meta_code == "ofps":  # sample rate
+                    _tl_track = self._tl_track.track.copy(
+                        update={"sample_rate": int(val), "audio_codec": "PCM"}
+                    )
                     self._tl_track = TlTrack(tlid=0, track=_tl_track)
-                
-                if(meta_code == 'ofmt'): #bit dept
+
+                if meta_code == "ofmt":  # bit dept
                     _tl_track = self._tl_track.track.copy(update={"bit_depth": val})
                     self._tl_track = TlTrack(tlid=0, track=_tl_track)
 
-                if(meta_code == 'snam'): #connecting device name
+                if meta_code == "snam":  # connecting device name
                     self._source.state.connected = True
                     self._source.state.name = val
                     self._start_timer()
                     self._pause_timer()
 
                     if self._source_active:
-                        self._core._request("playback.set_state", state=PlaybackState.STOPPED)
+                        self._core._request(
+                            "playback.set_state", state=PlaybackState.STOPPED
+                        )
                         self._core._request("playback.set_time_position", position_ms=0)
                         self._core._request("source.update_source", source=self._source)
 
-                if(meta_code == 'cmac'):  #connecting device mac
+                if meta_code == "cmac":  # connecting device mac
                     self._source.state.address = val
 
-                if(meta_code == 'mdst'): #sequence of metadata is about to start
-                    pass # TODO
-                    
-                if(meta_code == 'asal'):
-                    _tl_track = self._tl_track.track.copy(update={"album": Album(name = val)})
+                if meta_code == "mdst":  # sequence of metadata is about to start
+                    pass  # TODO
+
+                if meta_code == "asal":
+                    _tl_track = self._tl_track.track.copy(
+                        update={"album": Album(name=val)}
+                    )
                     self._tl_track = TlTrack(tlid=0, track=_tl_track)
 
-                if(meta_code == 'asar'):
-                    _tl_track = self._tl_track.track.copy(update={"artists": frozenset([Artist(name=val)])})
+                if meta_code == "asar":
+                    _tl_track = self._tl_track.track.copy(
+                        update={"artists": frozenset([Artist(name=val)])}
+                    )
                     self._tl_track = TlTrack(tlid=0, track=_tl_track)
 
-                if(meta_code == 'minm'):
+                if meta_code == "minm":
                     _tl_track = self._tl_track.track.copy(update={"name": val})
                     self._tl_track = TlTrack(tlid=0, track=_tl_track)
 
-                if(meta_code == 'mden'): #sequence of metadata has ended
+                if meta_code == "mden":  # sequence of metadata has ended
                     # self._clean_images_dir()
                     if self._source_active:
-                        self._core._request("playback.set_metadata", tl_track=self._tl_track)
+                        self._core._request(
+                            "playback.set_metadata", tl_track=self._tl_track
+                        )
 
-                if(meta_code == 'prsm'): #play stream resume
+                if meta_code == "prsm":  # play stream resume
                     self._resume_timer()
                     if self._source_active:
-                        self._core._request("playback.set_state", state=PlaybackState.PLAYING)
+                        self._core._request(
+                            "playback.set_state", state=PlaybackState.PLAYING
+                        )
 
-                if(meta_code == 'pbeg'): #play stream begin
-                    pass # TODO
-                
-                if(meta_code == 'pend'): #play stream end
+                if meta_code == "pbeg":  # play stream begin
+                    pass  # TODO
+
+                if meta_code == "pend":  # play stream end
                     self._pause_timer()
                     if self._source_active:
-                        self._core._request("playback.set_state", state=PlaybackState.PAUSED)
-                
-                if(meta_code == 'aend'): #play stream end
-                    pass # TODO
+                        self._core._request(
+                            "playback.set_state", state=PlaybackState.PAUSED
+                        )
 
-                if(meta_code == 'pfls'): #play stream flush
-                    pass # TODO
-                
-                if(meta_code == 'pcst'): #picture has been sent
-                    pass # TODO
+                if meta_code == "aend":  # play stream end
+                    pass  # TODO
 
-                if(meta_code == 'PICT'):
+                if meta_code == "pfls":  # play stream flush
+                    pass  # TODO
+
+                if meta_code == "pcst":  # picture has been sent
+                    pass  # TODO
+
+                if meta_code == "PICT":
                     if val == None:
-                         pass # TODO
+                        pass  # TODO
 
-                if(meta_code == 'pcen'): #picture has been sent
+                if meta_code == "pcen":  # picture has been sent
                     _update_picture()
 
-                    
-                if(meta_code == 'prgr'): #play sequence, the current play point and the end of the play sequence
+                if (
+                    meta_code == "prgr"
+                ):  # play sequence, the current play point and the end of the play sequence
                     position_values = val.split("/")
                     if len(position_values) == 3:
                         start, current, end = map(int, position_values)
-                        
+
                         position_ms = int(((current - start) / 44100) * 1000)
                         track_length_ms = int(((end - start) / 44100) * 1000)
 
-                        _tl_track = self._tl_track.track.copy(update={"length": track_length_ms})
+                        _tl_track = self._tl_track.track.copy(
+                            update={"length": track_length_ms}
+                        )
                         self._tl_track = TlTrack(tlid=0, track=_tl_track)
                         self._elapsed_timer_count = int(position_ms / 1000)
 
                         if self._source_active:
-                            self._core.send(target="web", event="track_position_updated", time_position=position_ms)
-                            self._core._request("playback.set_time_position", position_ms=position_ms)
-                            self._core._request("playback.set_metadata", tl_track=self._tl_track)
-                        
+                            self._core.send(
+                                target="web",
+                                event="track_position_updated",
+                                time_position=position_ms,
+                            )
+                            self._core._request(
+                                "playback.set_time_position", position_ms=position_ms
+                            )
+                            self._core._request(
+                                "playback.set_metadata", tl_track=self._tl_track
+                            )
 
             except Exception:
-                raise RuntimeError(f"Error init meta info")     
-               
-                    
+                raise RuntimeError(f"Error init meta info")
+
     def _pause_timer(self):
         """Pause track elpased timer"""
         self._timer_paused = True
 
-
     def _resume_timer(self):
         """Resume track elpased timer"""
         self._timer_paused = False
-
 
     def _stop_timer(self):
         """Stop track elpased timer"""
@@ -341,7 +365,6 @@ class ShairportsyncExtension(Actor):
             self._timer.join()
         self._timer = None
 
-
     def _start_timer(self):
         """Start track elpased timer"""
         self._timer_running = True
@@ -349,14 +372,16 @@ class ShairportsyncExtension(Actor):
         self._timer = threading.Thread(target=self._elapsed_timer, daemon=True)
         self._timer.start()
 
-
     def _elapsed_timer(self):
-        """Set track position every second """
+        """Set track position every second"""
         while self._timer_running:
             if not self._timer_paused:
                 self._elapsed_timer_count += 1
                 if self._source_active:
-                    self._core._request("playback.set_time_position", position_ms=int(self._elapsed_timer_count * 1000))
-                time.sleep(1) 
+                    self._core._request(
+                        "playback.set_time_position",
+                        position_ms=int(self._elapsed_timer_count * 1000),
+                    )
+                time.sleep(1)
             else:
-                time.sleep(0.1)       
+                time.sleep(0.1)

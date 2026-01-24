@@ -25,13 +25,15 @@ except Exception:
 
 logger = logging.getLogger(__name__)
 
+IMAGES_BASE_DIR = Path(__file__).parent.parent.parent / "web" / "www" / "images"
+
 class Metadata:
     def __init__(self, cover_dir: str):
         if not cover_dir: 
             #must be a folder in web/www/images/<folder>
             raise ValueError("cover_dir must be provided and cannot be empty.")
         self.cover_dir = cover_dir
-        self.cover_dir_path = Path(__file__).resolve().parent.parent.parent / 'web' / 'www' / 'images' / cover_dir
+        self.cover_dir_full_path = IMAGES_BASE_DIR / cover_dir
         
 
     def _save_cover_bytes(self, data: bytes, mime: Optional[str]) -> Optional[str]:
@@ -49,13 +51,13 @@ class Metadata:
                 elif "bmp" in m:
                     ext = ".bmp"
                 # fall through keeps .jpg if unknown
-            os.makedirs(self.cover_dir_path, exist_ok=True)
+            os.makedirs(self.cover_dir_full_path, exist_ok=True)
             uid = uuid.uuid4().hex  # long unique id
             fname = uid + ext
-            out_path = os.path.join(self.cover_dir_path, fname)
+            out_path = os.path.join(self.cover_dir_full_path, fname)
             with open(out_path, "wb") as f:
                 f.write(data)
-            return f"/images/{self.cover_dir}/{fname}"
+            return fname
 
 
     def extract_cover_and_tags(self, fullpath: str) -> Tuple[Optional[str], Dict[str, Any]]:

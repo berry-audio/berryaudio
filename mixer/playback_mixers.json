@@ -1,0 +1,50 @@
+[
+  {
+    "device": "hw:CARD=wm8960soundcard,DEV=0",
+    "name": "Respeaker 2-Mics Pi Hat",
+    "description": "WM8960 codec",
+    "volume_control_mixer": "Headphone",
+    "supports_hw_volume": true,
+    "supports_hw_mute": false,
+    "channel_count": 2,
+    "supported_sample_rates": [44100, 48000],
+    "supported_formats": ["S16_LE", "S24_LE"],
+    "dtoverlay": "wm8960-soundcard"
+  },
+  {
+    "device": "hw:CARD=Headphones,DEV=0",
+    "name": "Headphones",
+    "description": "Raspberry Pi Builtin 3.5mm Jack",
+    "volume_control_mixer": "PCM",
+    "supports_hw_volume": true,
+    "supports_hw_mute": true,
+    "channel_count": 2,
+    "supported_sample_rates": [48000],
+    "supported_formats": ["S16_LE"],
+    "dtoverlay": null
+  },
+  {
+    "device": "hw:CARD=iqaudio-dacplus,DEV=0",
+    "name": "PCM5122 Audio Board (A)",
+    "description": "Waveshare PCM5122 codec",
+    "volume_control_mixer": "Digital",
+    "supports_hw_volume": true,
+    "supports_hw_mute": true,
+    "channel_count": 2,
+    "supported_sample_rates": [44100, 48000, 88200, 96000, 176400, 192000],
+    "supported_formats": ["S16_LE", "S24_LE", "S32_LE"],
+    "dtoverlay": "iqaudio-dacplus"
+  },
+  {
+    "device": "hw:CARD=DAC,DEV=0",
+    "name": "Pi DAC+",
+    "description": "Raspberry Pi PCM5122 DAC",
+    "volume_control_mixer": "Digital",
+    "supports_hw_volume": true,
+    "supports_hw_mute": true,
+    "channel_count": 2,
+    "supported_sample_rates": [44100, 48000, 88200, 96000, 176400, 192000],
+    "supported_formats": ["S16_LE", "S24_LE", "S32_LE"],
+    "dtoverlay": "rpi-dacplus"
+  }
+]

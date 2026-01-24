@@ -13,10 +13,12 @@ logger = logging.getLogger(__name__)
 
 
 class PlaylistExtension(Actor):
-    def __init__(self, core, db, config):
+    def __init__(self, name, core, db, config):
         super().__init__()
+        self._name = name
         self._core = core
         self._db = db
+        self._config = config
 
     async def on_start(self):
         self._init_table()
