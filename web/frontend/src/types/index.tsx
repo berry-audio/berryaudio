@@ -164,7 +164,7 @@ export interface SnapcastState {
     streams?: [];
   };
   servers: SnapcastServer[];
-  dragging: boolean;
+  dragging:boolean;
 }
 
 export interface StorageDevice {
@@ -281,14 +281,15 @@ export type ViewMode = "list" | "grid";
 export interface PcmDevice {
   device: string;
   name: string;
-  channels_min?: number;
-  channels_max?: number;
-  formats?: string[];
-  supported_rates?: string[];
+  channel_count: number;
+  supported_formats?: string[];
+  supported_sample_rates?: string[];
   card_name: string;
   card_index: number;
   mixer_controls: string[];
   description: string;
+  dtoverlay: string;
+  volume_control_mixer: string;
 }
 
 export interface SelectOption {

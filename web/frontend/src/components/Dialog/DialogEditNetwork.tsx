@@ -4,10 +4,10 @@ import { NetworkConnectionInfo } from "@/types";
 import { getNetworkDeviceName } from "@/util";
 import { Input } from "@/components/Form/Input";
 import { useNetworkActions } from "@/hooks/useNetworkActions";
+import { Switch } from "../ui/switch";
 import { DIALOG_EVENTS } from "@/store/constants";
 
 import Modal from "@/components/Modal";
-import Toggle from "../Form/Toggle";
 
 const DialogEditNetwork = ({ item }: { item: NetworkConnectionInfo }) => {
   const dispatch = useDispatch();
@@ -36,14 +36,10 @@ const DialogEditNetwork = ({ item }: { item: NetworkConnectionInfo }) => {
         Changing network settings may cause you to lose access. Please ensure your settings are correct before applying.
       </div>
 
-      <Toggle
-        label="Obtain IP address automatically"
-        onLabel="Auto"
-        offLabel="Manual"
-        defaultValue={method === "auto" ? true : false}
-        className="mb-2"
-        onValueChange={(value) => setMethod(value ? "auto" : "manual")}
-      />
+      <div className="mb-3">
+        <div className="mb-1">Auto using DHCP</div>
+        <Switch value={method === "auto" ? true : false} onChange={(value) => setMethod(value ? "auto" : "manual")} />
+      </div>
 
       <Input
         type="text"

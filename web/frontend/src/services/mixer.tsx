@@ -5,7 +5,7 @@ export const useMixerService = () => {
 
   return {
     getMixerMute: () => request("mixer.get_mute"),
-    getPlaybackDevices: () => request("mixer.get_playback_devices"),
+    getPlaybackDevices: () => request("mixer.get_playback_mixers"),
     setMixerMute: (mute: boolean) => request("mixer.set_mute", { mute }),
     getMixerVolume: () => request("mixer.get_volume"),
     setMixerVolume: (volume: number) =>

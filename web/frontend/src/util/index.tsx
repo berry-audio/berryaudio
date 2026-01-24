@@ -163,7 +163,7 @@ export const arrayToText = (array: []) => {
 
 export const getImage = (imageUri: string) => {
   const isRemote = isHttpUrl(imageUri);
-  return imageUri ? (isRemote ? imageUri : `${SERVER_URL}${imageUri}`) : undefined;
+  return imageUri ? (isRemote ? imageUri : `${SERVER_URL}/${imageUri}`) : undefined;
 };
 
 /**

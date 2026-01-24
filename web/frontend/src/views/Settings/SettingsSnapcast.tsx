@@ -37,7 +37,6 @@ const SettingsSnapcast = () => {
     (async () => {
       const _config = await getConfig();
       form.reset({ ..._config });
-      console.log(_config);
     })();
   }, []);
 

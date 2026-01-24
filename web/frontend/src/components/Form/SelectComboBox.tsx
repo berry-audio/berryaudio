@@ -36,7 +36,7 @@ function SelectComboBox({ items, placeholder, value, onChange }: ComboboxBox) {
           <CommandList>
             <CommandEmpty>No items found.</CommandEmpty>
             <CommandGroup>
-              {items.map((item) => (
+              {items?.map((item) => (
                 <CommandItem
                   key={item.value}
                   value={item.value}

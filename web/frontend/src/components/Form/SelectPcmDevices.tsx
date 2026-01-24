@@ -17,16 +17,24 @@ function SelectPcmDevices({ ...props }: SelectPcmDevicesProps) {
   useEffect(() => {
     const fetchPlaybackDevices = async () => {
       const response = await getPlaybackDevices();
+
       setPcmDevices(response);
     };
     fetchPlaybackDevices();
   }, []);
 
-  const items = pcmDevices.map((device) => ({
-    label: device.card_name,
+  const items = pcmDevices?.map((device) => ({
+    label: device.name,
     value: device.device,
-    description: device.device,
+    description: device.description,
   }));
+
+  const hasCurrentValue = pcmDevices?.some((device: PcmDevice) => device.device === props.value);
+
+  if (!hasCurrentValue) {
+    props.value = null;
+  }
+
   return <SelectComboBox items={items} {...props} />;
 }
 

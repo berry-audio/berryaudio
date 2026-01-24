@@ -27,18 +27,6 @@ export const formSchema = z.object({
         message: "Audio output device is required",
       }),
     volume_default: z.number(),
-    output_audio: z
-      .string()
-      .nullable()
-      .refine((val) => val !== null && val.length > 0, {
-        message: "Audio output internal device is required",
-      }),
-    volume_device: z
-      .string()
-      .nullable()
-      .refine((val) => val !== null && val.length > 0, {
-        message: "Volume device is required",
-      }),
   }),
 });
 
@@ -63,6 +51,7 @@ const SettingsGeneral = () => {
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     setLoading(true);
     await setConfig(values);
+    console.log(values);
     dispatch({ type: DIALOG_EVENTS.DIALOG_REBOOT });
     setLoading(false);
   };
@@ -127,22 +116,6 @@ const SettingsGeneral = () => {
                     <FormLabel className="text-md block font-medium text-muted">Initial Volume</FormLabel>
                     <FormControl>
                       <InputNumber {...field} max={100} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            <div className="mb-6">
-              <FormField
-                control={form.control}
-                name="mixer.volume_device"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-md block font-medium text-muted">Volume control device</FormLabel>
-                    <FormControl>
-                      <SelectPcmDevices placeholder="Select Device" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
