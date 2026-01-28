@@ -42,7 +42,7 @@ Built using **gstreamer**, **python** as server, **reactjs** & **typescript** as
 ## Download
 
 You can download the ready image based on Bookworm OS from the following link
-[berryaudio_v1.1.0.img.zip](http://berryaudio.org/berryaudio_v1.1.0.img.zip)\
+[berryaudio_latest.img.zip](http://berryaudio.org/berryaudio_latest.img.zip)\
 Scroll below to see a list of supported hardware
 
 ## Getting Started
