@@ -47,11 +47,18 @@ Scroll below to see a list of supported hardware
 
 ## Getting Started
 
-Installation guides, SD card flashing instructions, and hardware compatibility details will be shared here.
+Installation guides, SD card flashing instructions, and hardware compatibility & features.
 
-- **Installation & Setup**: [Wiki](https://github.com/berry-audio/berryaudio/wiki/Installation-&-Setup)
-- **Community Forum**: [community.berryaudio.org](https://community.berryaudio.org/)
-- **Website**: [www.berryaudio.org](https://www.berryaudio.org/)
+- [Documentation](https://docs.berryaudio.org/)
+- [Getting Started](https://docs.berryaudio.org/getting-started/introduction.html)
+- [Installation & Setup](https://docs.berryaudio.org/getting-started/installation.html)
+- [Community Forum](https://community.berryaudio.org/)
+- [Website](https://www.berryaudio.org/)
+
+## Supported Hardware
+- [Raspberry Pi Boards](https://docs.berryaudio.org/getting-started/supported-hardware.html#supported-raspberry-pi)
+- [Audio Boards](https://docs.berryaudio.org/getting-started/supported-hardware.html#supported-dac-adc)
+
 
 ## Features
 
@@ -135,22 +142,6 @@ Installation guides, SD card flashing instructions, and hardware compatibility d
 - DLNA
 - Network folder sharing
 - And More ...
-
-## Hardware
-
-### Supported Single Board Computers
-
-- Raspberry pi 4B [Link](https://www.raspberrypi.com/products/raspberry-pi-4-model-b/)
-- Pi Zero 2W [Link](https://www.raspberrypi.com/products/raspberry-pi-zero-2-w/)
-- Have not tested but should work with other Pi Boards
-- If you have tested on any other hardware please feel free to share
-
-### Supported DACs
-
-- DAC+ [Link](https://www.raspberrypi.com/products/dac-plus/)
-- PCM5122 HIFI I2S DAC + [Link](https://www.waveshare.com/pcm5122-audio-board-a.htm)
-- Have not tested but should work with other natively supported DAC boards
-- If you have tested on any other hardware please feel free to share
 
 ## License
 
