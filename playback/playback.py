@@ -117,7 +117,7 @@ class PlaybackExtension(Actor):
                     )
                     self._track = TlTrack(tlid=self._track.tlid, track=_track)
                     self._core.send(
-                        target="web", event="track_meta_updated", tl_track=self._track
+                        target=["web","display"] , event="track_meta_updated", tl_track=self._track
                     )
                 return Gst.PadProbeReturn.REMOVE
 
@@ -181,7 +181,7 @@ class PlaybackExtension(Actor):
                 if _has_changes(self._track, _track):
                     self._track = _track
                     self._core.send(
-                        target="web", event="track_meta_updated", tl_track=self._track
+                        target=["web","display"], event="track_meta_updated", tl_track=self._track
                     )
 
         if t == Gst.MessageType.DURATION_CHANGED:
@@ -214,7 +214,7 @@ class PlaybackExtension(Actor):
                 self._track = TlTrack(tlid=self._track.tlid, track=_track)
                 self._stop()
                 self._core.send(
-                    target="web", event="track_meta_updated", tl_track=self._track
+                    target=["web","display"], event="track_meta_updated", tl_track=self._track
                 )
                 self._core.send(
                     target="web", event="track_playback_error", tl_track=self._track
@@ -234,7 +234,7 @@ class PlaybackExtension(Actor):
             _track = self._track.track.copy(update={"length": self._duration})
             self._track = TlTrack(tlid=self._track.tlid, track=_track)
             self._core.send(
-                target="web", event="track_meta_updated", tl_track=self._track
+                target=["web","display"], event="track_meta_updated", tl_track=self._track
             )
 
     def _start_time_tracking(self):
@@ -275,8 +275,9 @@ class PlaybackExtension(Actor):
             self._playback_uri = playback_uri
             self._track = TlTrack(tlid=tlid, track=get_track)
             self._core.send(
-                target="web", event="track_meta_updated", tl_track=self._track
+                target=["web","display"], event="track_meta_updated", tl_track=self._track
             )
+            
 
         except Exception as e:
             logger.exception(f"Error starting playback for {uri}: {e}")
@@ -388,7 +389,7 @@ class PlaybackExtension(Actor):
             self._track = TlTrack(tlid=0, track=Track())
         else:
             self._track = tl_track
-        self._core.send(target="web", event="track_meta_updated", tl_track=self._track)
+        self._core.send(target=["web","display"], event="track_meta_updated", tl_track=self._track)
         return True
 
     def on_pause(self):

@@ -12,6 +12,18 @@
     "dtoverlay": "wm8960-soundcard"
   },
   {
+    "device": "hw:CARD=sndrpihifiberry,DEV=0",
+    "name": "Hifiberry DAC + ADC",
+    "description": "Hifiberry DAC plus ADC",
+    "volume_control_mixer": "Digital",
+    "supports_hw_volume": true,
+    "supports_hw_mute": true,
+    "channel_count": 2,
+    "supported_sample_rates": [44100, 48000, 88200, 96000, 176400, 192000],
+    "supported_formats": ["S16_LE"],
+    "dtoverlay": "hifiberry-dacplusadc"
+  },
+  {
     "device": "hw:CARD=Headphones,DEV=0",
     "name": "Headphones",
     "description": "Raspberry Pi Builtin 3.5mm Jack",

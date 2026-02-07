@@ -635,7 +635,7 @@ class BluetoothExtension(Actor):
         self,
         address: str,
         volume: int | None = None,
-        soft_volume: bool = False,
+        soft_volume: bool = True,
         mute: bool = False,
     ) -> None:
         """
