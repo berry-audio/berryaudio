@@ -199,7 +199,7 @@ class BluetoothExtension(Actor):
             return
 
         self._core.send(
-            target="web", event="bluetooth_device_connected", device=connected_device
+            target=["web","display"], event="bluetooth_device_connected", device=connected_device
         )
         logger.info(
             f'Bluetooth device connected: {connected_device.get("name")} {connected_device.get("address")} ({self._mode})'
@@ -249,7 +249,7 @@ class BluetoothExtension(Actor):
 
         connected_device = await self.on_device(address)
         self._core.send(
-            target="web", event="bluetooth_device_updated", device=connected_device
+            target=["web","display"], event="bluetooth_device_updated", device=connected_device
         )
 
     async def _handle_disconnected(self, interface_name):
@@ -273,10 +273,14 @@ class BluetoothExtension(Actor):
                     await self._core.request("source.set", type=None)
 
         self._core.send(
-            target="web",
+            target=["web","display"],
             event="bluetooth_device_disconnected",
             device=disconnected_device,
         )
+        self._tl_track = TlTrack(0, track=Track())
+        self._core._request(
+                    "playback.set_metadata", tl_track=self._tl_track
+                )
         logger.info(
             f'Bluetooth device disconnected: {disconnected_device.get("name")} {disconnected_device.get("address")}'
         )
@@ -312,14 +316,14 @@ class BluetoothExtension(Actor):
 
             if "Discoverable" in properties:
                 self._core.send(
-                    target="web",
+                    target=["web","display"],
                     event="bluetooth_state_changed",
                     state=self.on_adapter_get_state(),
                 )
 
             if "Pairable" in properties:
                 self._core.send(
-                    target="web",
+                    target=["web","display"],
                     event="bluetooth_state_changed",
                     state=self.on_adapter_get_state(),
                 )
@@ -600,7 +604,7 @@ class BluetoothExtension(Actor):
             ADAPTER.RemoveDevice(path)
 
             self._core.send(
-                target="web", event="bluetooth_device_removed", device=device_info
+                target=["web","display"], event="bluetooth_device_removed", device=device_info
             )
             logger.info(
                 f"Bluetooth device removed: {device_info.get('name')} {address}"

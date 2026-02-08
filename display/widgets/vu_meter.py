@@ -12,6 +12,8 @@ from luma.core.render import canvas
 logger = logging.getLogger(__name__)
 
 CAVA_FIFO = "/tmp/cava_fifo_vu"
+FONT_STYLE_1 = Path(__file__).parent.parent / "fonts" / "kollection_bitmap.ttf"
+
 
 class WidgetVUMeter:
     def __init__(self, device):
@@ -51,7 +53,6 @@ class WidgetVUMeter:
             return
 
     def cleanup(self, signum=None, frame=None):
-        print("\nCleaning up...")
         self.stop_threads = True
 
         if self.cava_process:
@@ -60,7 +61,6 @@ class WidgetVUMeter:
                 self.cava_process.wait(timeout=2)
             except subprocess.TimeoutExpired:
                 self.cava_process.kill()
-        print("Done!")
         sys.exit(0)
 
     def draw(
@@ -93,9 +93,8 @@ class WidgetVUMeter:
         peak_gap = 2
         hold_frames = 20
 
-        CUSTOM_FONT_PATH = "/home/pi/berryaudio/display/fonts/kollection_bitmap.ttf"
         CUSTOM_FONT_SIZE = 16
-        font = ImageFont.truetype(CUSTOM_FONT_PATH, CUSTOM_FONT_SIZE)
+        font = ImageFont.truetype(FONT_STYLE_1, CUSTOM_FONT_SIZE)
 
         try:
             available_data = b''
@@ -139,11 +138,6 @@ class WidgetVUMeter:
 
         current_levels = np.array([left_level, right_level])
         current_levels = np.clip(current_levels, 0, bar_width)
-
-        if self.frame % 60 == 0:
-            print(f"\nFrame {self.frame}")
-            print(f"  Raw: L={left_raw:3d} R={right_raw:3d}")
-            print(f"  Levels: L={left_level:5.1f} R={right_level:5.1f}")
 
         for i in range(2):
             if current_levels[i] > self.smoothed_levels[i]:

@@ -354,6 +354,15 @@ DOT_MATRIX_CHARS = {
         "00000",
         "00000",
     ],
+    "•": [
+        "00000",
+        "00000",
+        "01110",
+        "01110",
+        "01110",
+        "00000",
+        "00000",
+    ],
     ".": [
         "00000",
         "00000",
@@ -375,6 +384,24 @@ DOT_MATRIX_CHARS = {
     "'": [
         "00100",
         "00100",
+        "00000",
+        "00000",
+        "00000",
+        "00000",
+        "00000",
+    ],
+    "’": [
+        "00100",
+        "00100",
+        "00000",
+        "00000",
+        "00000",
+        "00000",
+        "00000",
+    ],
+    '"': [
+        "01010",
+        "01010",
         "00000",
         "00000",
         "00000",
@@ -790,12 +817,24 @@ def create_dot_matrix_font(
 
     # Set font metadata
     fb.setupHead(unitsPerEm=1000)
-    fb.setupGlyphOrder([".notdef"] + list(DOT_MATRIX_CHARS.keys()))
+    
+    # Create glyph names mapping for characters
+    # Use safe ASCII names for glyphs, we'll map them to Unicode later
+    glyph_order = [".notdef"]
+    char_to_glyph = {}
+    
+    for idx, char in enumerate(DOT_MATRIX_CHARS.keys()):
+        glyph_name = f"glyph{idx:04d}"
+        glyph_order.append(glyph_name)
+        char_to_glyph[char] = glyph_name
+    
+    fb.setupGlyphOrder(glyph_order)
 
-    # Create character map
+    # Create character map using glyph names (not the actual characters)
     cmap = {}
-    for char in DOT_MATRIX_CHARS:
-        cmap[ord(char)] = char
+    for char, glyph_name in char_to_glyph.items():
+        cmap[ord(char)] = glyph_name
+    
     fb.setupCharacterMap(cmap)
 
     # Setup font names
@@ -824,14 +863,11 @@ def create_dot_matrix_font(
     glyphs[".notdef"] = pen.glyph()
     metrics[".notdef"] = (block_width, left_padding)
 
-    # Create character glyphs - ALL use the same block width
-    for char, matrix in DOT_MATRIX_CHARS.items():
-        glyphs[char] = create_glyph_from_matrix(matrix, dot_size, gap, left_padding)
-        # Use left_padding as the left side bearing to prevent cutoff
-        metrics[char] = (
-            block_width,
-            left_padding,
-        )  # (advance_width, left_side_bearing)
+    # Create character glyphs using the safe glyph names
+    for char, glyph_name in char_to_glyph.items():
+        matrix = DOT_MATRIX_CHARS[char]
+        glyphs[glyph_name] = create_glyph_from_matrix(matrix, dot_size, gap, left_padding)
+        metrics[glyph_name] = (block_width, left_padding)
 
     fb.setupGlyf(glyphs)
     fb.setupHorizontalMetrics(metrics)

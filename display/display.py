@@ -30,10 +30,8 @@ class DisplayExtension(Actor):
         pass
     
     async def on_event(self, message):
-        if message["event"] == "track_meta_updated":
-            if self._controller is not None:
-                self._controller.set_current_track(message["tl_track"].track)
-
+        self._controller.set_message(message)
+        
     async def on_start(self):
         if self._device == "ssd1322":
             self._controller = DisplaySSD1322(visualizer=self._visualizer, contrast=255)
@@ -42,9 +40,8 @@ class DisplayExtension(Actor):
             self._controller = DisplaySSD1306(visualizer=self._visualizer, contrast=255)
 
         if self._controller is not None:
-            self._controller.display()
-        else:
-            self._controller = None        
+            self._controller.init()
+       
         logger.info("Started")
 
 
