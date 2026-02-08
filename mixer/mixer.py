@@ -97,7 +97,7 @@ class MixerExtension(Actor):
                 )
 
         self._core.send(
-            target=["web", "bluetooth"],
+            target=["web", "display", "bluetooth"],
             event="mixer_mute",
             mute=self._volume_muted,
         )
@@ -172,14 +172,12 @@ class MixerExtension(Actor):
                 if self._mixer is None:
                     logger.warning("Mixer is not available")
 
-                self._core.send(
-                    target="bluetooth", event="volume_changed", volume=volume
-                )
-                self._core.send(target="web", event="volume_changed", volume=volume)
+                self._core.send(target=["web", "display", "bluetooth"], event="volume_changed", volume=volume)
             except asyncio.CancelledError:
                 pass
 
         if self._mixer is not None:
+            self._core.send(target=["display"], event="volume_changed", volume=volume)
             asyncio.create_task(_set_volume(self._volume_default))
 
         self._volume_event_task = asyncio.create_task(

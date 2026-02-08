@@ -49,7 +49,7 @@ class SystemExtension(Actor):
     def send_time_update(self):
         while not self._stop_event.is_set():
             self._core.send(
-                target="web", event="system_time_updated", datetime=self.on_datetime()
+                target=["web","display"], event="system_time_updated", datetime=self.on_datetime()
             )
             self._stop_event.wait(timeout=30)
 
@@ -62,7 +62,7 @@ class SystemExtension(Actor):
     async def on_standby(self, state: bool):
         self._is_standby = state
         self._core.send(
-            target="web", event="system_power_state", state=self.on_get_power_state()
+            target=["web","display"], event="system_power_state", state=self.on_get_power_state()
         )
 
         await self._core.request("source.set", type=None)

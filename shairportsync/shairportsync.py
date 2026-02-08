@@ -334,7 +334,7 @@ class ShairportsyncExtension(Actor):
 
                         if self._source_active:
                             self._core.send(
-                                target="web",
+                                target=["web","display"],
                                 event="track_position_updated",
                                 time_position=position_ms,
                             )

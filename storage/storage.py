@@ -174,7 +174,7 @@ class StorageExtension(Actor):
                 if mount_point:
                     usage = psutil.disk_usage(mount_point)
                     self._core.send(
-                        target="web",
+                        target=["web","display"],
                         event="storage_updated",
                         storage=self.on_info(dev_node),
                     )
@@ -208,7 +208,7 @@ class StorageExtension(Actor):
                                 break
 
                 response = removed_device or existing_device
-                self._core.send(target="web", event="storage_updated", storage=response)
+                self._core.send(target=["web","display"], event="storage_updated", storage=response)
                 logger.debug(self._proc_unmount.stdout.strip())
             except Exception as e:
                 logger.error(f"Error unmounting {dev_node}: {e}")

@@ -442,7 +442,7 @@ class LocalExtension(Actor):
         }
 
         self._core.send(
-            target="web",
+            target=["web","display"],
             event="scan_artist_updated",
             progress=_scan_artist_progress.copy(),
         )
@@ -499,7 +499,7 @@ class LocalExtension(Actor):
                 await asyncio.sleep(0.2)
 
             self._core.send(
-                target="web",
+                target=["web","display"],
                 event="scan_artist_updated",
                 progress=_scan_artist_progress.copy(),
             )
@@ -507,7 +507,7 @@ class LocalExtension(Actor):
 
         _scan_artist_progress["completed"] = True
         self._core.send(
-            target="web",
+            target=["web","display"],
             event="scan_artist_updated",
             progress=_scan_artist_progress.copy(),
         )
@@ -582,7 +582,7 @@ class LocalExtension(Actor):
             "completed": False,
         }
         self._core.send(
-            target="web", event="scan_update", progress=self._scan_progress.copy()
+            target=["web","display"], event="scan_update", progress=self._scan_progress.copy()
         )
         await asyncio.sleep(0.3)
         logger.info(self._scan_progress)
@@ -682,7 +682,7 @@ class LocalExtension(Actor):
                         self._scan_progress["processed"] += 1
                         if self._scan_progress["processed"] % BATCH_SIZE == 0:
                             self._core.send(
-                                target="web",
+                                target=["web","display"],
                                 event="scan_update",
                                 progress=self._scan_progress.copy(),
                             )
@@ -694,6 +694,6 @@ class LocalExtension(Actor):
 
         self._scan_progress["completed"] = True
         self._core.send(
-            target="web", event="scan_update", progress=self._scan_progress.copy()
+            target=["web","display"], event="scan_update", progress=self._scan_progress.copy()
         )
         logger.info(self._scan_progress)

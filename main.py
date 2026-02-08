@@ -49,6 +49,7 @@ async def async_main(verbose=False):
         "playback",
         "network",
         "snapcast",
+        "display",
     ]
     await core.load_extensions_by_name(extensions)
 

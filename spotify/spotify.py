@@ -133,7 +133,7 @@ class SpotifyExtension(Actor):
                     "playback.set_time_position", position_ms=int(event["POSITION_MS"])
                 )
                 self._core.send(
-                    target="web",
+                    target=["web","display"],
                     event="track_position_updated",
                     time_position=int(event["POSITION_MS"]),
                 )
@@ -144,7 +144,7 @@ class SpotifyExtension(Actor):
                     "playback.set_state", state=PlaybackState.PLAYING
                 )
                 self._core.send(
-                    target="web",
+                    target=["web","display"],
                     event="track_playback_resumed",
                     tl_track=self._tl_track,
                     time_position=int(event["POSITION_MS"]),
@@ -159,7 +159,7 @@ class SpotifyExtension(Actor):
                     "playback.set_time_position", position_ms=int(event["POSITION_MS"])
                 )
                 self._core.send(
-                    target="web",
+                    target=["web","display"],
                     event="track_playback_paused",
                     tl_track=self._tl_track,
                     time_position=int(event["POSITION_MS"]),
@@ -209,7 +209,7 @@ class SpotifyExtension(Actor):
                     "playback.set_metadata", tl_track=self._tl_track
                 )
                 self._core.send(
-                    target="web",
+                    target=["web","display"],
                     event="track_playback_started",
                     tl_track=self._tl_track,
                 )

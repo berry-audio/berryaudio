@@ -91,7 +91,7 @@ class WebExtension(Actor):
         images_dir = www_dir / "images"
 
         self._app.router.add_get("/ws", self.websocket_handler)
-        self._app.router.add_get("/rpc", self.webrpc_handler)
+        self._app.router.add_post("/rpc", self.webrpc_handler)
 
         async def index_handler(request):
             if USE_GBULB:
