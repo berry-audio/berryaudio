@@ -7,7 +7,7 @@ export function useGoToArtist() {
   const handleGoToArtist = (item: Ref) => {
     if (!item?.artists?.length) return;
     const [view, id] = item?.artists[0].uri.split(":");
-    navigate(`/library/${view}/${id}`);
+    navigate(`/local/${view}/${id}`);
   };
 
   return { handleGoToArtist };

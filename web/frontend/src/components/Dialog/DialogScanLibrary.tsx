@@ -26,7 +26,7 @@ const DialogScanLibrary = () => {
 
   const onClickScanLibrary = async () => {
     if (!scanInProgress && scanStatus) {
-      navigate("/library");
+      navigate("/local");
       dispatch({ type: DIALOG_EVENTS.DIALOG_CLOSE });
       return;
     }

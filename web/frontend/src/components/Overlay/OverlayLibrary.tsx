@@ -49,7 +49,7 @@ const OverlayLibrary = () => {
 
   const handleDetailClose = () => {
     if (payload?.activeView) {
-      window.history.pushState({}, "", `/library/${payload.view}`);
+      window.history.pushState({}, "", `/local/${payload.view}`);
     } else {
       navigate(-1);
     }
@@ -65,7 +65,7 @@ const OverlayLibrary = () => {
       await fetchDetailList(`${uri}:list`);
       await fetchDetail(`${uri}`);
       setIsItemDetailLoading(false);
-      navigate(`/library/${payload.view}/${payload.id}`, { replace: true });
+      navigate(`/local/${payload.view}/${payload.id}`, { replace: true });
     })();
   }, [payload?.view, payload?.id]);
 

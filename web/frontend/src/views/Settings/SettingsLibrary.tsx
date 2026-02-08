@@ -16,7 +16,7 @@ import {
 } from "@phosphor-icons/react";
 import { ICON_SM, ICON_WEIGHT } from "@/constants";
 
-const SettingsLibrary = () => {
+const SettingsLocal = () => {
   const { getConfig, setConfig } = useConfigService();
 
   const [pathList, setPathList] = useState<string[]>();
@@ -94,4 +94,4 @@ const SettingsLibrary = () => {
   );
 };
 
-export default SettingsLibrary;
+export default SettingsLocal;

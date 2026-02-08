@@ -131,7 +131,7 @@ const Local = () => {
           backButtonOnClick={() => navigate("/")}
           rightComponent={
             <div className="mr-4">
-              <ButtonIcon onClick={()=>navigate("/settings/library")}>
+              <ButtonIcon onClick={()=>navigate("/settings/local")}>
                 <GearIcon weight={ICON_WEIGHT} size={ICON_SM} />
               </ButtonIcon>
             </div>

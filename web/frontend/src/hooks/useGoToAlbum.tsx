@@ -7,7 +7,7 @@ export function useGoToAlbum() {
   const handleGoToAlbum = (item: Ref) => {
     if (!item?.albums?.length) return;
     const [view, id] = item?.albums[0].uri.split(":");
-    navigate(`/library/${view}/${id}`);
+    navigate(`/local/${view}/${id}`);
   };
 
   return { handleGoToAlbum };

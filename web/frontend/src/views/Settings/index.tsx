@@ -23,9 +23,9 @@ const SettingsItems: SettingsItem[] = [
   },
   {
     name: "Library",
-    alias: "library",
+    alias: "local",
     icon: <StackIcon weight={ICON_WEIGHT} size={ICON_SM} />,
-    url: "/settings/library",
+    url: "/settings/local",
   },
   {
     name: "Bluetooth",

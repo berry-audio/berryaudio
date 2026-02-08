@@ -58,7 +58,7 @@ const OverlaySearch = () => {
   const handleItemClick = async (item: any) => {
     if (item.type === REF.TRACK) return;
     const [view, id] = item.uri.split(":");
-    navigate(`/library/${view}/${id}`);
+    navigate(`/local/${view}/${id}`);
   };
 
   return (

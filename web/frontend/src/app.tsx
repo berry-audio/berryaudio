@@ -17,12 +17,12 @@ import SettingsAbout from "./views/Settings/SettingsAbout";
 import Radio from "./views/Radio";
 import Playlists from "./views/Playlist";
 import SettingsGeneral from "./views/Settings/SettingsGeneral";
-import SettingsLibrary from "./views/Settings/SettingsLibrary";
 import SettingsNetwork from "./views/Settings/SettingsNetwork";
 import SettingsCamillaDsp from "./views/Settings/SettingsCamillaDsp";
 import Snapcast from "./views/Snapcast";
 import SettingsSnapcast from "./views/Settings/SettingsSnapcast";
 import Bluetooth from "./views/Bluetooth";
+import SettingsLocal from "./views/Settings/SettingsLibrary";
 
 const App = () => {
   return (
@@ -44,7 +44,7 @@ const App = () => {
                   <Route path="/settings/" element={<Settings />} />
                   <Route path="/settings/about/" element={<SettingsAbout />} />
                   <Route path="/settings/general/" element={<SettingsGeneral />} />
-                  <Route path="/settings/library/" element={<SettingsLibrary />} />
+                  <Route path="/settings/local/" element={<SettingsLocal />} />
                   <Route path="/settings/bluetooth/" element={<Bluetooth />} />
                   <Route path="/settings/network/" element={<SettingsNetwork />} />
                   <Route path="/settings/dsp/" element={<SettingsCamillaDsp />} />
