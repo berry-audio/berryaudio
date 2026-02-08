@@ -38,7 +38,7 @@ const App = () => {
                   <Route path="/multiroom" element={<Snapcast />} />
                   <Route path="/queue" element={<Queue />} />
                   <Route path="/playlist/:id?" element={<Playlists />} />
-                  <Route path="/library/:view?/:id?" element={<Local />} />
+                  <Route path="/local/:view?/:id?" element={<Local />} />
                   <Route path="/radio" element={<Radio />} />
                   <Route path="/storage/*" element={<Storage />} />
                   <Route path="/settings/" element={<Settings />} />

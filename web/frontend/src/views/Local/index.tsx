@@ -89,7 +89,7 @@ const Local = () => {
 
   const onClickHandleDir = (view: string) => {
     setActiveView(view);
-    navigate(`/library/${view}`);
+    navigate(`/local/${view}`);
   };
 
   return (
@@ -106,7 +106,7 @@ const Local = () => {
               />
             </div>
           }
-          backButtonOnClick={() => navigate("/library")}
+          backButtonOnClick={() => navigate("/local")}
           backButton
         >
           {layout === "list" && (

@@ -43,7 +43,7 @@ const sources: SourceItem[] = [
   {
     name: "Library",
     icon: <VinylRecordIcon weight={ICON_WEIGHT} size={ICON_LG} />,
-    alias: "library",
+    alias: "local",
   },
   {
     name: "Storage",
@@ -89,9 +89,7 @@ const Start = () => {
   const { source } = useSelector((state: any) => state.player);
 
   const onClickHandler = async (item: SourceItem) => {
-    if (["spotify", "shairportsync"].includes(item.alias)) {
-      await setSource(item.alias);
-    }
+    await setSource(item.alias);
     navigate(`/${item.alias}`);
   };
 
