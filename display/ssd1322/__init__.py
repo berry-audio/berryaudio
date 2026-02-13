@@ -1,6 +1,8 @@
 import logging
 import threading
 
+from PIL import Image, ImageOps
+from PIL import ImageFont, Image, ImageDraw
 from PIL import ImageFont
 from core.types import PlaybackState
 from datetime import datetime
@@ -15,6 +17,7 @@ from display.widgets.vu_meter import WidgetVUMeter
 from display.widgets.spectrum_analyzer import WidgetSpectumAnalyzer
 from display.widgets.text_scrollable import WidgetTextScrollable
 from display.widgets.codec_bitrate import WidgetCodecBitrate
+from display.widgets.text_box import WidgetTextBox
 from display.widgets.play_pause import WidgetPlayPause
 
 logger = logging.getLogger(__name__)
@@ -24,6 +27,7 @@ FONT_STYLE_1 = Path(__file__).parent.parent / "fonts" / "DotMatrix-Custom-5x7.tt
 FONT_STYLE_2 = Path(__file__).parent.parent / "fonts" / "lcddot_tr.ttf"
 FONT_STYLE_3 = Path(__file__).parent.parent / "fonts" / "thin_pixel-7.ttf"
 FONT_STYLE_4 = Path(__file__).parent.parent / "fonts" / "3x5pexel.ttf"
+FONT_STYLE_5 = Path(__file__).parent.parent / "fonts" / "LedBus.ttf"
 
 
 class DisplaySSD1322:
@@ -51,6 +55,7 @@ class DisplaySSD1322:
         self._current_time = None
 
         self._widget_bitrate = WidgetCodecBitrate(self._device, font_path=FONT_STYLE_4)
+        self._widget_source = WidgetTextBox(self._device, font_path=FONT_STYLE_4)
         self._widget_play_pause = WidgetPlayPause(self._device)
         self._widget_title = WidgetTextScrollable(
             self._device, screen_width=self.width, font_size=33, font_path=FONT_STYLE_1
@@ -58,13 +63,18 @@ class DisplaySSD1322:
         self._widget_artist = WidgetTextScrollable(
             self._device, screen_width=self.width, font_size=21, font_path=FONT_STYLE_1
         )
-        self._widget_source = WidgetTextScrollable(
-            self._device, screen_width=self.width, font_size=21, font_path=FONT_STYLE_1
+        self._widget_taskbar = ImageFont.truetype(str(FONT_STYLE_3), 23)
+        self._widget_spectrum_analyzer = WidgetSpectumAnalyzer(
+            self._device, num_bars=64
         )
-        # self._widget_spectrum_analyzer = WidgetSpectumAnalyzer(
-        #     self._device, num_bars=58
-        # )
-        self._widget_vumeter = WidgetVUMeter(self._device)
+        # self._widget_vumeter = WidgetVUMeter(self._device)
+
+    def get_png_image(self, png_path, width=256, height=64, position=(0, 0)):
+        icon = Image.open(png_path).convert("RGBA")
+        icon = icon.resize((width, height))
+        background = Image.new("RGBA", self._device.size, "black")
+        background.paste(icon, position, icon)
+        self._device.display(background.convert("RGB"))
 
     def set_message(self, message):
         if message and "event" in message:
@@ -182,23 +192,28 @@ class DisplaySSD1322:
         self._device.clear()
         logger.info("SSD1322 Display stopped")
 
-
     def format_source_type(self, source_type):
-        if source_type == 'local':
-            return 'Library'
-        if source_type == 'radio':
-            return 'Radio'
-        if source_type == 'storage':
-            return 'Storage'
-        if source_type == 'spotify':
-            return 'Spotify'
-        if source_type == 'shairportsync':
-            return 'Airplay'
-        if source_type == 'bluetooth':
-            return 'Bluetooth'
+        if source_type == "local":
+            return "LIBRARY"
+        if source_type == "radio":
+            return "RADIO"
+        if source_type == "storage":
+            return "Storage"
+        if source_type == "spotify":
+            return "SPOTIFY"
+        if source_type == "shairportsync":
+            return "AIRPLAY"
+        if source_type == "bluetooth":
+            return "BLUETOOTH"
 
     def _handle_messages(self):
         regulator = framerate_regulator(fps=60)
+        speaker_icon = Image.open("/home/pi/berryaudio/display/fonts/speaker.png")
+        blue_icon = Image.open("/home/pi/berryaudio/display/fonts/bluetooth.png")
+        airplay_icon = Image.open("/home/pi/berryaudio/display/fonts/airplay.png")
+        spotify_icon = Image.open("/home/pi/berryaudio/display/fonts/spotify.png")
+        repeat_icon = Image.open("/home/pi/berryaudio/display/fonts/repeat.png")
+        shuffle_icon = Image.open("/home/pi/berryaudio/display/fonts/shuffle.png")
 
         while self.running:
             with regulator:
@@ -212,16 +227,13 @@ class DisplaySSD1322:
 
                     if self._page == "SOURCE":
                         self._widget_title.draw(
-                            draw, width=self.width, y=12, text=self.format_source_type(self._source.type),
-                            auto_scroll=False, center=True
+                            draw,
+                            width=self.width,
+                            y=12,
+                            text=self.format_source_type(self._source.type),
+                            auto_scroll=False,
+                            center=True,
                         )
-                        self._widget_artist.draw(
-                                        draw,
-                                        width=190,
-                                        x=-2,
-                                        y=-3,
-                                        text="SOURCE",
-                                    )
 
                     if self._page == "VOLUME":
                         self._widget_title.draw(
@@ -229,11 +241,32 @@ class DisplaySSD1322:
                         )
 
                     if self._page == "NOW_PLAYING" and not self._standby:
+
+                        font = ImageFont.truetype(FONT_STYLE_3, 20)
+                        text = str(self._volume)
+                        draw.text((239, -8), text, font=font, fill="white")
+                        draw.bitmap((232, 0), speaker_icon, fill="white")
+
+                        # draw.bitmap((210, 0), blue_icon, fill="white")
+                        # draw.bitmap((200, 0), airplay_icon, fill="white")
+                        # draw.bitmap((190, 0), spotify_icon, fill="white")
+
+                        draw.bitmap((219, 0), repeat_icon, fill="white")
+                        draw.bitmap((205, 0), shuffle_icon, fill="white")
+
+                        # Reeapt icon
+                        # draw.rectangle(
+                        #     [(245, 18), (246 + 10, 18 + 10)],
+                        #     outline="white",
+                        #     fill="white",
+                        # )
+                        # draw.bitmap((247, 20), repeat_icon, fill="black")
+
                         if self._track is not None and self._track.audio_codec:
                             self._widget_bitrate.draw(
                                 draw,
                                 235,
-                                45,
+                                18,
                                 bitrate=self._track.bitrate,
                                 audio_codec=self._track.audio_codec,
                             )
@@ -245,8 +278,16 @@ class DisplaySSD1322:
                         else:
                             if self._source and self._source.state:
                                 self._widget_title.draw(
-                                    draw, width=214, x=13, y=12, text=self._source.state.name if self._source.state.name else "Ready"
-                                )    
+                                    draw,
+                                    width=207,
+                                    x=13,
+                                    y=12,
+                                    text=(
+                                        self._source.state.name
+                                        if self._source.state.name
+                                        else "Ready"
+                                    ),
+                                )
 
                         self._widget_play_pause.draw(
                             draw, 0, 22, state=self._playback_state
@@ -279,21 +320,41 @@ class DisplaySSD1322:
                                         y=-3,
                                         text=self.format_source_type(self._source.type),
                                     )
-
-                        # self._widget_spectrum_analyzer.draw(
+                        # if self._source and self._source.type:
+                        # self._widget_source.draw(
                         #     draw,
-                        #     width=233,
-                        #     height=18,
-                        #     x=0,
-                        #     y=46,
-                        #     bar_pattern="solid",
-                        #     bar_color="white",
+                        #     224,
+                        #     20,
+                        #     box_width=32,
+                        #     box_height=9,
+                        #     text="STEREO",
+                        #     highlight=True,
                         # )
-                        self._widget_vumeter.draw(
+
+                        # self._widget_source.draw(
+                        #         draw,
+                        #         224,
+                        #         28,
+                        #         box_width=32,
+                        #         box_height=9,
+                        #         text='SHFL',
+                        #         highlight=False,
+                        #     )
+
+                        self._widget_spectrum_analyzer.draw(
                             draw,
-                            width=229,
-                            height=16,
+                            width=256,
+                            height=18,
                             x=0,
-                            y=38,
-                            bar_pattern="checkerboard",
+                            y=46,
+                            bar_pattern="solid",
+                            bar_color="white",
                         )
+                        # self._widget_vumeter.draw(
+                        #     draw,
+                        #     width=229,
+                        #     height=16,
+                        #     x=0,
+                        #     y=38,
+                        #     bar_pattern="checkerboard",
+                        # )
