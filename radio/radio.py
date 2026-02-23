@@ -2,7 +2,7 @@ import logging
 import json
 
 from pathlib import Path
-from core.actor import Actor
+from core.actor import SourceActor
 from core.models import Image, RefType, Album, Artist, Ref, Track, Source
 from core.types import PlaybackControls
 
@@ -12,8 +12,7 @@ STATIONS_PATH = Path(__file__).parent.parent / "radio" / "stations.json"
 BASE_DIR = Path(__file__).resolve().parent.parent / "web" / "www"
 ALBUM_IMAGES_WEB_PATH = Path("images") / "radio"
 
-
-class RadioExtension(Actor):
+class RadioExtension(SourceActor):
     def __init__(self, name, core, db, config):
         super().__init__()
         self._name = name
@@ -21,7 +20,9 @@ class RadioExtension(Actor):
         self._db = db
         self._config = config
         self._source = Source(
-            type=self._name,
+            name="Radio",
+            type=RefType.SOURCE,
+            uri=self._name,
             controls=[
                 PlaybackControls.SEEK,
                 PlaybackControls.PLAY,

@@ -4,6 +4,7 @@ import subprocess
 import re
 
 from pathlib import Path
+from core.models import RefType, Storage
 
 custom_root_mount = "/home/pi/my_music"
 exclude_dev = ['/dev/mmcblk0p1']
@@ -46,7 +47,7 @@ def get_fs_info(dev: str):
     except subprocess.CalledProcessError:
         return None, None
 
-def get_storage_info():
+def get_storage_info() -> dict[str, list[Storage]]:
     """Return a dict with mounted and unmounted devices."""
     context = pyudev.Context()
     mounts = get_mounted_partitions()
@@ -56,41 +57,37 @@ def get_storage_info():
     for device in context.list_devices(subsystem='block', DEVTYPE='partition'):
         devname = device.device_node
         if devname not in exclude_dev:
-            devname = device.device_node
             parent = device.find_parent('block').device_node
             size_bytes = int(device.attributes.asint('size')) * 512
             removable = bool(int(device.attributes.get('removable', 0)))
             fs_type, label = get_fs_info(devname)
 
-            device_info = {
-                "dev": devname,
-                "parent": parent,
-                "removable": removable,
-                "size_bytes": size_bytes,
-                "marketed_gb": marketed_size_bytes(size_bytes),
-                "fstype": fs_type,
-                "label": 'Internal' if devname == internal_dev[0] else label,
-            }
+            storage = Storage(
+                dev=devname,
+                type=RefType.STORAGE,
+                parent=parent,
+                removable=removable,
+                size=size_bytes,
+                marketed_gb=marketed_size_bytes(size_bytes),
+                fstype=fs_type,
+                name='Internal' if devname == internal_dev[0] else label if label else "Unknown",
+            )
 
             if devname in mounts:
                 u = mounts[devname]["usage"]
-
                 mount_point = mounts[devname]["mount"]
                 if mount_point == "/" and devname == internal_dev[0]:
                     mount_point = custom_root_mount
-
-                device_info.update({
-                    "status": "mounted",
-                    "mount": mount_point,
-                    "total": u.total,
-                    "used": u.used,
-                    "free": u.free,
-                    "percent": u.percent,
-                })
-                mounted.append(device_info)
+                storage.status = "mounted"
+                storage.uri = f"storage:{mount_point}"
+                storage.total = u.total
+                storage.used = u.used
+                storage.free = u.free
+                storage.percent = u.percent
+                mounted.append(storage)
             else:
-                device_info["status"] = "unmounted"
-                unmounted.append(device_info)
+                storage.status = "unmounted"
+                unmounted.append(storage)
 
     return {
         "mounted": mounted,
@@ -100,39 +97,45 @@ def get_storage_info():
 
 from pathlib import Path
 
-def list_paths(path, extensions=None):
+def list_paths(uri, extensions=None) -> list[Storage]:
+    prefix, path = uri.split(":", 1)
+
+    if prefix != 'storage':
+        raise ValueError(f"Not valid storage path")
+
     p = Path(path)
     results = []
 
-    # Always include the parent directory entry first
-    results.append({
-        "name": "..",
-        "type": "folder",
-        "size": 0,
-        "path": str(p.parent.resolve())
-    })
+    # results.append(Storage(
+    #     name="..",
+    #     type=RefType.DIRECTORY,
+    #     size=0,
+    #     uri=str(p.parent.resolve())
+    # ))
 
     entries = []
-    for item in p.iterdir():
-        if item.is_dir():
-            entries.append({
-                "name": item.name,
-                "type": "folder",
-                "size": 0,
-                "path": str(item.resolve())
-            })
-        else:
-            if extensions is None or item.suffix.lower() in [ext.lower() for ext in extensions]:
-                entries.append({
-                    "name": item.name,
-                    "type": "track",
-                    "size": item.stat().st_size,
-                    "path": str(item.resolve())
-                })
-
-    entries.sort(key=lambda x: (x["type"] != "folder", x["name"].lower()))
-
-    results.extend(entries)
-    return results
-
-
+    try:
+        for item in p.iterdir():
+            if item.name.startswith("."):
+                continue
+            if item.is_dir():
+                entries.append(Storage(
+                    name=item.name,
+                    type=RefType.DIRECTORY,
+                    size=0,
+                    uri=f"storage:{str(item.resolve())}"
+                ))
+            else:
+                if extensions is None or item.suffix.lower() in [ext.lower() for ext in extensions]:
+                    entries.append(Storage(
+                        name=item.name,
+                        type=RefType.TRACK,
+                        size=item.stat().st_size,
+                        uri=f"storage:{str(item.resolve())}"
+                    ))
+    
+        entries.sort(key=lambda x: (x.type != RefType.DIRECTORY, x.name.lower()))
+        results.extend(entries)
+        return results
+    except Exception as e:
+        return []

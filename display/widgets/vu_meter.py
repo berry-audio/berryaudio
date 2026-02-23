@@ -16,8 +16,7 @@ FONT_STYLE_1 = Path(__file__).parent.parent / "fonts" / "kollection_bitmap.ttf"
 
 
 class WidgetVUMeter:
-    def __init__(self, device):
-        self.device = device
+    def __init__(self):
         self.num_bars = 2
         self.smoothed_levels = np.zeros(2)
         self.peak_hold_time = np.zeros(2)
@@ -54,19 +53,21 @@ class WidgetVUMeter:
 
     def cleanup(self, signum=None, frame=None):
         self.stop_threads = True
-
+        
+        if self.fifo:
+            try:
+                self.fifo.close()
+            except:
+                pass
+        
         if self.cava_process:
             self.cava_process.terminate()
-            try:
-                self.cava_process.wait(timeout=2)
-            except subprocess.TimeoutExpired:
-                self.cava_process.kill()
-        sys.exit(0)
+            self.cava_process.wait() 
 
     def draw(
         self,
         draw,
-        width=256,
+        width=128,
         height=20,
         y=0,
         x=0,

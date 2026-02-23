@@ -1,8 +1,7 @@
 from PIL import ImageFont
 
 class WidgetTextBox:
-    def __init__(self, device, font_path=None):
-        self._device = device
+    def __init__(self, font_path=None):
         self._font_path = font_path
     
     def draw(

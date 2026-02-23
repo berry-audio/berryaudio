@@ -2,8 +2,7 @@ from PIL import ImageFont
 
 
 class WidgetCodecBitrate:
-    def __init__(self, device, font_path=None):
-        self._device = device
+    def __init__(self, font_path=None):
         self._font_path = font_path
 
     def draw(
@@ -25,7 +24,7 @@ class WidgetCodecBitrate:
         if bitrate:
             bitrate_display = str(bitrate // 1000)
         else:
-            bitrate_display = "---"   
+            bitrate_display = "---"
 
         draw.rectangle(
             [(x, y), (x + box_width - 1, y + box_height - 1)],

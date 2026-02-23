@@ -2,8 +2,8 @@ from core.types import PlaybackState
 
 
 class WidgetPlayPause:
-    def __init__(self, device):
-        self._device = device
+    def __init__(self):
+        pass
 
     def draw(self, draw, x, y, state=PlaybackState.STOPPED):
         icon_width = 7

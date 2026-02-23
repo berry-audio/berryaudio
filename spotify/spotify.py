@@ -5,8 +5,8 @@ import asyncio
 import os
 
 from pathlib import Path
-from core.actor import Actor
-from core.models import Album, Artist, Track, Image, TlTrack, Source
+from core.actor import SourceActor
+from core.models import Album, Artist, Track, Image, TlTrack, Source, RefType
 from core.types import PlaybackState
 
 logger = logging.getLogger(__name__)
@@ -14,8 +14,7 @@ logger = logging.getLogger(__name__)
 LIBRESPOT_PATH = "/usr/local/bin/librespot"
 ON_EVENT_PATH = Path(__file__).parent / "events.py"
 
-
-class SpotifyExtension(Actor):
+class SpotifyExtension(SourceActor):
     def __init__(self, name, core, db, config):
         super().__init__()
         self._name = name
@@ -37,8 +36,13 @@ class SpotifyExtension(Actor):
         self._sample_rate = 44100
         self._audio_codec = "Ogg"
         self._backend = "alsa"
-
-        self._source = Source(type=self._name, controls=[], state={"connected": False})
+        self._source = Source(
+            name="Spotify Connect",
+            type=RefType.SOURCE,
+            uri=self._name,
+            controls=[],
+            state={"connected": False},
+        )
         self._source_active = False
 
     async def on_start(self):
@@ -133,7 +137,7 @@ class SpotifyExtension(Actor):
                     "playback.set_time_position", position_ms=int(event["POSITION_MS"])
                 )
                 self._core.send(
-                    target=["web","display"],
+                    target=["web", "display"],
                     event="track_position_updated",
                     time_position=int(event["POSITION_MS"]),
                 )
@@ -144,7 +148,7 @@ class SpotifyExtension(Actor):
                     "playback.set_state", state=PlaybackState.PLAYING
                 )
                 self._core.send(
-                    target=["web","display"],
+                    target=["web", "display"],
                     event="track_playback_resumed",
                     tl_track=self._tl_track,
                     time_position=int(event["POSITION_MS"]),
@@ -159,7 +163,7 @@ class SpotifyExtension(Actor):
                     "playback.set_time_position", position_ms=int(event["POSITION_MS"])
                 )
                 self._core.send(
-                    target=["web","display"],
+                    target=["web", "display"],
                     event="track_playback_paused",
                     tl_track=self._tl_track,
                     time_position=int(event["POSITION_MS"]),
@@ -209,7 +213,7 @@ class SpotifyExtension(Actor):
                     "playback.set_metadata", tl_track=self._tl_track
                 )
                 self._core.send(
-                    target=["web","display"],
+                    target=["web", "display"],
                     event="track_playback_started",
                     tl_track=self._tl_track,
                 )

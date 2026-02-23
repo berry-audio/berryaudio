@@ -12,8 +12,7 @@ logger = logging.getLogger(__name__)
 CAVA_FIFO = "/tmp/cava_fifo_sa"
 
 class WidgetSpectumAnalyzer:
-    def __init__(self, device, num_bars=51):
-        self.device = device
+    def __init__(self, num_bars=51):
         self.num_bars = num_bars
         self.smoothed_bars = np.zeros(self.num_bars)
         self.peaks = np.zeros(self.num_bars)
@@ -51,20 +50,16 @@ class WidgetSpectumAnalyzer:
 
     def cleanup(self, signum=None, frame=None):
         self.stop_threads = True
-
+        
         if self.fifo:
             try:
                 self.fifo.close()
             except:
                 pass
-
+        
         if self.cava_process:
             self.cava_process.terminate()
-            try:
-                self.cava_process.wait(timeout=2)
-            except subprocess.TimeoutExpired:
-                self.cava_process.kill()
-        sys.exit(0)
+            self.cava_process.wait() 
 
     def draw_textured_bar(self, draw, x, y, width, height, pattern, color):
         if pattern == "solid":

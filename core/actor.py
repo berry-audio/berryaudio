@@ -1,6 +1,7 @@
 import asyncio
 import traceback
 
+
 class Actor:
     def __init__(self):
         self.queue = asyncio.Queue()
@@ -15,14 +16,13 @@ class Actor:
 
     def send(self, message):
         if self._loop is None or not self.running or self._loop.is_closed():
-            return  
+            return
         try:
             self._loop.call_soon_threadsafe(
                 lambda: asyncio.create_task(self._send(message))
             )
         except RuntimeError:
             pass
-
 
     async def run(self):
         self._loop = asyncio.get_running_loop()
@@ -38,8 +38,9 @@ class Actor:
 
                 await self.safe_call(self.on_event, "on_event", message)
         except Exception:
-            print(f"[{self.__class__.__name__}] Fatal error in actor loop:\n{traceback.format_exc()}")
-        
+            print(
+                f"[{self.__class__.__name__}] Fatal error in actor loop:\n{traceback.format_exc()}"
+            )
 
     async def safe_call(self, func, name, *args):
         """Run hook safely, log exceptions but keep actor alive."""
@@ -49,4 +50,10 @@ class Actor:
             else:
                 func(*args)
         except Exception:
-            print(f"[{self.__class__.__name__}] Error in {name}:\n{traceback.format_exc()}")
+            print(
+                f"[{self.__class__.__name__}] Error in {name}:\n{traceback.format_exc()}"
+            )
+
+
+class SourceActor(Actor):
+    pass

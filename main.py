@@ -50,6 +50,7 @@ async def async_main(verbose=False):
         "network",
         "snapcast",
         "display",
+        "gpio",
     ]
     await core.load_extensions_by_name(extensions)
 

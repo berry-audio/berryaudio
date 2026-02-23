@@ -4,8 +4,9 @@ import requests
 import os
 import re
 
+from collections import namedtuple
 from urllib.parse import quote
-from core.actor import Actor
+from core.actor import SourceActor
 from core.types import PlaybackControls
 from core.util.metadata import Metadata
 from core.models import Image, RefType, Album, Artist, Ref, Track, Source
@@ -157,10 +158,10 @@ TYPES = {
     "album": RefType.ALBUM,
     "artist": RefType.ARTIST,
     "genre": RefType.DIRECTORY,
+    "directory": RefType.DIRECTORY,
 }
 
-
-class LocalExtension(Actor):
+class LocalExtension(SourceActor):
     default_config = {
         "library_path": [],
     }
@@ -174,7 +175,9 @@ class LocalExtension(Actor):
         self._metadata = Metadata(cover_dir="albums")
         self._scan_progress = None
         self._source = Source(
-            type=self._name,
+            name="Library",
+            type=RefType.SOURCE,
+            uri=self._name,
             controls=[
                 PlaybackControls.SEEK,
                 PlaybackControls.PLAY,
@@ -196,6 +199,16 @@ class LocalExtension(Actor):
     async def on_stop(self):
         logger.info("Stopped")
 
+    def _directories(self):
+        Item = namedtuple('Item', ['uri', 'name', 'type'])
+        _dirs = [
+            Item(uri='artist', name='Artists', type=TYPES['directory']),
+            Item(uri='album', name='Albums', type=TYPES['directory']),
+            Item(uri='track', name='Tracks', type=TYPES['directory']),
+            Item(uri='genre', name='Genre', type=TYPES['directory'])
+        ]
+        return _dirs
+
     def on_directory(
         self,
         uri: str | None = None,
@@ -203,7 +216,7 @@ class LocalExtension(Actor):
         offset: int | None = None,
     ):
         if not uri:
-            raise ValueError(f"No 'uri' was defined.")
+            return self._directories()
 
         values = uri.split(":")
         values_len = len(values)

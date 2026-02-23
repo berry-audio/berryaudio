@@ -5,8 +5,8 @@ import os
 import time
 
 from pathlib import Path
-from core.actor import Actor
-from core.models import Album, Artist, Track, Image, TlTrack, Source
+from core.actor import SourceActor
+from core.models import Album, Artist, Track, Image, TlTrack, Source, RefType
 from core.types import PlaybackState
 
 logger = logging.getLogger(__name__)
@@ -16,11 +16,12 @@ SHAIRPORT_RENDER_PATH = "/usr/local/bin/shairport-sync-metadata-reader"
 SHAIRPORT_RENDER_TMP = "/tmp/shairport-sync-metadata"
 
 SHAIRPORT_CONFIG_PATH = Path(__file__).parent / "shairport-sync.conf"
-ALBUM_IMAGES_DIR = Path(__file__).parent.parent / "web" / "www" / "images" / "shairportsync"
+ALBUM_IMAGES_DIR = (
+    Path(__file__).parent.parent / "web" / "www" / "images" / "shairportsync"
+)
 ALBUM_IMAGES_WEB_PATH = Path("images") / "shairportsync"
 
-
-class ShairportsyncExtension(Actor):
+class ShairportsyncExtension(SourceActor):
     def __init__(self, name, core, db, config):
         super().__init__()
         self._name = name
@@ -31,7 +32,13 @@ class ShairportsyncExtension(Actor):
         self._output_audio = self._config["mixer"]["output_audio"]
         self._proc = None
         self._proc_meta = None
-        self._source = Source(type=self._name, controls=[], state={"connected": False})
+        self._source = Source(
+            name="Airplay",
+            type=RefType.SOURCE,
+            uri=self._name,
+            controls=[],
+            state={"connected": False},
+        )
         self._tl_track = TlTrack(0, track=Track())
         self._timer = None
         self._timer_running = True
@@ -334,7 +341,7 @@ class ShairportsyncExtension(Actor):
 
                         if self._source_active:
                             self._core.send(
-                                target=["web","display"],
+                                target=["web", "display"],
                                 event="track_position_updated",
                                 time_position=position_ms,
                             )

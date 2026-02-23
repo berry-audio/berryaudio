@@ -6,10 +6,10 @@ import pyudev
 import threading
 
 from pathlib import Path
-from core.actor import Actor
+from core.actor import SourceActor
 from core.types import PlaybackControls
 from core.util.metadata import Metadata
-from core.models import Image, Album, Artist, Track, Source
+from core.models import Image, Album, Artist, Track, Source, RefType
 from .utils import get_storage_info, list_paths
 
 logger = logging.getLogger(__name__)
@@ -18,8 +18,7 @@ BASE_DIR = Path(__file__).parent.parent / "web" / "www"
 ALBUM_IMAGES_DIR = BASE_DIR / "images" / "storage"
 ALBUM_IMAGES_WEB_PATH = Path("images") / "storage"
 
-
-class StorageExtension(Actor):
+class StorageExtension(SourceActor):
     def __init__(self, name, core, db, config):
         super().__init__()
         self._name = name
@@ -31,7 +30,9 @@ class StorageExtension(Actor):
         self._proc_unmount = None
         self._storages = get_storage_info()
         self._source = Source(
-            type=self._name,
+             name="Storage",
+            type=RefType.SOURCE,
+            uri=self._name,
             controls=[
                 PlaybackControls.SEEK,
                 PlaybackControls.PLAY,
@@ -118,26 +119,12 @@ class StorageExtension(Actor):
     async def on_lookup_track(self, id: str) -> Track:
         return Track(**self._build_ref(id))
 
-    async def on_list(self):
-        return get_storage_info()
-
-    def on_mount(self, dev: str):
-        return self.mount_devices(dev)
-
-    def on_unmount(self, dev: str):
-        return self.unmount_device(dev)
-
-    def on_info(self, dev: str) -> dict | None:
-        for section in ("mounted", "unmounted"):
-            data = get_storage_info()
-            for item in data.get(section, []):
-                if item.get("dev") == dev:
-                    return item
-        return False
-
-    def on_dir(self, path: str):
-        return list_paths(
-            path,
+    async def on_directory(self, uri:str = None):
+        if uri is None:
+            return get_storage_info()
+        else:
+            return list_paths(
+            uri,
             extensions=[
                 ".mp3",
                 ".m4a",
@@ -149,6 +136,21 @@ class StorageExtension(Actor):
                 ".m3u8",
             ],
         )
+
+    def on_mount(self, dev: str):
+        return self.mount_devices(dev)
+
+    def on_unmount(self, dev: str):
+        return self.unmount_device(dev)
+
+    def on_info(self, dev: str) -> dict | None:
+        for section in ("mounted", "unmounted"):
+            data = get_storage_info()
+            for item in data.get(section, []):
+                if item.dev == dev:
+                    return item
+        return False
+        
 
     def is_internal(self, dev_node):
         if "/dev/mmcblk0p1" in dev_node or "/dev/mmcblk0p2" in dev_node:
@@ -202,8 +204,8 @@ class StorageExtension(Actor):
                 if not existing_device:
                     for key in ["mounted", "unmounted"]:
                         for device in self._storages[key]:
-                            if device["dev"] == dev_node:
-                                device["status"] = "removed"
+                            if device.dev == dev_node:
+                                device.status = "removed"
                                 removed_device = device
                                 break
 

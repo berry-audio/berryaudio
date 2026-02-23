@@ -259,7 +259,7 @@ class PlaybackExtension(Actor):
                 return
 
             ext, track_id = _uri
-            await self._core.request("source.set", type=ext)
+            await self._core.request("source.set", uri=ext)
 
             get_track = await self._core.request(f"{ext}.lookup_track", id=track_id)
             playback_uri = await self._core.request(f"{ext}.playback_uri", id=track_id)

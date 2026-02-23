@@ -1,10 +1,14 @@
+import logging
+
 from luma.core.virtual import viewport
+from PIL import Image, ImageDraw
+
+logging.getLogger("PIL").setLevel(logging.WARNING)
+logger = logging.getLogger(__name__)
 
 class WidgetTextScrollable:
-    def __init__(self, device, screen_width=None, font_path=None, font_size=10, 
+    def __init__(self, font_path=None, font_size=10, 
                  start_pause_duration=120, end_pause_duration=120):
-        self.device = device
-        self.screen_width = screen_width
         self.font_size = font_size
         self.scroll_offset = 0
         self.scroll_speed = 0.5
@@ -28,8 +32,8 @@ class WidgetTextScrollable:
             self.font = None
 
     def _prepare_canvas(self, text, width, text_color="white", background_color="black"):
-        from PIL import Image, ImageDraw
-        
+       
+
         temp_draw = ImageDraw.Draw(Image.new("1", (1, 1)))
         bbox = temp_draw.textbbox((0, 0), text, font=self.font)
         self.text_width = bbox[2] - bbox[0]

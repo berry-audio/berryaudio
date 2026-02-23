@@ -8,6 +8,7 @@ import os
 import socket
 import threading
 import netifaces
+import asyncio
 
 from datetime import datetime
 from zoneinfo import ZoneInfo
@@ -26,6 +27,7 @@ class SystemExtension(Actor):
         self._thread = None
         self._stop_event = threading.Event()
         self._is_standby = True
+        self._power_state = "standby"
 
     async def on_config_update(self, config):
         updated_config = config[self._name]
@@ -49,7 +51,9 @@ class SystemExtension(Actor):
     def send_time_update(self):
         while not self._stop_event.is_set():
             self._core.send(
-                target=["web","display"], event="system_time_updated", datetime=self.on_datetime()
+                target=["web", "display"],
+                event="system_time_updated",
+                datetime=self.on_datetime(),
             )
             self._stop_event.wait(timeout=30)
 
@@ -59,29 +63,46 @@ class SystemExtension(Actor):
         time = now.strftime("%Y-%m-%dT%H:%M:%S")
         return time
 
-    async def on_standby(self, state: bool):
-        self._is_standby = state
-        self._core.send(
-            target=["web","display"], event="system_power_state", state=self.on_get_power_state()
-        )
-
-        await self._core.request("source.set", type=None)
-        await self._core.request("bluetooth.adapter_set_state", state=False)
-
-        if state:
+    async def on_standby(self):
+        if self._power_state is None:
+            self._power_state = "standby"
             logger.info("System going into Standby...")
         else:
+            self._power_state = None
             logger.info("System wakeup...")
+
+        self._core.send(
+            target=["web", "display"],
+            event="system_power_state_changed",
+            state=self._power_state,
+        )
+
+        await self._core.request("source.set", uri=None)
+        await self._core.request("bluetooth.adapter_set_state", state=False)
         return True
 
-    def on_get_power_state(self):
-        return {"standby": self._is_standby}
+    def on_power_state(self):
+        return self._power_state
 
-    def on_shutdown(self):
+    async def on_shutdown(self):
+        self._power_state = "shutdown"
+        self._core.send(
+            target=["web", "display"],
+            event="system_power_state_changed",
+            state=self._power_state,
+        )
+        await asyncio.sleep(2.0)
         os.system("sudo shutdown -h now")
         return True
 
-    def on_reboot(self):
+    async def on_reboot(self):
+        self._power_state = "reboot"
+        self._core.send(
+            target=["web", "display"],
+            event="system_power_state_changed",
+            state=self._power_state,
+        )
+        await asyncio.sleep(2.0)
         os.system("sudo shutdown -r now")
         return True
 

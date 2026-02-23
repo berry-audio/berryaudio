@@ -7,8 +7,8 @@ import re
 import os
 
 from gi.repository import GLib
-from core.actor import Actor
-from core.models import Album, Artist, Track, TlTrack, Source
+from core.actor import SourceActor
+from core.models import Album, Artist, Track, TlTrack, Source, RefType
 from core.types import PlaybackState
 
 logger = logging.getLogger(__name__)
@@ -44,8 +44,7 @@ PCM_BLUEALSA = "bluealsa"
 MODE_TX = "AD2P-source"
 MODE_RX = "AD2P-sink"
 
-
-class BluetoothExtension(Actor):
+class BluetoothExtension(SourceActor):
     def __init__(self, name, core, db, config):
         super().__init__()
         self._name = name
@@ -63,7 +62,13 @@ class BluetoothExtension(Actor):
         self._tl_track = TlTrack(0, track=Track())
         self._proc_aplay = None
         self._proc_agent = None
-        self._source = Source(type=self._name, controls=[], state={"connected": False})
+        self._source = Source(
+            name="Bluetooth",
+            type=RefType.SOURCE,
+            uri=self._name,
+            controls=[],
+            state={"connected": False},
+        )
         self._loop = asyncio.get_running_loop()
 
     async def on_start(self):
@@ -199,7 +204,9 @@ class BluetoothExtension(Actor):
             return
 
         self._core.send(
-            target=["web","display"], event="bluetooth_device_connected", device=connected_device
+            target=["web", "display"],
+            event="bluetooth_device_connected",
+            device=connected_device,
         )
         logger.info(
             f'Bluetooth device connected: {connected_device.get("name")} {connected_device.get("address")} ({self._mode})'
@@ -239,7 +246,11 @@ class BluetoothExtension(Actor):
             )
             await self.on_set_volume(
                 address=connected_device.get("address"),
-                volume=current_mixer_volume if current_mixer_volume else connected_device.get("volume"),
+                volume=(
+                    current_mixer_volume
+                    if current_mixer_volume
+                    else connected_device.get("volume")
+                ),
                 soft_volume=BLUEALSA_SOFT_VOLUME,
             )
 
@@ -249,7 +260,9 @@ class BluetoothExtension(Actor):
 
         connected_device = await self.on_device(address)
         self._core.send(
-            target=["web","display"], event="bluetooth_device_updated", device=connected_device
+            target=["web", "display"],
+            event="bluetooth_device_updated",
+            device=connected_device,
         )
 
     async def _handle_disconnected(self, interface_name):
@@ -273,14 +286,12 @@ class BluetoothExtension(Actor):
                     await self._core.request("source.set", type=None)
 
         self._core.send(
-            target=["web","display"],
+            target=["web", "display"],
             event="bluetooth_device_disconnected",
             device=disconnected_device,
         )
         self._tl_track = TlTrack(0, track=Track())
-        self._core._request(
-                    "playback.set_metadata", tl_track=self._tl_track
-                )
+        self._core._request("playback.set_metadata", tl_track=self._tl_track)
         logger.info(
             f'Bluetooth device disconnected: {disconnected_device.get("name")} {disconnected_device.get("address")}'
         )
@@ -316,14 +327,14 @@ class BluetoothExtension(Actor):
 
             if "Discoverable" in properties:
                 self._core.send(
-                    target=["web","display"],
+                    target=["web", "display"],
                     event="bluetooth_state_changed",
                     state=self.on_adapter_get_state(),
                 )
 
             if "Pairable" in properties:
                 self._core.send(
-                    target=["web","display"],
+                    target=["web", "display"],
                     event="bluetooth_state_changed",
                     state=self.on_adapter_get_state(),
                 )
@@ -604,7 +615,9 @@ class BluetoothExtension(Actor):
             ADAPTER.RemoveDevice(path)
 
             self._core.send(
-                target=["web","display"], event="bluetooth_device_removed", device=device_info
+                target=["web", "display"],
+                event="bluetooth_device_removed",
+                device=device_info,
             )
             logger.info(
                 f"Bluetooth device removed: {device_info.get('name')} {address}"
