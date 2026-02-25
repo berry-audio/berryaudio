@@ -245,8 +245,9 @@ class PlaybackExtension(Actor):
             if self._pipeline:
                 success, position = self._pipeline.query_position(Gst.Format.TIME)
                 if success:
-                    self._elapsed = int((position / Gst.SECOND) * 1000)
+                    _elapsed = int((position / Gst.SECOND) * 1000)
                     duration_sec = (self._duration / Gst.SECOND) * 1000
+                    self.on_set_time_position(_elapsed)
             return True
 
         self._time_source_id = GLib.timeout_add(500, update_elapsed)
@@ -317,6 +318,8 @@ class PlaybackExtension(Actor):
         else:
             if self._state in (PlaybackState.PAUSED, PlaybackState.STOPPED):
                 return self._play()
+            else:
+                self.on_pause()
 
     def on_seek(self, time_position: int):
         if time_position < 1:
@@ -381,6 +384,9 @@ class PlaybackExtension(Actor):
 
     def on_set_time_position(self, position_ms: int) -> bool:
         self._elapsed = position_ms
+        self._core.send(
+                    target=["display"], event="track_position_updated", time_position=self._elapsed,
+                )
         return True
 
     def on_set_metadata(self, tl_track: TlTrack | None) -> bool:
@@ -423,6 +429,7 @@ class PlaybackExtension(Actor):
 
         self._elapsed = 0
         self._core.send(target=["web","display"], event="playback_state_changed", state=self._state)
+        self._core.send(target=["web","display"], event="track_position_updated", time_position=self._elapsed)
         return True
 
     def _play(self):

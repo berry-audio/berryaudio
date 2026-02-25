@@ -16,6 +16,7 @@ from display.widgets.codec_bitrate import WidgetCodecBitrate
 from display.widgets.text_box import WidgetTextBox
 from display.widgets.play_pause import WidgetPlayPause
 from display.widgets.list_scrollable import WidgetListScrollable
+from display.widgets.progress_bar import WidgetProgressBar
 from display.widgets.loader import WidgetLoader
 from display.utils import format_time, power_state_name
 
@@ -29,10 +30,10 @@ FONT_STYLE_4 = Path(__file__).parent.parent / "fonts" / "thin_pixel-7.ttf"
 
 ICON_BLUETOOTH = Path(__file__).parent.parent / "icons" / "bluetooth.png"
 ICON_SPEAKER = Path(__file__).parent.parent / "icons" / "speaker.png"
+ICON_SPOTIFY = Path(__file__).parent.parent / "icons" / "spotify.png"
+ICON_AIRPLAY = Path(__file__).parent.parent / "icons" / "airplay.png"
 ICON_SHUFFLE = Path(__file__).parent.parent / "icons" / "shuffle.png"
 ICON_REPEAT = Path(__file__).parent.parent / "icons" / "repeat.png"
-ICON_AIRPLAY = Path(__file__).parent.parent / "icons" / "airplay.png"
-ICON_SPOTIFY = Path(__file__).parent.parent / "icons" / "spotify.png"
 
 
 class DisplaySSD1322:
@@ -53,6 +54,7 @@ class DisplaySSD1322:
         self._power_state = "standby"
         self._blink_visible = False
         self._current_track = None
+        self._current_elapsed = None
         self._current_time = None
         self._current_dir = None
         self._source_dir = None
@@ -66,6 +68,7 @@ class DisplaySSD1322:
         self.list_scrollable_source = WidgetListScrollable(
             display_width=self.width, display_height=self.height, font_size=8, font_path=FONT_STYLE_3, show_counter=False
         )
+        self.progress_bar = WidgetProgressBar(font_path=FONT_STYLE_4,  font_size=20, bar_height=4, bar_outline_color=False)
         self.loader = WidgetLoader(display_width=self.width, display_height=self.height)
 
     def _set_power_state(self, state):
@@ -91,6 +94,9 @@ class DisplaySSD1322:
     def _set_current_track(self, track):
         self._current_track = track
 
+    def _set_current_elapsed(self, elapsed=None):
+        self._current_elapsed = elapsed
+        
     def _set_dir_scroll_up(self):
         self.list_scrollable.scroll_up()
         self.list_scrollable_source.scroll_up()
@@ -192,6 +198,12 @@ class DisplaySSD1322:
                             draw, width=self.width, y=12, text=f"VOLUME {self._volume}", center=True,
                         )
 
+                    if self._page == "MUTE":
+                        self._widget_title.draw(
+                            draw, width=self.width, y=12, text=f"MUTE", center=True,
+                        )
+
+
                     if self._page == "LOADING":
                         self.loader.draw(draw)
 
@@ -199,10 +211,9 @@ class DisplaySSD1322:
                         self.list_scrollable.draw(draw)
 
                     if self._page == "NOW_PLAYING":
-                        text = str(self._volume)
                         draw.text(
                             (239, -8),
-                            text,
+                            str(self._volume),
                             font=ImageFont.truetype(FONT_STYLE_4, 20),
                             fill="white",
                         )
@@ -211,9 +222,8 @@ class DisplaySSD1322:
                         # draw.bitmap((210, 0), blue_icon, fill="white")
                         # draw.bitmap((200, 0), airplay_icon, fill="white")
                         # draw.bitmap((190, 0), spotify_icon, fill="white")
-
-                        draw.bitmap((219, 0), Image.open(ICON_REPEAT), fill="white")
-                        draw.bitmap((205, 0), Image.open(ICON_SHUFFLE), fill="white")
+                        # draw.bitmap((219, 0), Image.open(ICON_REPEAT), fill="white")
+                        # draw.bitmap((205, 0), Image.open(ICON_SHUFFLE), fill="white")
 
                         if (
                             self._current_track is not None
@@ -239,8 +249,8 @@ class DisplaySSD1322:
                             if self._source and self._source.state:
                                 self._widget_title.draw(
                                     draw,
-                                    width=207,
-                                    x=13,
+                                    width=256,
+                                    x=-3,
                                     y=12,
                                     text=self._source.state.name,
                                 )
@@ -279,6 +289,7 @@ class DisplaySSD1322:
                                         y=-3,
                                         text=self._source.name,
                                     )
+
                         # if self._source and self._source.type:
                         # self._widget_source.draw(
                         #     draw,
@@ -289,6 +300,17 @@ class DisplaySSD1322:
                         #     text="STEREO",
                         #     highlight=True,
                         # )
+                        
+                        if self._visualizer_layout == 7:
+                            self.progress_bar.draw(
+                                draw,
+                                width=self.width,
+                                y=60,
+                                x=0,
+                                elapsed=self._current_elapsed,
+                                total=self._current_track.length if self._current_track else None
+                            )
+                        
 
                         if isinstance(self._widget_visualizer, WidgetSpectumAnalyzer):
                             if self._visualizer_layout == 1:

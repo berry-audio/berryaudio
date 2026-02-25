@@ -51,6 +51,8 @@ async def async_main(verbose=False):
         "snapcast",
         "display",
         "gpio",
+        "infrared",
+        "tuner",
     ]
     await core.load_extensions_by_name(extensions)
 

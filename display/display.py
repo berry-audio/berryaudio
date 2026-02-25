@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Optional
 
 from core.actor import Actor
-from core.types import PlaybackState
+from core.types import PlaybackState, GpioActions
 from core.models import Image, RefType, Album, Artist, Ref, Track, Source
 
 from .ssd1322 import DisplaySSD1322
@@ -57,21 +57,25 @@ class DisplayExtension(Actor):
                 if self._power_state is None:
                     if self._page != "SOURCE":
                         self._page_prev = self._page
-                    self.set_dir(None)
+                    self._controller._set_current_elapsed()
                     self._current_dir_breadcrumbs = []
+                    self.set_dir()
                     self.set_page("SOURCE")
                     self.start_timer("NOW_PLAYING")
 
             elif event == "source_updated":
                 self.set_source(message["source"])
 
+            elif event == "track_position_updated":
+                self._controller._set_current_elapsed(message["time_position"])
+
             elif event == "gpio_state_changed":
                 self._gpio_key = message["key"]
 
-                if self._gpio_key == "power":
-                    await self._core.request("system.standby")
+                if self._gpio_key == GpioActions.NOW_PLAYING:
+                    self.set_page("NOW_PLAYING")
 
-                if self._gpio_key == "source":
+                if self._gpio_key == GpioActions.SOURCE:
                     if self._page != "SOURCE_DIRECTORY":
                         if self._page_prev != "DIRECTORY":
                             self._page_prev = self._page
@@ -86,27 +90,23 @@ class DisplayExtension(Actor):
                     elif self._page_prev != "STANDBY":
                         self.set_page(self._page_prev)
 
-                if self._gpio_key == "up":
-                    if self._page == "NOW_PLAYING" or self._page == "VOLUME":
-                        self.set_volume(min(self._volume + 1, 100))
-                        self._core._request("mixer.set_volume", volume=self._volume)
-                    else:
-                        self.set_dir_scroll_up()
+                if self._gpio_key == GpioActions.UP:
+                    self.set_dir_scroll_up()
 
-                if self._gpio_key == "down":
-                    if self._page == "NOW_PLAYING" or self._page == "VOLUME":
-                        self.set_volume(max(self._volume - 1, 0))
-                        self._core._request("mixer.set_volume", volume=self._volume)
-                    else:
-                        self.set_dir_scroll_down()
+                if self._gpio_key == GpioActions.DOWN:
+                    self.set_dir_scroll_down()
 
-                if self._gpio_key == "select":
+                if self._gpio_key == GpioActions.SELECT:
                     if self._page == "SOURCE_DIRECTORY":
-
                         selected_item, selected_index, scroll_offset = (
                             self._controller._get_selected_source()
                         )
-                        await self._core.request("source.set", uri=selected_item.uri)
+                        if selected_item.active:
+                            self.set_page("NOW_PLAYING")
+                        else:
+                            await self._core.request(
+                                "source.set", uri=selected_item.uri
+                            )
 
                     elif self._page == "DIRECTORY":
                         selected_item, selected_index, scroll_offset = (
@@ -161,7 +161,7 @@ class DisplayExtension(Actor):
                                 self.set_dir(_current_dir)
                                 self.set_page("DIRECTORY")
 
-                if self._gpio_key == "directory_long":
+                if self._gpio_key == GpioActions.BACK:
                     if self._current_dir_breadcrumbs:
                         last_items = self._current_dir_breadcrumbs[-1]["items"]
                         last_selected_index = self._current_dir_breadcrumbs[-1][
@@ -186,7 +186,7 @@ class DisplayExtension(Actor):
                         self.set_page("DIRECTORY")
                         self._current_dir_breadcrumbs.pop()
 
-                if self._gpio_key == "directory":
+                if self._gpio_key == GpioActions.DIRECTORY:
                     if self._timer_timeout is not None:
                         self._timer_timeout.cancel()
 
@@ -226,7 +226,7 @@ class DisplayExtension(Actor):
                             if self._current_dir is not None:
                                 self.set_page("DIRECTORY")
 
-                if self._gpio_key == "display":
+                if self._gpio_key == GpioActions.VISUALISER:
                     self.set_visualizer_layout()
 
             elif event == "system_time_updated":
@@ -265,8 +265,12 @@ class DisplayExtension(Actor):
                     self.set_page("NOW_PLAYING")
 
             elif event == "mixer_mute":
-                self.set_mute(message["mute"])
+                self.set_mute(message.get("mute"))                    
                 if self._muted:
+                    if self._page != "MUTE":
+                        self._page_prev = self._page
+                    self.set_page("MUTE")
+                    self.start_timer(self._page_prev)
                     self.start_timer_blink()
                 else:
                     self.stop_timer_blink()
@@ -310,6 +314,10 @@ class DisplayExtension(Actor):
 
     def set_page(self, page):
         self._page = page
+        if self._page in ("SOURCE_DIRECTORY", "DIRECTORY"):
+            self._core._request("gpio.set_encoder_mode", mode="direction")
+        else:
+            self._core._request("gpio.set_encoder_mode", mode="volume")
         if self._controller is not None:
             self._controller._set_page(page)
 
@@ -320,7 +328,8 @@ class DisplayExtension(Actor):
 
         if self._source is not None and self._source.uri != source.uri:
             self._current_dir_breadcrumbs = []
-            self.set_dir(None)
+            self.set_dir()
+            self._controller._set_current_elapsed()
 
     def set_source_dir(self, dir, selected_index=0, scroll_offset=0):
         self._source_dir = dir
@@ -334,7 +343,7 @@ class DisplayExtension(Actor):
         if self._controller is not None:
             self._controller._set_current_track(track)
 
-    def set_dir(self, dir, selected_index=0, scroll_offset=0):
+    def set_dir(self, dir=None, selected_index=0, scroll_offset=0):
         self._current_dir = dir
         if self._controller is not None:
             self._controller._set_dir(self._current_dir, selected_index, scroll_offset)
@@ -365,7 +374,7 @@ class DisplayExtension(Actor):
             self._controller._set_current_time(self._current_time)
 
     def set_visualizer_layout(self):
-        self._visualizer_layout = (self._visualizer_layout % 6) + 1
+        self._visualizer_layout = (self._visualizer_layout % 7) + 1
         if self._controller is not None:
             self._controller._set_visualizer_layout(self._visualizer_layout)
         logger.info(f"Visualizer Layout {self._visualizer_layout}")

@@ -183,26 +183,27 @@ class WidgetListScrollable:
         if self.items is None:
             return
 
-        if self.selected_index > 0:
-            self.selected_index -= 1
-
-            # Adjust scroll offset if needed
-            if self.selected_index < self.scroll_offset:
-                self.scroll_offset = self.selected_index
-
-            return True
-        return False
-
-    def scroll_up(self):
-        if self.items is None:
-            return
-
         if self.selected_index < len(self.items) - 1:
             self.selected_index += 1
 
             # Adjust scroll offset if needed
             if self.selected_index >= self.scroll_offset + self.visible_items:
                 self.scroll_offset = self.selected_index - self.visible_items + 1
+
+            return True
+        return False
+       
+
+    def scroll_up(self):
+        if self.items is None:
+            return
+
+        if self.selected_index > 0:
+            self.selected_index -= 1
+
+            # Adjust scroll offset if needed
+            if self.selected_index < self.scroll_offset:
+                self.scroll_offset = self.selected_index
 
             return True
         return False

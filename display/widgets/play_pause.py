@@ -1,14 +1,13 @@
 from core.types import PlaybackState
 
-
 class WidgetPlayPause:
     def __init__(self):
         pass
-
+    
     def draw(self, draw, x, y, state=PlaybackState.STOPPED):
         icon_width = 7
         icon_height = 11
-
+        
         if state == PlaybackState.PLAYING:
             for i in range(icon_height):
                 line_length = min(i + 1, icon_height - i)
@@ -18,13 +17,20 @@ class WidgetPlayPause:
                         fill="white",
                         width=1,
                     )
-        else:
+        elif state == PlaybackState.PAUSED:
             bar_width = 2
             gap = 3
             draw.rectangle(
-                [(x, y), (x + bar_width - 1, y + icon_height - 1)], fill="white"
+                [(x, y), (x + bar_width - 1, y + icon_height - 1)], 
+                fill="white"
             )
             draw.rectangle(
                 [(x + bar_width + gap, y), (x + icon_width - 1, y + icon_height - 1)],
                 fill="white",
+            )
+        else: 
+            square_size = 7
+            draw.rectangle(
+                [(x, y + 2), (x + square_size, y + 2 + square_size )],
+                fill="white"
             )

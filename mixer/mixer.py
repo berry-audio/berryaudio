@@ -97,7 +97,7 @@ class MixerExtension(Actor):
                 )
 
         self._core.send(
-            target=["web", "display", "bluetooth"],
+            target=["web", "display", "bluetooth", "infrared", "gpio"],
             event="mixer_mute",
             mute=self._volume_muted,
         )
@@ -148,7 +148,7 @@ class MixerExtension(Actor):
                     f"Unexpected error while getting volume or no hardware volume available: {exc}"
                 )
         return self._volume_default
-
+    
     async def on_set_volume(self, volume: int = 0) -> bool:
         """
         Set Volume
@@ -172,7 +172,7 @@ class MixerExtension(Actor):
                 if self._mixer is None:
                     logger.warning("Mixer is not available")
 
-                self._core.send(target=["web", "display", "bluetooth"], event="volume_changed", volume=volume)
+                self._core.send(target=["web", "display", "bluetooth", "infrared", "gpio"], event="volume_changed", volume=volume)
             except asyncio.CancelledError:
                 pass
 
@@ -184,6 +184,13 @@ class MixerExtension(Actor):
             _delayed_volume_event(self._volume_default)
         )
         return True
+
+    async def on_volume_up(self):
+        await self.on_set_volume(min(self._volume_default + 1, self._volume_max))
+
+    async def on_volume_down(self):
+        await self.on_set_volume(max(self._volume_default - 1, self._volume_min))
+
 
     def volume_to_mixer_volume(self, volume):
         if volume == 0:

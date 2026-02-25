@@ -1,0 +1,1 @@
+from .infrared import InfraredExtension as Extension
