@@ -22,7 +22,7 @@ const DialogPowerOptions = () => {
 
   const onClickStandbyHandler = async () => {
     setIsLoading("standby");
-    await setStandby(true);
+    await setStandby();
     dispatch({ type: DIALOG_EVENTS.DIALOG_CLOSE });
     setIsLoading("");
   };

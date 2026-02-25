@@ -114,23 +114,6 @@ export const getCodecName = (format: string) => {
 };
 
 /**
- * Returns the source fullname.
- */
-export const getSourceName = (type: string) => {
-  if (!type) return "Unknown";
-
-  type SourceType = "bluetooth" | "spotify" | "shairportsync";
-
-  const mapping: Record<SourceType, string> = {
-    bluetooth: "Bluetooth",
-    spotify: "Spotify Connect",
-    shairportsync: "Airplay",
-  };
-
-  return mapping[type as SourceType] || type;
-};
-
-/**
  * Returns the track's bit dept rate in bits.
  */
 export const getBitDepth = (format: string) => {
@@ -203,8 +186,8 @@ export const formatNo = (no: number) => {
  * @returns {{ name: string, id: number }} The parsed name and id.
  */
 export const splitUri = (uri: string) => {
-  const [name, id] = uri.split(":");
-  return { name, id };
+  const [name, path] = uri.split(":");
+  return { name, path };
 };
 
 export const formatDate = (dateString: string): string => {
@@ -285,4 +268,4 @@ export const timeAgo = (unixSeconds: number): string => {
 
   const days = Math.floor(hours / 24);
   return `${days} day${days !== 1 ? "s" : ""} ago`;
-}
+};

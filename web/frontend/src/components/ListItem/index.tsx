@@ -52,25 +52,23 @@ const ListItem = ({
   onClickCallback?: (item: Ref) => void;
   onClickActionCallback?: (action: ACTIONS, item: Ref) => void;
 }) => {
-
   const { handleAddToQueue } = useAddToQueue();
   const { handlePlayNow } = usePlayNow();
   const { handleGoToArtist } = useGoToArtist();
   const { handleGoToAlbum } = useGoToAlbum();
   const { handleAddToPlaylist } = useAddToPlaylist();
 
-
   const itemsMenu = [
     {
       name: "Play Now",
       icon: <PlayIcon size={ICON_XS} weight={ICON_WEIGHT} />,
-      hide: [REF.FOLDER].includes(item.type),
+      hide: [REF.DIRECTORY].includes(item.type),
       action: () => handlePlayNow(item),
     },
     {
       name: "Add to Queue",
       icon: <QueueIcon size={ICON_XS} weight={ICON_WEIGHT} />,
-      hide: [REF.FOLDER].includes(item.type),
+      hide: [REF.DIRECTORY].includes(item.type),
       action: () => handleAddToQueue(item),
     },
     {
@@ -102,15 +100,15 @@ const ListItem = ({
     {
       name: "Favourite",
       icon: <StarIcon size={ICON_XS} weight={ICON_WEIGHT} />,
-      hide: [REF.FOLDER].includes(item.type),
+      hide: [REF.DIRECTORY].includes(item.type),
       action: () => undefined,
-      disabled: true
+      disabled: true,
     },
 
     {
       name: "Add to Playlist",
       icon: <PlaylistIcon size={ICON_XS} weight={ICON_WEIGHT} />,
-      hide: [REF.PLAYLIST, REF.FOLDER].includes(item.type),
+      hide: [REF.PLAYLIST, REF.DIRECTORY].includes(item.type),
       action: () => handleAddToPlaylist(item),
     },
     {
@@ -122,17 +120,13 @@ const ListItem = ({
     {
       name: "Add to Library",
       icon: <StackPlusIcon size={ICON_XS} weight={ICON_WEIGHT} />,
-      hide: ![REF.FOLDER].includes(item.type),
+      hide: ![REF.DIRECTORY].includes(item.type),
       action: () => onClickActionCallback?.(ACTIONS.ADD_LIBRARY, item),
     },
   ];
 
   return cover ? (
-    <div
-      key={index}
-      className={`cursor-pointer w-full relative ${className ? className : ""}`}
-      style={{ ...style }}
-    >
+    <div key={index} className={`cursor-pointer w-full relative ${className ? className : ""}`} style={{ ...style }}>
       <Cover
         type={item.type}
         loading={isLoading}
@@ -140,17 +134,13 @@ const ListItem = ({
         subtitle={getSubtitle(item, view)}
         image={getImage(item.images?.[0]?.uri)}
         onClick={() => onClickCallback?.(item)}
-        actions={<ActionMenu items={itemsMenu}/>}
+        actions={<ActionMenu items={itemsMenu} />}
       />
-      
     </div>
   ) : (
     <>
       {/* Not a button else draggable wont work */}
-      <div
-        className="flex items-center w-full cursor-pointer justify-between relative"
-        onClick={() => onClickCallback?.(item)}
-      >
+      <div className="flex items-center w-full cursor-pointer justify-between relative" onClick={() => onClickCallback?.(item)}>
         <ItemPadding>
           <CoverList
             no={index === null ? undefined : index + 1}
@@ -195,7 +185,11 @@ export const getSubtitle = (item: Ref, view: REF): string => {
     case REF.ARTIST:
     case REF.DIRECTORY:
     case REF.PLAYLIST:
-      return `${String(item.length)} Tracks`;
+      if (item.length) {
+        return `${String(item.length)} Tracks`;
+      } else {
+        return "";
+      }
     default:
       return "";
   }

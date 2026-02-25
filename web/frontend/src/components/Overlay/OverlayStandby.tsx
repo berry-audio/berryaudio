@@ -12,11 +12,11 @@ const OverlayStandby = () => {
   const { power_state } = useSelector((state: any) => state.system);
 
   useEffect(() => {
-    if (!power_state.standby) dispatch({ type: OVERLAY_EVENTS.OVERLAY_CLOSE });
+    if (!power_state) dispatch({ type: OVERLAY_EVENTS.OVERLAY_CLOSE });
   }, [power_state]);
 
   return (
-    <Overlay zindex={100} show={power_state.standby} overlay className="bg-black text-white">
+    <Overlay zindex={100} show={power_state === 'standby'} overlay className="bg-black text-white">
       <div className="top-5 right-5 absolute"><ButtonWake/></div>
       <div>
         <div className="items-center justify-center flex w-full h-full text-[70px] font-black">

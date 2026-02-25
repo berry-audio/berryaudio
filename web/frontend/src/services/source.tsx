@@ -5,6 +5,6 @@ export const useSourceService = () => {
 
     return {
       getSource: () => request("source.get"),
-      setSource: (type: string) => request("source.set", {type}),
+      setSource: (uri: string) => request("source.set", {uri}),
     };
   };

@@ -1,7 +1,7 @@
 import React from "react";
 import { CaretDownIcon, UserIcon, VinylRecordIcon } from "@phosphor-icons/react";
 import { useDispatch, useSelector } from "react-redux";
-import { getAlbums, getArtists, getImage, getSourceName } from "@/util";
+import { getAlbums, getArtists, getImage } from "@/util";
 import { ICON_SM, ICON_WEIGHT } from "@/constants";
 import { PLAYBACK_STATE } from "@/constants/states";
 import { OVERLAY_EVENTS } from "@/store/constants";
@@ -70,7 +70,7 @@ const OverlayNowPlaying = () => {
           </div>
           <div className="flex items-center justify-center mt-5">
             <h2 className="lg:text-4xl lg:mb-1 text-3xl font-semibold  max-w-80">
-              {current_track?.track.name ? <ScrollingText text={current_track?.track.name} /> : getSourceName(source.type)}
+              {current_track?.track.name ? <ScrollingText text={current_track?.track.name} /> : source.name}
             </h2>
           </div>
 
@@ -89,7 +89,7 @@ const OverlayNowPlaying = () => {
           )}
 
           <div className="mt-2 mb-2 w-full text-center">
-            {["bluetooth", "spotify", "shairportsync", "snapcast"].includes(source.type) ? (
+            {["bluetooth", "spotify", "shairportsync", "snapcast"].includes(source.uri) ? (
               <div className="flex justify-center w-full">
                 <Source />
               </div>
@@ -149,7 +149,7 @@ const OverlayNowPlaying = () => {
 
             <div className={`w-11/12 overflow-hidden`}>
               <h2 className="lg:text-4xl lg:mb-1 text-2xl sm:text-3xl font-semibold">
-                {current_track?.track.name ? <ScrollingText text={current_track?.track.name} /> : getSourceName(source.type)}
+                {current_track?.track.name ? <ScrollingText text={current_track?.track.name} /> : source.name}
               </h2>
 
               {current_track?.track.artists.length ? (
@@ -166,7 +166,7 @@ const OverlayNowPlaying = () => {
               )}
 
               <div className="mt-3">
-                {["bluetooth", "spotify", "shairportsync", "snapcast"].includes(source.type) ? (
+                {["bluetooth", "spotify", "shairportsync", "snapcast"].includes(source.uri) ? (
                   <Source />
                 ) : current_track?.track?.albums?.length ? (
                   <div className="flex items-center">

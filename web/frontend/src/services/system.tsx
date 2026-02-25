@@ -8,7 +8,7 @@ export const useSystemService = () => {
     getSystemTime: () => request("system.datetime"),
     setReboot: () => request("system.reboot"),
     setShutdown: () => request("system.shutdown"),
-    getPowerState: () => request("system.get_power_state"),
-    setStandby: (state:boolean) => request("system.standby", {state}),
+    getPowerState: () => request("system.power_state"),
+    setStandby: () => request("system.standby"),
   };
 };

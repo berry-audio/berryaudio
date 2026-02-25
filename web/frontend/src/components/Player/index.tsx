@@ -2,7 +2,7 @@ import React, { useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { usePlaybackService } from "@/services/playback";
 import { usePlayerActions } from "@/hooks/usePlayerActions";
-import { getArtists, getImage, getSourceName } from "@/util";
+import { getArtists, getImage } from "@/util";
 import { PLAYBACK_STATE } from "@/constants/states";
 import { REF } from "@/constants/refs";
 import { PLAYER_EVENTS } from "@/store/constants";
@@ -68,10 +68,10 @@ const Player = () => {
                     <Directory type={REF.ALBUM} variant="primary"/>
                   )}
                 </div>
-                {source.type && (
+                {source.uri && (
                   <div className="overflow-hidden max-w-80">
                     <h2 className="text-xl tracking-tight ">
-                      {current_track?.track.name ? <ScrollingText text={current_track?.track.name} /> : getSourceName(source.type)}
+                      {current_track?.track.name ? <ScrollingText text={current_track?.track.name} /> : source.name}
                     </h2>
                     <div className="text-secondary overflow-hidden">
                       {current_track?.track.artists.length ? (
@@ -123,10 +123,10 @@ const Player = () => {
                     <Directory type={REF.ALBUM} variant="primary"/>
                   )}
                 </div>
-                {source.type && (
+                {source.uri && (
                   <div className="text-left overflow-hidden">
                     <h2 className={`text-lg font-medium tracking-tight text-white`}>
-                      {current_track?.track.name ? <ScrollingText text={current_track?.track.name} /> : getSourceName(source.type)}
+                      {current_track?.track.name ? <ScrollingText text={current_track?.track.name} /> : source.name}
                     </h2>
                     <div className=" text-secondary -mt-0.5 lg:-mt-1 text-sm">
                       {current_track?.track.artists.length ? (

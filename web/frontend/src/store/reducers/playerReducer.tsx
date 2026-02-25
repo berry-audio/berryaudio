@@ -5,6 +5,8 @@ import { MediaPlayer, Source } from "@/types";
 
 const initialSource: Source = {
   type: undefined,
+  name: undefined,
+  uri: undefined,
   controls: [],
   state: { connected: false },
 };

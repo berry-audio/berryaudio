@@ -106,6 +106,8 @@ export interface MediaPlayer {
 
 export interface Source {
   type?: string;
+  name?: string;
+  uri?: string;
   controls?: string[];
   state?: {
     connected?: boolean;
@@ -168,13 +170,16 @@ export interface SnapcastState {
 }
 
 export interface StorageDevice {
+  __model__: "Storage";
   dev: string;
   parent: string;
+  uri: string;
+  name: string;
+  type: string;
   removable: boolean;
-  size_bytes: number;
+  size: number;
   marketed_gb: number;
   fstype: string;
-  label: string;
   status: "mounted" | "unmounted" | "removed";
   mount: string;
   total: number;

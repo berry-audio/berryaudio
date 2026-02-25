@@ -41,8 +41,8 @@ const Playlists = () => {
   };
 
   const onClickPlaylistItem = async (item: Ref) => {
-    const uri = splitUri(item.uri);
-    navigate(`/playlist/${uri.id}`);
+    const { path } = splitUri(item.uri);
+    navigate(`/playlist/${path}`);
   };
 
   const onClickActionTrack = async (action: ACTIONS, tlid: number) => {
