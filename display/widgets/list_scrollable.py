@@ -8,6 +8,7 @@ ICON_MUSIC_NOTE = Path(__file__).parent.parent / "icons" / "music_note.png"
 ICON_DIRECTORY = Path(__file__).parent.parent / "icons" / "directory.png"
 ICON_BULLET = Path(__file__).parent.parent / "icons" / "bullet.png"
 ICON_STORAGE = Path(__file__).parent.parent / "icons" / "storage.png"
+ICON_BLUETOOTH = Path(__file__).parent.parent / "icons" / "bluetooth.png"
 
 
 class WidgetListScrollable:
@@ -47,6 +48,7 @@ class WidgetListScrollable:
         self.track_icon = Image.open(ICON_MUSIC_NOTE)
         self.bullet_icon = Image.open(ICON_BULLET)
         self.storage_icon = Image.open(ICON_STORAGE)
+        self.bluetooth_icon = Image.open(ICON_BLUETOOTH)
 
     def set_items(self, items, selected_index=0, scroll_offset=0):
         self.items = items
@@ -66,7 +68,7 @@ class WidgetListScrollable:
             y_pos = (i - start_idx) * self.line_height
             display_name = items[i].name
             display_type = items[i].type
-            display_active = bool(getattr(items[i], 'active', False))
+            display_active = getattr(items[i], 'active', False) or getattr(items[i], 'connected', False)
 
             max_chars = 35
             if len(display_name) > max_chars:
@@ -90,6 +92,8 @@ class WidgetListScrollable:
                     draw.bitmap((2, y_pos + 4), self.folder_icon, fill="black")
                 elif display_type == RefType.STORAGE:
                     draw.bitmap((2, y_pos + 4), self.storage_icon, fill="black")
+                elif display_type == RefType.BLUETOOTH:
+                    draw.bitmap((2, y_pos + 4), self.bluetooth_icon, fill="black")
                 else:
                     if display_active:
                         draw.bitmap((4, y_pos + 4), self.bullet_icon, fill="black")
@@ -113,11 +117,17 @@ class WidgetListScrollable:
                     draw.bitmap((2, y_pos + 4), self.folder_icon, fill=240)
                 elif display_type == RefType.STORAGE:
                     draw.bitmap((2, y_pos + 4), self.storage_icon, fill=240)
+                    
+                elif display_type == RefType.BLUETOOTH:
+                    draw.bitmap((2, y_pos + 4), self.bluetooth_icon, fill=240)    
                 else:
                     pass
                 
                 if display_active:
-                    draw.bitmap((4, y_pos + 4), self.bullet_icon, fill="white")
+                    if display_type == RefType.BLUETOOTH:
+                        draw.bitmap((2, y_pos + 4), self.bluetooth_icon, fill="white")
+                    else:     
+                        draw.bitmap((4, y_pos + 4), self.bullet_icon, fill="white")
 
                 draw.text(
                     (self.padding_left + 12, y_pos + 1),

@@ -2,7 +2,7 @@ import logging
 import asyncio
 
 from core.actor import Actor
-from core.types import GpioActions
+from core.types import GpioActions, EncoderMode
 
 from .mcp23017 import GpioMCP23017
 
@@ -32,7 +32,7 @@ class GpioExtension(Actor):
         self._loop = asyncio.get_running_loop()
         self._volume = 0
         self._muted = False
-        self._encoder_mode = "volume"
+        self._encoder_mode = EncoderMode.VOLUME
 
     async def on_config_update(self, config):
         pass
@@ -47,10 +47,6 @@ class GpioExtension(Actor):
 
         elif event == "volume_changed":
             self._volume = message.get("volume")
-
-    def on_set_encoder_mode(self, mode="volume"):
-        logger.info(f"Encoder mode is '{mode}'")
-        self._encoder_mode = mode
 
     async def on_start(self):
         buttons = [
@@ -117,11 +113,15 @@ class GpioExtension(Actor):
             target=["web", "display"], event="gpio_state_changed", key=f"{action}_long"
         )
 
+    def on_set_encoder_mode(self, mode=EncoderMode.VOLUME):
+        logger.info(f"Encoder mode is '{mode}'")
+        self._encoder_mode = mode
+
     def on_encoder(self, direction):
-        if self._encoder_mode == "volume":
+        if self._encoder_mode == EncoderMode.VOLUME:
             _action = (
                 GpioActions.VOLUME_UP if direction == "CW" else GpioActions.VOLUME_DOWN
             )
-        elif self._encoder_mode == "direction":
+        elif self._encoder_mode == EncoderMode.DIRECTION:
             _action = GpioActions.DOWN if direction == "CW" else GpioActions.UP
         asyncio.run_coroutine_threadsafe(self.send_event(_action), self._loop)

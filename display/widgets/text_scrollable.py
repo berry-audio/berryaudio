@@ -32,8 +32,6 @@ class WidgetTextScrollable:
             self.font = None
 
     def _prepare_canvas(self, text, width, text_color="white", background_color="black"):
-       
-
         temp_draw = ImageDraw.Draw(Image.new("1", (1, 1)))
         bbox = temp_draw.textbbox((0, 0), text, font=self.font)
         self.text_width = bbox[2] - bbox[0]

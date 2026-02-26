@@ -47,3 +47,18 @@ class GpioActions(enum.StrEnum):
     SOURCE = "source"
     EQUALISER = "equaliser"
     NOW_PLAYING = "now_playing"
+
+class EncoderMode(enum.StrEnum):
+    VOLUME = "volume"
+    DIRECTION = "direction"
+
+class DisplayPage(enum.StrEnum):
+    STANDBY = "standby"
+    SOURCE = "source"
+    SOURCE_DIRECTORY = "source_directory"    
+    NOW_PLAYING = "now_playing"    
+    DIRECTORY = "directory"    
+    POWER_STATE_CHANGING = "power_state_changing"    
+    MUTE = "mute"    
+    VOLUME = "volume"    
+    LOADING = "loading"

@@ -35,6 +35,7 @@ class RefType(enum.StrEnum):
     TRACK = "track"
     SOURCE = "source"
     STORAGE = "storage"
+    BLUETOOTH = "bluetooth"
 
     def __repr__(self) -> str:
         return self.name
@@ -230,3 +231,28 @@ class Storage(BaseModel):
     used: Optional[int] = None
     free: Optional[int] = None
     percent: Optional[float] = None
+
+
+class Bluetooth(BaseModel):
+    model_config = ConfigDict(frozen=False)
+    model: Literal["Bluetooth"] = Field(
+        default="Bluetooth", 
+        alias="__model__", 
+        repr=False
+    )
+    address: Optional[str] = None
+    name: Optional[str] = None
+    type: Optional[RefType] = None
+    profile: Optional[str] = None
+    alias: Optional[str] = None
+    icon: Optional[str] = None
+    paired: Optional[bool] = None
+    trusted: Optional[bool] = None
+    connected: Optional[bool] = None
+    soft_volume: Optional[bool] = None
+    volume: Optional[int] = None
+    channels: Optional[int] = None
+    audio_codec: Optional[str] = None
+    sample_rate: Optional[int] = None
+    bit_depth: Optional[str] = None
+    uuids: Optional[list[str]] = None

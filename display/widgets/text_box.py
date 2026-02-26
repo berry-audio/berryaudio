@@ -1,8 +1,9 @@
 from PIL import ImageFont
 
 class WidgetTextBox:
-    def __init__(self, font_path=None):
+    def __init__(self, font_size=5, font_path=None):
         self._font_path = font_path
+        self._font_size = font_size
     
     def draw(
         self,
@@ -10,12 +11,11 @@ class WidgetTextBox:
         x,
         y,
         text="",
-        font_size=5,
         box_width=21,
         box_height=7,
         highlight=False,
     ):
-        font = ImageFont.truetype(self._font_path, font_size)
+        font = ImageFont.truetype(self._font_path, self._font_size)
         
         if highlight:
             draw.rectangle(

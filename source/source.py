@@ -105,6 +105,13 @@ class SourceExtension(Actor):
                     event="source_changed",
                     source=self._current,
                 )
+                self._core.send(
+                    target=["web", "display"],
+                    event="options_changed",
+                    single=False,
+                    repeat=False,
+                    shuffle=False,
+                )
             else:
                 logger.error(f"Failed to start service for source {current}")
                 raise RuntimeError(f"Failed to start service for source {current}")
@@ -118,6 +125,13 @@ class SourceExtension(Actor):
             )
             self._core.send(
                 target=["web", "display"], event="source_changed", source=self._current
+            )
+            self._core.send(
+                    target=["web", "display"],
+                    event="options_changed",
+                    single=False,
+                    repeat=False,
+                    shuffle=False,
             )
 
         return True
