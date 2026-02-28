@@ -5,7 +5,7 @@ import os
 
 CONFIG_PATH = Path("/boot/firmware/config.txt")
 
-def set_mixer_dtoverlay(anchor: str, overlay: str):
+def set_dtoverlay(anchor: str, overlay: str):
     lines = CONFIG_PATH.read_text().splitlines()
 
     try:
@@ -25,4 +25,4 @@ if os.geteuid() != 0:
     print("Must be run as root", file=sys.stderr)
     sys.exit(1)
 
-set_mixer_dtoverlay(sys.argv[1], sys.argv[2])
+set_dtoverlay(sys.argv[1], sys.argv[2])

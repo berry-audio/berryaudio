@@ -180,7 +180,7 @@ class DisplaySSD1322:
         if self.display_thread is not None and self.display_thread.is_alive():
             self.display_thread.join(timeout=1.0)
         self._device.clear()
-        logger.info("SSD1322 Display stopped")
+        logger.info("Display stopped")
 
     def _handle_messages(self):
         regulator = framerate_regulator(fps=60)

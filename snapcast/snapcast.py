@@ -12,7 +12,7 @@ import websockets
 from zeroconf.asyncio import AsyncZeroconf, AsyncServiceBrowser
 from zeroconf._exceptions import NotRunningException
 
-from core.models import Album, Track, TlTrack, Source, RefType
+from core.models import Snapcast, Track, TlTrack, Source, RefType
 from pathlib import Path
 from core.actor import SourceActor
 

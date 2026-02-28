@@ -95,8 +95,7 @@ class WidgetListScrollable:
                 elif display_type == RefType.BLUETOOTH:
                     draw.bitmap((2, y_pos + 4), self.bluetooth_icon, fill="black")
                 else:
-                    if display_active:
-                        draw.bitmap((4, y_pos + 4), self.bullet_icon, fill="black")
+                    draw.bitmap((4, y_pos + 4), self.bullet_icon, fill="black")
 
                 draw.text(
                     (self.padding_left + 12, y_pos + 1),

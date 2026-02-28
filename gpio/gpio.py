@@ -114,7 +114,7 @@ class GpioExtension(Actor):
         )
 
     def on_set_encoder_mode(self, mode=EncoderMode.VOLUME):
-        logger.info(f"Encoder mode is '{mode}'")
+        logger.debug(f"Encoder mode is '{mode}'")
         self._encoder_mode = mode
 
     def on_encoder(self, direction):

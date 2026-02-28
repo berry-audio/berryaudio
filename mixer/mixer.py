@@ -35,7 +35,7 @@ class MixerExtension(Actor):
     async def on_config_update(self, config):
         updated_config = config[self._name]
         if "output_device" in updated_config:
-            self.on_set_mixer(updated_config.get("output_device"))
+            self.set_mixer(updated_config.get("output_device"))
 
     async def on_start(self):
         if self._output_device is None:
@@ -235,7 +235,7 @@ class MixerExtension(Actor):
         
         return _mixers
 
-    def on_set_mixer(self, mixer: str):
+    def set_mixer(self, mixer: str):
         with open(PLAYBACK_MIXERS_PATH, "r", encoding="utf-8") as f:
             cards = json.load(f)
 
@@ -247,9 +247,9 @@ class MixerExtension(Actor):
                         "sudo",
                         "/usr/bin/python3",
                         DTOVERLAY_PATH,
-                        "#soundcard_overlay",  # make sure this comment exists in dtoverlayfile
+                        "#mixer_overlay",  # make sure this comment exists in dtoverlayfile
                         dtoverlay if dtoverlay else "",
                     ],
                     check=True,
                 )
-                logger.info(f"dtoverlay is now dtoverlay={dtoverlay}")
+                logger.debug(f"dtoverlay={dtoverlay}")

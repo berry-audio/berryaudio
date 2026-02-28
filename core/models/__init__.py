@@ -256,3 +256,18 @@ class Bluetooth(BaseModel):
     sample_rate: Optional[int] = None
     bit_depth: Optional[str] = None
     uuids: Optional[list[str]] = None
+
+class Snapcast(BaseModel):
+    model_config = ConfigDict(frozen=False)
+    
+    model: Literal["Snapcast"] = Field(
+        default="Snapcast",
+        alias="__model__",
+        repr=False
+    )
+    service_name: Optional[str] = None
+    name: Optional[str] = None
+    ip: Optional[str] = None
+    port: Optional[int] = None
+    connected: Optional[bool] = None
+    status: Optional[str] = None

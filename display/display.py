@@ -1,7 +1,11 @@
 import logging
 import asyncio
+from logging import config
 import threading
+import subprocess
+import json
 
+from pathlib import Path
 from core.actor import Actor
 from core.types import PlaybackState, GpioActions, EncoderMode, DisplayPage
 from core.models import RefType
@@ -11,6 +15,9 @@ from .ssd1306 import DisplaySSD1306
 
 logger = logging.getLogger(__name__)
 
+DTOVERLAY_PATH = Path(__file__).parent.parent / "core" / "util" / "dtoverlay.py"
+DISPLAY_LIST_PATH = Path(__file__).parent.parent / "display" / "display.json"
+
 
 class DisplayExtension(Actor):
     def __init__(self, name, core, db, config):
@@ -19,7 +26,7 @@ class DisplayExtension(Actor):
         self._core = core
         self._db = db
         self._config = config
-        self._device = self._config["display"]["output_display"]
+        self._device = None
         self._visualizer_layout = self._config["display"]["visualizer_layout"]
         self._loop = asyncio.get_running_loop()
         self._playback_state = PlaybackState.STOPPED
@@ -44,9 +51,16 @@ class DisplayExtension(Actor):
         self._timer_blink = None
 
     async def on_config_update(self, config):
-        pass
+        updated_config = config[self._name]
+        if "output_display" in updated_config:
+            self.set_display(updated_config.get("output_display"))
+        if "visualizer_layout" in updated_config:    
+            self.set_visualizer_layout(updated_config.get("visualizer_layout"))
 
     async def on_event(self, message):
+        if self._controller is None:
+            return
+
         if message and "event" in message:
             event = message["event"]
             if event == "source_changed":
@@ -265,6 +279,14 @@ class DisplayExtension(Actor):
                                     )
                                     self.set_dir(_current_dir)
 
+                            elif self._source.uri == "snapcast":
+                                if self._current_dir is None:
+                                    self.set_page(DisplayPage.LOADING)
+                                    _current_dir = await self._core.request(
+                                        "snapcast.servers"
+                                    )
+                                    self.set_dir(_current_dir)
+
                             if self._current_dir is not None:
                                 self.set_page(DisplayPage.DIRECTORY)
 
@@ -328,7 +350,7 @@ class DisplayExtension(Actor):
                     if self._page != DisplayPage.MUTE:
                         if self._page != DisplayPage.VOLUME:
                             self._page_prev = self._page
-                                
+
                     self.set_page(DisplayPage.MUTE)
                     self.start_timer(self._page_prev)
                     self.start_timer_blink()
@@ -354,14 +376,8 @@ class DisplayExtension(Actor):
             self.set_page(DisplayPage.STANDBY)
             self.start_timer_blink()
 
-        if self._device == "ssd1322":
-            self._controller = DisplaySSD1322(contrast=255)
-
-        if self._device == "ssd1306":
-            self._controller = DisplaySSD1306(contrast=255)
-
-        if self._controller is not None:
-            self._controller.init()
+        self.set_display(self._config["display"]["output_display"])
+        self.set_visualizer_layout(self._config["display"]["visualizer_layout"])
         logger.info("Started")
 
     async def on_stop(self):
@@ -433,8 +449,11 @@ class DisplayExtension(Actor):
         if self._controller is not None:
             self._controller._set_current_time(self._current_time)
 
-    def set_visualizer_layout(self):
-        self._visualizer_layout = (self._visualizer_layout % 7) + 1
+    def set_visualizer_layout(self, layout=None):
+        if layout is not None:
+            self._visualizer_layout = layout
+        else:
+            self._visualizer_layout = (self._visualizer_layout % 7) + 1
         if self._controller is not None:
             self._controller._set_visualizer_layout(self._visualizer_layout)
         logger.info(f"Visualizer Layout {self._visualizer_layout}")
@@ -474,3 +493,69 @@ class DisplayExtension(Actor):
             self._timer_blink.cancel()
             self._timer_blink = None
         self.set_blink_visible(True)
+
+    def on_get_displays(self) -> list[dict] | dict | None:
+        """Return displays, optionally filtered by device name."""
+        with open(DISPLAY_LIST_PATH, "r", encoding="utf-8") as f:
+            displays = json.load(f)
+        return displays
+
+    def set_display(self, device: str):
+        if device is None:
+            logger.info("Display disabled")
+            self._device = None
+            self._controller = None
+            return
+
+        with open(DISPLAY_LIST_PATH, "r", encoding="utf-8") as f:
+            displays = json.load(f)
+
+        found_display = next(
+            (d for d in displays if d.get("device") == device), None
+        )
+
+        if found_display is None:
+            logger.warning(f"Display device '{device}' not found in display list")
+            self._device = None
+            self._controller = None
+            return
+
+        self._device = found_display
+        device = self._device.get("device")
+        dtoverlay = self._device.get("dtoverlay")
+
+        subprocess.run(
+            [
+                "sudo",
+                "/usr/bin/python3",
+                DTOVERLAY_PATH,
+                "#display_overlay",
+                dtoverlay if dtoverlay else "",
+            ],
+            check=True,
+        )
+        logger.debug(f"dtoverlay={dtoverlay}")
+
+        if self._controller is not None:
+            self._controller.stop()
+            self._controller = None
+
+        if device == "ssd1322":
+            self._controller = DisplaySSD1322(contrast=255)
+
+        elif device == "ssd1306":
+            self._controller = DisplaySSD1306(contrast=255)
+
+        elif device == "ws28dsilcd":
+            self._controller = None
+
+        else:
+            logger.error(f"Display device '{device}' not supported")
+            self._device = None
+            self._controller = None
+            return
+
+        if self._controller is not None:
+            self._controller.init()
+
+            

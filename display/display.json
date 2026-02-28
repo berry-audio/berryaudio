@@ -1,0 +1,30 @@
+[
+    {
+    "device": null,
+    "name": "Display Disabled",
+    "description": "",
+    "address": null,
+    "dtoverlay": null
+  },
+  {
+    "device": "ssd1322",
+    "name": "SSD1322 OLED Display",
+    "description": "256x64 3.12\" OLED Display",
+    "address": null,
+    "dtoverlay": null
+  },
+  {
+    "device": "ssd1306",
+    "name": "SSD1306 OLED Display",
+    "description": "128x64 0.96\" OLED Display",
+    "address": null,
+    "dtoverlay": null
+  },
+  {
+    "device": "ws28dsilcd",
+    "name": "Waveshare 2.8inch DSI Touch Display",
+    "description": "640x480 Capacitive Touch Display",
+    "address": null,
+    "dtoverlay": "vc4-kms-dsi-waveshare-panel,2_8_inch"
+  }
+]

@@ -3,6 +3,7 @@ import logging
 import threading
 import time
 import evdev
+import subprocess
 
 from core.actor import Actor
 from core.types import GpioActions
@@ -10,29 +11,31 @@ from core.types import GpioActions
 logger = logging.getLogger(__name__)
 
 DEBOUNCE = 0.2
+IR_PATH = "/usr/bin/ir-keytable"
 
-#creative cd-rom remote temporary
+# creative cd-rom remote temporary
 remote_mapping = {
-    0x21ac08: GpioActions.VOLUME_UP,
-    0x21ac28: GpioActions.VOLUME_DOWN,
-    0x21ac30: GpioActions.MUTE,
-    0x21ac68: GpioActions.STANDBY,
-    0x21ac50: GpioActions.UP,
-    0x21ac48: GpioActions.DOWN,
-    0x21ac70: GpioActions.SELECT,
-    0x21acb0: GpioActions.BACK,
-    0x21acd0: GpioActions.DIRECTORY,
-    0x21ac10: GpioActions.VISUALISER,
-    0x21ac40: GpioActions.PLAY_PAUSE,
-    0x21ac80: GpioActions.PLAY_PAUSE,
-    0x21acc0: GpioActions.STOP,
-    0x21ace0: GpioActions.NEXT,
-    0x21aca0: GpioActions.PREVIOUS,
+    0x21AC08: GpioActions.VOLUME_UP,
+    0x21AC28: GpioActions.VOLUME_DOWN,
+    0x21AC30: GpioActions.MUTE,
+    0x21AC68: GpioActions.STANDBY,
+    0x21AC50: GpioActions.UP,
+    0x21AC48: GpioActions.DOWN,
+    0x21AC70: GpioActions.SELECT,
+    0x21ACB0: GpioActions.BACK,
+    0x21ACD0: GpioActions.DIRECTORY,
+    0x21AC10: GpioActions.VISUALISER,
+    0x21AC40: GpioActions.PLAY_PAUSE,
+    0x21AC80: GpioActions.PLAY_PAUSE,
+    0x21ACC0: GpioActions.STOP,
+    0x21ACE0: GpioActions.NEXT,
+    0x21ACA0: GpioActions.PREVIOUS,
     # 0x21ac68: GpioActions.MEMORY,
-    0x21ac20: GpioActions.SOURCE,
+    0x21AC20: GpioActions.SOURCE,
     # 0x21ac68: GpioActions.EQUALISER,
-    0x21ac90: GpioActions.NOW_PLAYING,
+    0x21AC90: GpioActions.NOW_PLAYING,
 }
+
 
 class InfraredExtension(Actor):
     def __init__(self, name, core, db, config):
@@ -48,6 +51,7 @@ class InfraredExtension(Actor):
         self._loop = None
         self._volume = 0
         self._mute = False
+        self._proc = None
 
     async def on_start(self):
         devices = [evdev.InputDevice(path) for path in evdev.list_devices()]
@@ -61,9 +65,37 @@ class InfraredExtension(Actor):
             return
 
         logger.info(f"IR device found: {self._ir_device.name}")
-        self._loop = asyncio.get_event_loop()
-        self._thread = threading.Thread(target=self._read_loop, daemon=True)
-        self._thread.start()
+        self._ir_init()
+
+        if self._proc is not None:
+            self._loop = asyncio.get_event_loop()
+            self._thread = threading.Thread(target=self._read_loop, daemon=True)
+            self._thread.start()
+
+    def _ir_init(self):
+        """Starting ir keytable service service"""
+        cmd = [
+            IR_PATH,
+            "-c",
+            "-p",
+            "all",
+            "-t",
+        ]
+        self._proc = subprocess.Popen(
+            cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1
+        )
+
+        def log(stream, label):
+            for line in iter(stream.readline, ""):
+                if "warning" in line:
+                    logger.warning(line.strip())
+                else:
+                    logger.debug(line.strip())
+            stream.close()
+
+        threading.Thread(
+            target=log, args=(self._proc.stdout, "STDOUT"), daemon=True
+        ).start()
 
     def _read_loop(self):
         try:
