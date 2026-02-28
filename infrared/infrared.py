@@ -69,12 +69,13 @@ class InfraredExtension(Actor):
 
         if self._proc is not None:
             self._loop = asyncio.get_event_loop()
-            self._thread = threading.Thread(target=self._read_loop, daemon=True)
+            self._thread = threading.Thread(target=self._handle_receive, daemon=True)
             self._thread.start()
 
     def _ir_init(self):
         """Starting ir keytable service service"""
         cmd = [
+            "sudo",
             IR_PATH,
             "-c",
             "-p",
@@ -89,15 +90,13 @@ class InfraredExtension(Actor):
             for line in iter(stream.readline, ""):
                 if "warning" in line:
                     logger.warning(line.strip())
-                else:
-                    logger.debug(line.strip())
             stream.close()
 
         threading.Thread(
             target=log, args=(self._proc.stdout, "STDOUT"), daemon=True
         ).start()
 
-    def _read_loop(self):
+    def _handle_receive(self):
         try:
             for event in self._ir_device.read_loop():
                 if self._stop_event.is_set():
@@ -112,8 +111,9 @@ class InfraredExtension(Actor):
                             asyncio.run_coroutine_threadsafe(
                                 self._handle_action(action), self._loop
                             )
+                            logger.info(f"IR code 0x{code:x} {action}")
                         else:
-                            logger.debug(f"Unmapped IR code: 0x{code:x}")
+                            logger.warning(f"Unmapped IR code: 0x{code:x}")
         except Exception as e:
             if not self._stop_event.is_set():
                 logger.error(f"IR read loop error: {e}")

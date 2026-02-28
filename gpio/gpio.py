@@ -28,7 +28,7 @@ class GpioExtension(Actor):
         self._core = core
         self._db = db
         self._config = config
-        self._device = GpioMCP23017(address=0x20, interrupt_pin=23)
+        self._device = "MCP23017" 
         self._loop = asyncio.get_running_loop()
         self._volume = 0
         self._muted = False
@@ -58,25 +58,29 @@ class GpioExtension(Actor):
             (GpioActions.SELECT, PIN_SELECT),
         ]
 
-        for name, pin in buttons:
-            self._device.add_button(
-                name,
-                pin,
-                callback=lambda n=name: asyncio.run_coroutine_threadsafe(
-                    self.send_event(n), self._loop
-                ),
-                long_press_callback=lambda n=name: asyncio.run_coroutine_threadsafe(
-                    self.send_event_long(n), self._loop
-                ),
-            )
+        if self._device is not None:
+            self._device = GpioMCP23017(address=0x20, interrupt_pin=23)
 
-        self._device.add_encoder(
-            "VOLUME", clk_pin=PIN_CLK, dt_pin=PIN_DT, callback=self.on_encoder
-        )
+            for name, pin in buttons:
+                self._device.add_button(
+                    name,
+                    pin,
+                    callback=lambda n=name: asyncio.run_coroutine_threadsafe(
+                        self.send_event(n), self._loop
+                    ),
+                    long_press_callback=lambda n=name: asyncio.run_coroutine_threadsafe(
+                        self.send_event_long(n), self._loop
+                    ),
+                )
+
+            self._device.add_encoder(
+                "VOLUME", clk_pin=PIN_CLK, dt_pin=PIN_DT, callback=self.on_encoder
+            )
         logger.info("Started")
 
     async def on_stop(self):
-        self._device.close()
+        if self._device is not None:
+            self._device.close()
         logger.info("Stopped")
 
     async def send_event(self, action):

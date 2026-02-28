@@ -333,7 +333,7 @@ class SnapcastExtension(SourceActor):
             def _log(stream, label):
                 for line in iter(stream.readline, ""):
                     logger.debug(line.strip())
-
+            
                     if "successfully established" in line:
                         self._loop.call_soon_threadsafe(
                             asyncio.create_task, _on_connected()

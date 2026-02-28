@@ -53,7 +53,9 @@ class DisplayExtension(Actor):
     async def on_config_update(self, config):
         updated_config = config[self._name]
         if "output_display" in updated_config:
-            self.set_display(updated_config.get("output_display"))
+            if updated_config.get("output_display") != self._device.get("device"):
+                self.set_display(updated_config.get("output_display"))
+                
         if "visualizer_layout" in updated_config:    
             self.set_visualizer_layout(updated_config.get("visualizer_layout"))
 
@@ -533,6 +535,8 @@ class DisplayExtension(Actor):
                 dtoverlay if dtoverlay else "",
             ],
             check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
         )
         logger.debug(f"dtoverlay={dtoverlay}")
 
