@@ -1,8 +1,11 @@
-from smbus2 import SMBus
-
 import time
 import lgpio
 import threading
+import logging
+
+from smbus2 import SMBus
+
+logger = logging.getLogger(__name__)
 
 IODIRA = 0x00
 IODIRB = 0x01
@@ -24,9 +27,12 @@ INTCAPB = 0x11
 GPIOA = 0x12
 GPIOB = 0x13
 
+SMBUS_NUMBER = 1
+I2C_ADDRESS = 0x20
+INTERRUPT_PIN = 23
 
 class GpioMCP23017:
-    def __init__(self, address=0x20, bus_number=1, interrupt_pin=22):
+    def __init__(self, address=I2C_ADDRESS, bus_number=SMBUS_NUMBER, interrupt_pin=INTERRUPT_PIN):
         self.bus = SMBus(bus_number)
         self.address = address
         self.interrupt_pin = interrupt_pin
@@ -76,7 +82,7 @@ class GpioMCP23017:
             self._interrupt_handler,
         )
 
-        print(f"✓ GPIO {self.interrupt_pin} configured for RISING edge interrupts")
+        logger.debug(f"GPIO {self.interrupt_pin} configured for RISING edge interrupts")
 
     def _interrupt_handler(self, chip, gpio, level, tick):
         """Called when MCP23017 triggers interrupt"""

@@ -38,14 +38,20 @@ ICON_SHUFFLE = Path(__file__).parent.parent / "icons" / "shuffle.png"
 ICON_REPEAT = Path(__file__).parent.parent / "icons" / "repeat.png"
 ICON_SINGLE = Path(__file__).parent.parent / "icons" / "single.png"
 
+SPI_PORT = 0
+SPI_DC_PIN = 24
+SPI_RST_PIN = 25
+
+DISPLAY_WIDTH = 256
+DISPLAY_HEIGHT = 64
 
 class DisplaySSD1322:
     def __init__(self, contrast=255):
-        self.width = 256
-        self.height = 64
-        self.serial = spi(device=0, port=0, gpio_DC=24, gpio_RST=25)
-        self._device = ssd1322(self.serial, width=self.width, height=self.height)
-        self._device.contrast(contrast)
+        self.width = DISPLAY_WIDTH
+        self.height = DISPLAY_HEIGHT
+        self._serial = None
+        self._device = None
+        self._contrast = contrast
         self.running = False
         self.display_thread = None
         self._bluetooth_connected = False
@@ -166,7 +172,16 @@ class DisplaySSD1322:
             self._widget_visualizer = WidgetVUMeter()
 
     def init(self):
-        self._set_visualizer_layout(1)
+        try:
+            self._serial = spi(device=0, port=SPI_PORT, gpio_DC=SPI_DC_PIN, gpio_RST=SPI_RST_PIN)
+            self._device = ssd1322(self._serial, width=self.width, height=self.height)
+            self._device.contrast(self._contrast)
+        except Exception as e:
+            logger.error(f"Failed to initialize SSD1322 display: {e}")
+            self._serial = None
+            self._device = None
+            return
+
         if not self.running:
             self.running = True
             self.display_thread = threading.Thread(

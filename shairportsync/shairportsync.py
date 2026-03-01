@@ -3,6 +3,7 @@ import threading
 import subprocess
 import os
 import time
+import binascii
 
 from pathlib import Path
 from core.actor import SourceActor
@@ -119,15 +120,17 @@ class ShairportsyncExtension(SourceActor):
             SHAIRPORT_PATH,
             "--name",
             self._hostname,
+            "--metadata-enable",
+            "--get-coverart",
             "-c",
             SHAIRPORT_CONFIG_PATH,
             "--timeout",
             "120",
+            "-v",
             "--",
             "-d",
-            self._output_audio,
-            "--metadata-enable",
-            "-v",
+            self._output_audio
+           
         ]
         self._proc = subprocess.Popen(
             cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1
@@ -237,12 +240,16 @@ class ShairportsyncExtension(SourceActor):
                         self._core._request("source.update_source", source=self._source)
                     self._stop_timer()
                     self._reset_meta()
-
-                if meta_code == "ofps":  # sample rate
+                
+                if meta_code == "sdsc": #stream data
+                    codec, rate, fmt, ch = val.split("/")
                     _tl_track = self._tl_track.track.copy(
-                        update={"sample_rate": int(val), "audio_codec": "PCM"}
+                        update={"sample_rate": int(rate), "bit_depth": fmt, "audio_codec": codec, "channels": int(ch)}
                     )
                     self._tl_track = TlTrack(tlid=0, track=_tl_track)
+
+                if meta_code == "odsc": #Output audio format
+                    pass
 
                 if meta_code == "ofmt":  # bit dept
                     _tl_track = self._tl_track.track.copy(update={"bit_depth": val})
@@ -313,14 +320,13 @@ class ShairportsyncExtension(SourceActor):
                 if meta_code == "pfls":  # play stream flush
                     pass  # TODO
 
-                if meta_code == "pcst":  # picture has been sent
+                if meta_code == "pcst":  # picture start
                     pass  # TODO
 
-                if meta_code == "PICT":
-                    if val == None:
-                        pass  # TODO
+                if meta_code == "PICT":  # picture data chunk
+                    pass  # TODO
 
-                if meta_code == "pcen":  # picture has been sent
+                if meta_code == "pcen":  # picture end
                     _update_picture()
 
                 if (

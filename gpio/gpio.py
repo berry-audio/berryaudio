@@ -59,7 +59,7 @@ class GpioExtension(Actor):
         ]
 
         if self._device is not None:
-            self._device = GpioMCP23017(address=0x20, interrupt_pin=23)
+            self._device = GpioMCP23017()
 
             for name, pin in buttons:
                 self._device.add_button(

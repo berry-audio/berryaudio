@@ -1,22 +1,23 @@
 import logging
 import asyncio
-from logging import config
 import threading
-import subprocess
 import json
 
 from pathlib import Path
 from core.actor import Actor
 from core.types import PlaybackState, GpioActions, EncoderMode, DisplayPage
 from core.models import RefType
+from core.util.xinitrc import write_xinitrc
+from core.util.boot import update_dtoverlay, update_cmdline
 
 from .ssd1322 import DisplaySSD1322
 from .ssd1306 import DisplaySSD1306
 
 logger = logging.getLogger(__name__)
 
-DTOVERLAY_PATH = Path(__file__).parent.parent / "core" / "util" / "dtoverlay.py"
 DISPLAY_LIST_PATH = Path(__file__).parent.parent / "display" / "display.json"
+DISPLAY_OVERLAY_TIMEOUT = 1.0
+DISPLAY_BLINK_TIMEOUT = 0.5
 
 
 class DisplayExtension(Actor):
@@ -27,7 +28,7 @@ class DisplayExtension(Actor):
         self._db = db
         self._config = config
         self._device = None
-        self._visualizer_layout = self._config["display"]["visualizer_layout"]
+        self._visualizer_layout = 1
         self._loop = asyncio.get_running_loop()
         self._playback_state = PlaybackState.STOPPED
         self._controller = None
@@ -53,10 +54,9 @@ class DisplayExtension(Actor):
     async def on_config_update(self, config):
         updated_config = config[self._name]
         if "output_display" in updated_config:
-            if updated_config.get("output_display") != self._device.get("device"):
-                self.set_display(updated_config.get("output_display"))
-                
-        if "visualizer_layout" in updated_config:    
+            self.set_display(updated_config.get("output_display"))
+
+        if "visualizer_layout" in updated_config:
             self.set_visualizer_layout(updated_config.get("visualizer_layout"))
 
     async def on_event(self, message):
@@ -471,7 +471,9 @@ class DisplayExtension(Actor):
     def start_timer(self, redirect_page=None):
         if self._timer_timeout is not None:
             self._timer_timeout.cancel()
-        self._timer_timeout = threading.Timer(1.0, self.end_timer, args=[redirect_page])
+        self._timer_timeout = threading.Timer(
+            DISPLAY_OVERLAY_TIMEOUT, self.end_timer, args=[redirect_page]
+        )
         self._timer_timeout.start()
 
     def end_timer(self, redirect_page=None):
@@ -482,7 +484,7 @@ class DisplayExtension(Actor):
     def start_timer_blink(self):
         if self._timer_blink is not None:
             self._timer_blink.cancel()
-        self._timer_blink = threading.Timer(0.5, self.toggle_blink)
+        self._timer_blink = threading.Timer(DISPLAY_BLINK_TIMEOUT, self.toggle_blink)
         self._timer_blink.start()
 
     def toggle_blink(self):
@@ -502,64 +504,56 @@ class DisplayExtension(Actor):
             displays = json.load(f)
         return displays
 
-    def set_display(self, device: str):
-        if device is None:
-            logger.info("Display disabled")
-            self._device = None
-            self._controller = None
+    def set_display(self, device: str | None = None):
+        """Sets display and updates dtoverlay."""
+        dtoverlay_anchor = "#display_overlay"
+
+        if (
+            device is not None
+            and self._device is not None
+            and device == self._device.get("device")
+        ):
             return
-
-        with open(DISPLAY_LIST_PATH, "r", encoding="utf-8") as f:
-            displays = json.load(f)
-
-        found_display = next(
-            (d for d in displays if d.get("device") == device), None
-        )
-
-        if found_display is None:
-            logger.warning(f"Display device '{device}' not found in display list")
-            self._device = None
-            self._controller = None
-            return
-
-        self._device = found_display
-        device = self._device.get("device")
-        dtoverlay = self._device.get("dtoverlay")
-
-        subprocess.run(
-            [
-                "sudo",
-                "/usr/bin/python3",
-                DTOVERLAY_PATH,
-                "#display_overlay",
-                dtoverlay if dtoverlay else "",
-            ],
-            check=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        )
-        logger.debug(f"dtoverlay={dtoverlay}")
 
         if self._controller is not None:
             self._controller.stop()
             self._controller = None
 
+        if device is None:
+            logger.info("Display disabled")
+            self._device = None
+            update_dtoverlay(anchor=dtoverlay_anchor, overlay=None)
+            update_cmdline(config=None)
+            write_xinitrc(xrandr=None)
+            return
+
+        with open(DISPLAY_LIST_PATH, "r", encoding="utf-8") as f:
+            displays = json.load(f)
+
+        found_display = next((d for d in displays if d.get("device") == device), None)
+
+        if found_display is None:
+            logger.warning(f"Display device '{device}' not found in display list")
+            self._device = None
+            return
+
+        self._device = found_display
+        update_dtoverlay(
+            anchor=dtoverlay_anchor, overlay=self._device.get("dtoverlay") or None
+        )
+        update_cmdline(config=self._device.get("cmdline") or None)
+        write_xinitrc(xrandr=self._device.get("xrandr") or None)
+
         if device == "ssd1322":
             self._controller = DisplaySSD1322(contrast=255)
-
         elif device == "ssd1306":
             self._controller = DisplaySSD1306(contrast=255)
-
-        elif device == "ws28dsilcd":
-            self._controller = None
-
+        elif device in ("waveshare_28_dsi", "generic_hdmi"):
+            pass
         else:
             logger.error(f"Display device '{device}' not supported")
             self._device = None
-            self._controller = None
             return
 
         if self._controller is not None:
             self._controller.init()
-
-            

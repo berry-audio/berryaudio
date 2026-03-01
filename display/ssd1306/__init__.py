@@ -38,14 +38,19 @@ ICON_SHUFFLE = Path(__file__).parent.parent / "icons" / "shuffle.png"
 ICON_REPEAT = Path(__file__).parent.parent / "icons" / "repeat.png"
 ICON_SINGLE = Path(__file__).parent.parent / "icons" / "single.png"
 
+I2C_PORT = 0
+I2C_ADDRESS = 0x3C
+
+DISPLAY_WIDTH = 128
+DISPLAY_HEIGHT = 64
 
 class DisplaySSD1306:
     def __init__(self, contrast=255):
-        self.width = 128
-        self.height = 64
-        self.serial = i2c(port=0, address=0x3C)
-        self._device = ssd1306(self.serial, width=self.width, height=self.height)
-        self._device.contrast(contrast)
+        self.width = DISPLAY_WIDTH
+        self.height = DISPLAY_HEIGHT
+        self._serial = None
+        self._device = None
+        self._contrast = contrast
         self.running = False
         self.display_thread = None
         self._bluetooth_connected = False
@@ -168,7 +173,16 @@ class DisplaySSD1306:
             self._widget_visualizer = WidgetVUMeter()
 
     def init(self):
-        self._set_visualizer_layout(1)
+        try:
+            self._serial = i2c(port=I2C_PORT, address=I2C_ADDRESS)
+            self._device = ssd1306(self._serial, width=self.width, height=self.height)
+            self._device.contrast(self._contrast)
+        except Exception as e:
+            logger.error(f"Failed to initialize SSD1306 display: {e}")
+            self._serial = None
+            self._device = None
+            return
+
         if not self.running:
             self.running = True
             self.display_thread = threading.Thread(

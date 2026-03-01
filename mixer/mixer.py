@@ -3,16 +3,16 @@ import alsaaudio
 import math
 import asyncio
 import json
-import subprocess
 
 from pathlib import Path
 from typing import Optional
+
 from core.actor import Actor
 from .utils import aplay_devices
+from core.util.boot import update_dtoverlay, update_cmdline
 
 logger = logging.getLogger(__name__)
 
-DTOVERLAY_PATH = Path(__file__).parent.parent / "core" / "util" / "dtoverlay.py"
 PLAYBACK_MIXERS_PATH = Path(__file__).parent.parent / "mixer" / "playback_mixers.json"
 
 
@@ -57,8 +57,8 @@ class MixerExtension(Actor):
             logger.info(
                 f"Using mixer control '{volume_control_mixer}', volume set to {self._volume_default}"
             )
-        except alsaaudio.ALSAAudioError as e:
-            logger.warning(f"Failed to open mixer '{volume_control_mixer}': {e}")
+        except Exception as e:
+            logger.error(f"Failed to open mixer '{volume_control_mixer}': {e}")
 
         logger.info("Started")
 
@@ -148,7 +148,7 @@ class MixerExtension(Actor):
                     f"Unexpected error while getting volume or no hardware volume available: {exc}"
                 )
         return self._volume_default
-    
+
     async def on_set_volume(self, volume: int = 0) -> bool:
         """
         Set Volume
@@ -172,7 +172,11 @@ class MixerExtension(Actor):
                 if self._mixer is None:
                     logger.warning("Mixer is not available")
 
-                self._core.send(target=["web", "display", "bluetooth", "infrared", "gpio"], event="volume_changed", volume=volume)
+                self._core.send(
+                    target=["web", "display", "bluetooth", "infrared", "gpio"],
+                    event="volume_changed",
+                    volume=volume,
+                )
             except asyncio.CancelledError:
                 pass
 
@@ -190,7 +194,6 @@ class MixerExtension(Actor):
 
     async def on_volume_down(self):
         await self.on_set_volume(max(self._volume_default - 1, self._volume_min))
-
 
     def volume_to_mixer_volume(self, volume):
         if volume == 0:
@@ -232,7 +235,7 @@ class MixerExtension(Actor):
             for mixer in _mixers:
                 if mixer.get("device") == device_name:
                     return mixer
-        
+
         return _mixers
 
     def set_mixer(self, mixer: str):
@@ -241,15 +244,6 @@ class MixerExtension(Actor):
 
         for card in cards:
             if card.get("device") == mixer:
-                dtoverlay = card.get("dtoverlay")
-                subprocess.run(
-                    [
-                        "sudo",
-                        "/usr/bin/python3",
-                        DTOVERLAY_PATH,
-                        "#mixer_overlay",  # make sure this comment exists in dtoverlayfile
-                        dtoverlay if dtoverlay else "",
-                    ],
-                    check=True,
-                )
+                dtoverlay = card.get("dtoverlay") or None
+                update_dtoverlay(overlay=dtoverlay, anchor="#mixer_overlay")
                 logger.debug(f"dtoverlay={dtoverlay}")
