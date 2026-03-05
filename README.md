@@ -1,5 +1,11 @@
 ![Description](/web/frontend/public/assets/berryaudio_logo_dark.png)
 
+> ⭐ If this project helps you, consider 
+> [Buy me a Coffee](buymeacoffee.com/varungujjar)
+> to keep it alive and maintained. 
+
+
+
 Berryaudio is a diy open source audiophile audio player / streamer for **[Raspberry Pi](https://www.raspberrypi.com/)** designed for for pure music listening experience with a beautifully crafted, responsive, touch-optimized user interface.
 — No ads, no subscription, just pure rich, high-resolution playback and a sleek beautiful responsive UI for your DAC setup.
 
@@ -160,3 +166,5 @@ Fork it, modify it, and build your perfect listening setup.
 ## Contributing
 
 We welcome your contributions! Based on functionality and code quality, contributions may be integrated directly into the core system or offered as user-contributed modules that can be installed separately.
+
+
