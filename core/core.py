@@ -119,7 +119,7 @@ class Core:
                     return await handler(**params)
                 else:
                     return handler(**params)
-        logger.error(f"Extension {ext_name} not found")
+        logger.debug(f"Extension {ext_name} not found or disabled")
         return
 
     async def handle_response(self, message_id, response):

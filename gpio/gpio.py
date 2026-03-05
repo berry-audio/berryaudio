@@ -2,8 +2,7 @@ import logging
 import asyncio
 
 from core.actor import Actor
-from core.types import GpioActions, EncoderMode
-
+from core.types import Command, EncoderMode
 from .mcp23017 import GpioMCP23017
 
 logger = logging.getLogger(__name__)
@@ -28,34 +27,24 @@ class GpioExtension(Actor):
         self._core = core
         self._db = db
         self._config = config
-        self._device = "MCP23017" 
+        self._device = "MCP23017"
         self._loop = asyncio.get_running_loop()
-        self._volume = 0
-        self._muted = False
         self._encoder_mode = EncoderMode.VOLUME
 
     async def on_config_update(self, config):
         pass
 
     async def on_event(self, message):
-        event = message.get("event")
-        if event == "ir_received":
-            await self.send_event(message.get("action"))
-
-        elif event == "mixer_mute":
-            self._muted = message.get("mute")
-
-        elif event == "volume_changed":
-            self._volume = message.get("volume")
+        pass
 
     async def on_start(self):
         buttons = [
-            (GpioActions.STANDBY, PIN_POWER),
-            (GpioActions.VISUALISER, PIN_DISPLAY),
-            (GpioActions.BACK, PIN_BACK),
-            (GpioActions.DIRECTORY, PIN_DIRECTORY),
-            (GpioActions.SOURCE, PIN_INPUT),
-            (GpioActions.SELECT, PIN_SELECT),
+            (Command.STANDBY, PIN_POWER),
+            (Command.VISUALISER, PIN_DISPLAY),
+            (Command.BACK, PIN_BACK),
+            (Command.DIRECTORY, PIN_DIRECTORY),
+            (Command.SOURCE, PIN_INPUT),
+            (Command.SELECT, PIN_SELECT),
         ]
 
         if self._device is not None:
@@ -66,10 +55,10 @@ class GpioExtension(Actor):
                     name,
                     pin,
                     callback=lambda n=name: asyncio.run_coroutine_threadsafe(
-                        self.send_event(n), self._loop
+                        self._press_event(n), self._loop
                     ),
                     long_press_callback=lambda n=name: asyncio.run_coroutine_threadsafe(
-                        self.send_event_long(n), self._loop
+                        self._press_long_event(n), self._loop
                     ),
                 )
 
@@ -83,49 +72,25 @@ class GpioExtension(Actor):
             self._device.close()
         logger.info("Stopped")
 
-    async def send_event(self, action):
-        self._core.send(
-            target=["web", "display"], event="gpio_state_changed", key=action
-        )
-
-        if action == GpioActions.STANDBY:
-            await self._core.request("system.standby")
-
-        elif action == GpioActions.PLAY_PAUSE:
-            await self._core.request("playback.play")
-
-        elif action == GpioActions.STOP:
-            await self._core.request("playback.stop")
-
-        elif action == GpioActions.NEXT:
-            await self._core.request("playback.next")
-
-        elif action == GpioActions.PREVIOUS:
-            await self._core.request("playback.previous")
-
-        elif action == GpioActions.MUTE:
-            await self._core.request("mixer.set_mute", mute=not self._muted)
-
-        elif action == GpioActions.VOLUME_UP:
-            await self._core.request("mixer.volume_up")
-
-        elif action == GpioActions.VOLUME_DOWN:
-            await self._core.request("mixer.volume_down")
-
-    async def send_event_long(self, action):
-        self._core.send(
-            target=["web", "display"], event="gpio_state_changed", key=f"{action}_long"
-        )
-
     def on_set_encoder_mode(self, mode=EncoderMode.VOLUME):
         logger.debug(f"Encoder mode is '{mode}'")
         self._encoder_mode = mode
 
     def on_encoder(self, direction):
         if self._encoder_mode == EncoderMode.VOLUME:
-            _action = (
-                GpioActions.VOLUME_UP if direction == "CW" else GpioActions.VOLUME_DOWN
-            )
+            _action = Command.VOLUME_UP if direction == "CW" else Command.VOLUME_DOWN
         elif self._encoder_mode == EncoderMode.DIRECTION:
-            _action = GpioActions.DOWN if direction == "CW" else GpioActions.UP
+            _action = Command.DOWN if direction == "CW" else Command.UP
         asyncio.run_coroutine_threadsafe(self.send_event(_action), self._loop)
+
+    async def _press_event(self, action):
+        self._core.send(
+            target=["web", "display", "command"], event="command", action=action
+        )
+
+    async def _press_long_event(self, action):
+        self._core.send(
+            target=["web", "display", "command"],
+            event="command",
+            action=f"{action}_long",
+        )

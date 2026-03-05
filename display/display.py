@@ -5,7 +5,7 @@ import json
 
 from pathlib import Path
 from core.actor import Actor
-from core.types import PlaybackState, GpioActions, EncoderMode, DisplayPage
+from core.types import PlaybackState, Command, EncoderMode, DisplayPage
 from core.models import RefType
 from core.util.xinitrc import write_xinitrc
 from core.util.boot import update_dtoverlay, update_cmdline
@@ -37,7 +37,7 @@ class DisplayExtension(Actor):
         self._shuffle = False
         self._page = DisplayPage.STANDBY
         self._page_prev = self._page
-        self._gpio_key = None
+        self._action = None
         self._volume = 0
         self._muted = False
         self._current_track = None
@@ -82,13 +82,13 @@ class DisplayExtension(Actor):
             elif event == "track_position_updated":
                 self._controller._set_current_elapsed(message.get("time_position"))
 
-            elif event == "gpio_state_changed":
-                self._gpio_key = message.get("key")
+            elif event == "command":
+                self._action = message.get("action")
 
-                if self._gpio_key == GpioActions.NOW_PLAYING:
+                if self._action == Command.NOW_PLAYING:
                     self.set_page(DisplayPage.NOW_PLAYING)
 
-                if self._gpio_key == GpioActions.SOURCE:
+                if self._action == Command.SOURCE:
                     if self._page != DisplayPage.SOURCE_DIRECTORY:
                         if self._page_prev != DisplayPage.DIRECTORY:
                             self._page_prev = self._page
@@ -103,18 +103,18 @@ class DisplayExtension(Actor):
                     elif self._page_prev != DisplayPage.STANDBY:
                         self.set_page(self._page_prev)
 
-                if self._gpio_key == GpioActions.UP:
+                if self._action == Command.UP:
                     self.set_dir_scroll_up()
 
-                if self._gpio_key == GpioActions.DOWN:
+                if self._action == Command.DOWN:
                     self.set_dir_scroll_down()
 
-                if self._gpio_key == GpioActions.SELECT:
+                if self._action == Command.SELECT:
                     if self._page == DisplayPage.NOW_PLAYING:
                         self._core.send(
                             target=["web", "display"],
                             event="gpio_state_changed",
-                            key=GpioActions.DIRECTORY,
+                            key=Command.DIRECTORY,
                         )
 
                     if self._page == DisplayPage.SOURCE_DIRECTORY:
@@ -211,7 +211,7 @@ class DisplayExtension(Actor):
                                     self.set_dir(_current_dir)
                                     self.set_page(DisplayPage.DIRECTORY)
 
-                if self._gpio_key == GpioActions.BACK:
+                if self._action == Command.BACK:
                     if self._current_dir_breadcrumbs:
                         last_items = self._current_dir_breadcrumbs[-1]["items"]
                         last_selected_index = self._current_dir_breadcrumbs[-1][
@@ -236,7 +236,7 @@ class DisplayExtension(Actor):
                         self.set_page(DisplayPage.DIRECTORY)
                         self._current_dir_breadcrumbs.pop()
 
-                if self._gpio_key == GpioActions.DIRECTORY:
+                if self._action == Command.DIRECTORY:
                     if self._timer_timeout is not None:
                         self._timer_timeout.cancel()
 
@@ -292,7 +292,7 @@ class DisplayExtension(Actor):
                             if self._current_dir is not None:
                                 self.set_page(DisplayPage.DIRECTORY)
 
-                if self._gpio_key == GpioActions.VISUALISER:
+                if self._action == Command.VISUALISER:
                     self.set_visualizer_layout()
 
             elif event == "system_time_updated":
@@ -367,7 +367,7 @@ class DisplayExtension(Actor):
                 self.set_page(DisplayPage.VOLUME)
                 self.start_timer(self._page_prev)
 
-            elif event == "storage_updated":
+            elif event == "storage_updated" or event == "storage_mounted" or event == "storage_unmounted":
                 if self._source is not None and self._source.uri == "storage":
                     if len(self._current_dir_breadcrumbs) == 0:
                         _current_dir = await self._core.request("storage.directory")

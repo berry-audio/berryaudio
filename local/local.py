@@ -157,22 +157,17 @@ TYPES = {
     "track": RefType.TRACK,
     "album": RefType.ALBUM,
     "artist": RefType.ARTIST,
-    "genre": RefType.DIRECTORY,
-    "directory": RefType.DIRECTORY,
+    "genre": RefType.CATEGORY,
 }
 
 class LocalExtension(SourceActor):
-    default_config = {
-        "library_path": [],
-    }
-
     def __init__(self, name, core, db, config):
         super().__init__()
         self._name = name
         self._core = core
         self._db = db
         self._config = config
-        self._metadata = Metadata(cover_dir="albums")
+        self._metadata = Metadata(cover_dir="album")
         self._scan_progress = None
         self._source = Source(
             name="Library",
@@ -190,11 +185,11 @@ class LocalExtension(SourceActor):
             state={},
         )
 
-    async def on_start(self):
-        logger.info("Started")
-
     async def on_event(self, message):
         pass
+
+    async def on_start(self):
+        logger.info("Started")
 
     async def on_stop(self):
         logger.info("Stopped")
@@ -202,10 +197,10 @@ class LocalExtension(SourceActor):
     def _directories(self):
         Item = namedtuple('Item', ['uri', 'name', 'type'])
         _dirs = [
-            Item(uri='artist', name='Artists', type=TYPES['directory']),
-            Item(uri='album', name='Albums', type=TYPES['directory']),
-            Item(uri='track', name='Tracks', type=TYPES['directory']),
-            Item(uri='genre', name='Genre', type=TYPES['directory'])
+            Item(uri='artist', name='Artists', type=RefType.CATEGORY),
+            Item(uri='album', name='Albums', type=RefType.CATEGORY),
+            Item(uri='track', name='Tracks', type=RefType.CATEGORY),
+            Item(uri='genre', name='Genre', type=RefType.CATEGORY)
         ]
         return _dirs
 
@@ -586,8 +581,8 @@ class LocalExtension(SourceActor):
     async def scan_and_ingest(self):
         self._db.executescript(SCHEMA_SQL)
         _config = self._db.get_config()
-        _scan_paths = _config["local"]["library_path"]
-
+        _scan_paths = [path.removeprefix("storage:") for path in _config.get("local", {}).get("library_path", [])]
+    
         self._scan_progress = {
             "processed": 0,
             "inserted": 0,

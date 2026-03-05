@@ -24,9 +24,9 @@ class ConfigExtension(Actor):
         pass
 
     async def on_set(self, config):
+        self._db.set_config(config)
         for ext in config:
             self._core._request(f"{ext}.config_update", config=config)
-        self._db.set_config(config)
         logger.info(config)
         return True
 

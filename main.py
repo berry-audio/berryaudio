@@ -10,9 +10,8 @@ gi.require_version("Gst", "1.0")
 gi.require_version("GstPbutils", "1.0")
 
 from core.core import Core
-from core.actor import Actor
 from core.logger import setup_logging
-from gi.repository import GLib, Gst
+from gi.repository import Gst
 
 asyncio.set_event_loop_policy(asyncio_glib.GLibEventLoopPolicy())
 
@@ -50,9 +49,10 @@ async def async_main(verbose=False):
         "network",
         "snapcast",
         "display",
-        "gpio",
+        # "gpio",
         "infrared",
         "tuner",
+        "command",
     ]
     await core.load_extensions_by_name(extensions)
 
@@ -91,7 +91,7 @@ def welcome():
     ██╔══██╗██╔══╝░░██╔══██╗██╔══██╗░░╚██╔╝░░  ██╔══██║██║░░░██║██║░░██║██║██║░░██║
     ██████╦╝███████╗██║░░██║██║░░██║░░░██║░░░  ██║░░██║╚██████╔╝██████╔╝██║╚█████╔╝
     ╚═════╝░╚══════╝╚═╝░░╚═╝╚═╝░░╚═╝░░░╚═╝░░░  ╚═╝░░╚═╝░╚═════╝░╚═════╝░╚═╝░╚════╝░
-    *** Welcome to Berry Audio by Varun Gujjar! ***
+    *** Welcome to Berry Audio by Varun Gujjar!  ***
     *** Hi-Fi audio streaming and rendering platform with a python backend server and react frontend. ***
     """
     print(banner)

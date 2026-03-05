@@ -1,34 +1,29 @@
 import enum
-from typing import TYPE_CHECKING, Literal, NewType, TypeVar
-
-
 
 class PlaybackState(enum.StrEnum):
     """Enum of playback states."""
 
-    #: Constant representing the paused state.
     PAUSED = "paused"
-
-    #: Constant representing the playing state.
     PLAYING = "playing"
-
-    #: Constant representing the stopped state.
     STOPPED = "stopped"
 
 
 class PlaybackControls(enum.StrEnum):
     """Enum of playback control states."""
+
     PLAY = "play"
     PAUSE = "pause"
-    STOP = "stop"    
-    NEXT = "next"    
-    PREVIOUS = "previous"    
-    REPEAT = "repeat"    
-    SHUFFLE = "shuffle"    
-    SEEK = "seek"    
+    STOP = "stop"
+    NEXT = "next"
+    PREVIOUS = "previous"
+    REPEAT = "repeat"
+    SHUFFLE = "shuffle"
+    SEEK = "seek"
 
-class GpioActions(enum.StrEnum):
+
+class Command(enum.StrEnum):
     """Enum of GPIO remote control actions."""
+
     VOLUME_UP = "volume_up"
     VOLUME_DOWN = "volume_down"
     MUTE = "mute"
@@ -48,17 +43,23 @@ class GpioActions(enum.StrEnum):
     EQUALISER = "equaliser"
     NOW_PLAYING = "now_playing"
 
+
 class EncoderMode(enum.StrEnum):
+    """Enum encoder modes."""
+
     VOLUME = "volume"
     DIRECTION = "direction"
 
+
 class DisplayPage(enum.StrEnum):
+    """Enum of display screens."""
+
     STANDBY = "standby"
     SOURCE = "source"
-    SOURCE_DIRECTORY = "source_directory"    
-    NOW_PLAYING = "now_playing"    
-    DIRECTORY = "directory"    
-    POWER_STATE_CHANGING = "power_state_changing"    
-    MUTE = "mute"    
-    VOLUME = "volume"    
+    SOURCE_DIRECTORY = "source_directory"
+    NOW_PLAYING = "now_playing"
+    DIRECTORY = "directory"
+    POWER_STATE_CHANGING = "power_state_changing"
+    MUTE = "mute"
+    VOLUME = "volume"
     LOADING = "loading"

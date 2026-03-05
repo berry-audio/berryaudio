@@ -6,7 +6,7 @@ import evdev
 import subprocess
 
 from core.actor import Actor
-from core.types import GpioActions
+from core.types import Command
 
 logger = logging.getLogger(__name__)
 
@@ -15,25 +15,25 @@ IR_PATH = "/usr/bin/ir-keytable"
 
 # creative cd-rom remote temporary
 remote_mapping = {
-    0x21AC08: GpioActions.VOLUME_UP,
-    0x21AC28: GpioActions.VOLUME_DOWN,
-    0x21AC30: GpioActions.MUTE,
-    0x21AC68: GpioActions.STANDBY,
-    0x21AC50: GpioActions.UP,
-    0x21AC48: GpioActions.DOWN,
-    0x21AC70: GpioActions.SELECT,
-    0x21ACB0: GpioActions.BACK,
-    0x21ACD0: GpioActions.DIRECTORY,
-    0x21AC10: GpioActions.VISUALISER,
-    0x21AC40: GpioActions.PLAY_PAUSE,
-    0x21AC80: GpioActions.PLAY_PAUSE,
-    0x21ACC0: GpioActions.STOP,
-    0x21ACE0: GpioActions.NEXT,
-    0x21ACA0: GpioActions.PREVIOUS,
-    # 0x21ac68: GpioActions.MEMORY,
-    0x21AC20: GpioActions.SOURCE,
-    # 0x21ac68: GpioActions.EQUALISER,
-    0x21AC90: GpioActions.NOW_PLAYING,
+    0x21AC08: Command.VOLUME_UP,
+    0x21AC28: Command.VOLUME_DOWN,
+    0x21AC30: Command.MUTE,
+    0x21AC68: Command.STANDBY,
+    0x21AC50: Command.UP,
+    0x21AC48: Command.DOWN,
+    0x21AC70: Command.SELECT,
+    0x21ACB0: Command.BACK,
+    0x21ACD0: Command.DIRECTORY,
+    0x21AC10: Command.VISUALISER,
+    0x21AC40: Command.PLAY_PAUSE,
+    0x21AC80: Command.PLAY_PAUSE,
+    0x21ACC0: Command.STOP,
+    0x21ACE0: Command.NEXT,
+    0x21ACA0: Command.PREVIOUS,
+    # 0x21ac68: Command.MEMORY,
+    0x21AC20: Command.SOURCE,
+    # 0x21ac68: Command.EQUALISER,
+    0x21AC90: Command.NOW_PLAYING,
 }
 
 
@@ -46,11 +46,10 @@ class InfraredExtension(Actor):
         self._config = config
         self._ir_device = None
         self._last_time = 0
-        self._thread = None
-        self._stop_event = threading.Event()
-        self._loop = None
+        self._loop = asyncio.get_event_loop()
         self._volume = 0
         self._mute = False
+        self._thread = None
         self._proc = None
 
     async def on_start(self):
@@ -68,12 +67,11 @@ class InfraredExtension(Actor):
         self._ir_init()
 
         if self._proc is not None:
-            self._loop = asyncio.get_event_loop()
-            self._thread = threading.Thread(target=self._handle_receive, daemon=True)
-            self._thread.start()
+            self._thread = threading.Thread(
+                target=self._handle_receive, daemon=True
+            ).start()
 
     def _ir_init(self):
-        """Starting ir keytable service service"""
         cmd = [
             "sudo",
             IR_PATH,
@@ -96,11 +94,26 @@ class InfraredExtension(Actor):
             target=log, args=(self._proc.stdout, "STDOUT"), daemon=True
         ).start()
 
+    async def on_event(self, message):
+        pass
+
+    async def on_stop(self):
+        if self._thread is not None:
+            self._thread.terminate()
+            self._thread.kill()
+
+        if self._proc is not None:
+            self._proc.terminate()
+            self._proc.kill()
+
+        if self._ir_device:
+            self._ir_device.close()
+
+        logger.info("Stopped")
+
     def _handle_receive(self):
         try:
             for event in self._ir_device.read_loop():
-                if self._stop_event.is_set():
-                    break
                 if event.type == evdev.ecodes.EV_MSC:
                     code = event.value
                     current_time = time.time()
@@ -108,26 +121,13 @@ class InfraredExtension(Actor):
                         self._last_time = current_time
                         action = remote_mapping.get(code)
                         if action:
-                            asyncio.run_coroutine_threadsafe(
-                                self._handle_action(action), self._loop
+                            self._core.send(
+                                target=["web", "display", "command"],
+                                event="command",
+                                action=action,
                             )
                             logger.info(f"IR code 0x{code:x} {action}")
                         else:
                             logger.warning(f"Unmapped IR code: 0x{code:x}")
         except Exception as e:
-            if not self._stop_event.is_set():
-                logger.error(f"IR read loop error: {e}")
-
-    async def _handle_action(self, action):
-        self._core.send(target=["gpio"], event="ir_received", action=action)
-
-    async def on_event(self, message):
-        pass
-
-    async def on_stop(self):
-        self._stop_event.set()
-        if self._ir_device:
-            self._ir_device.close()
-        if self._thread:
-            self._thread.join(timeout=2)
-        logger.info("Stopped")
+            logger.error(f"IR read loop error: {e}")

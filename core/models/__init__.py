@@ -30,9 +30,10 @@ class RefType(enum.StrEnum):
 
     ALBUM = "album"
     ARTIST = "artist"
-    DIRECTORY = "directory"
-    PLAYLIST = "playlist"
     TRACK = "track"
+    DIRECTORY = "directory"
+    CATEGORY = "category"
+    PLAYLIST = "playlist"
     SOURCE = "source"
     STORAGE = "storage"
     BLUETOOTH = "bluetooth"
@@ -160,8 +161,8 @@ class Playlist(BaseModel):
 class Ref(BaseModel):
     """Lightweight reference to an object with URI, type, and optional metadata."""
 
-    model: Literal["Ref"] = Field(
-        default="Ref",
+    model: Literal["Item"] = Field(
+        default="Item",
         repr=False,
         alias="__model__",
     )
@@ -197,11 +198,7 @@ class State(BaseModel):
 
 class Source(BaseModel):
     model_config = ConfigDict(frozen=False)
-    model: Literal["Source"] = Field(
-        default="Source", 
-        alias="__model__", 
-        repr=False
-        )
+    model: Literal["Source"] = Field(default="Source", alias="__model__", repr=False)
     name: Optional[str] = None
     type: Optional[str] = None
     uri: Optional[Uri] = None
@@ -212,17 +209,14 @@ class Source(BaseModel):
 
 class Storage(BaseModel):
     model_config = ConfigDict(frozen=False)
-    model: Literal["Storage"] = Field(
-        default="Storage", 
-        alias="__model__", 
-        repr=False
-        )
+    model: Literal["Storage"] = Field(default="Storage", alias="__model__", repr=False)
     dev: Optional[str] = None
     parent: Optional[str] = None
     type: Optional[str] = None
     removable: Optional[bool] = None
+    shared: Optional[bool] = False
     size: Optional[int] = None
-    marketed_gb: Optional[int] = None
+    actual_size: Optional[int] = None
     fstype: Optional[str] = None
     name: Optional[str] = None
     status: Optional[str] = None
@@ -236,9 +230,7 @@ class Storage(BaseModel):
 class Bluetooth(BaseModel):
     model_config = ConfigDict(frozen=False)
     model: Literal["Bluetooth"] = Field(
-        default="Bluetooth", 
-        alias="__model__", 
-        repr=False
+        default="Bluetooth", alias="__model__", repr=False
     )
     address: Optional[str] = None
     name: Optional[str] = None
@@ -257,13 +249,12 @@ class Bluetooth(BaseModel):
     bit_depth: Optional[str] = None
     uuids: Optional[list[str]] = None
 
+
 class Snapcast(BaseModel):
     model_config = ConfigDict(frozen=False)
-    
+
     model: Literal["Snapcast"] = Field(
-        default="Snapcast",
-        alias="__model__",
-        repr=False
+        default="Snapcast", alias="__model__", repr=False
     )
     service_name: Optional[str] = None
     name: Optional[str] = None
@@ -271,3 +262,21 @@ class Snapcast(BaseModel):
     port: Optional[int] = None
     connected: Optional[bool] = None
     status: Optional[str] = None
+
+
+class StorageShared(BaseModel):
+    model_config = ConfigDict(frozen=False)
+
+    model: Literal["StorageShared"] = Field(
+        default="StorageShared", alias="__model__", repr=False
+    )
+
+    name: Optional[str] = None
+    uri: Optional[str] = None
+    comment: Optional[str] = None
+    browseable: bool = False
+    read_only: bool = False
+    guest_allowed: bool = False
+    user: Optional[str] = None
+    create_permissions: Optional[str] = None
+    directory_permissions: Optional[str] = None

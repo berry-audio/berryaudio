@@ -68,11 +68,13 @@ class MixerExtension(Actor):
     async def on_stop(self):
         logger.info("Stopped")
 
-    def on_set_mute(self, mute: bool) -> bool:
+    def on_set_mute(self, mute: bool | None = None) -> bool:
         """
         Set mixer mute state.
         """
-        self._volume_muted = mute
+        if mute is None:
+            mute = not self._volume_muted
+
         if self._mixer is None:
             logger.warning("Mixer is not available")
         else:
