@@ -1,7 +1,7 @@
 ![Description](/web/frontend/public/assets/berryaudio_logo_dark.png)
 
 > ⭐ If this project helps you, consider 
-> [Buy me a Coffee](buymeacoffee.com/varungujjar)
+> [Buy me a Coffee](https://www.buymeacoffee.com/varungujjar)
 > to keep it alive and maintained. 
 
 
