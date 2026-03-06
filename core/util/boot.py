@@ -13,26 +13,36 @@ logger = logging.getLogger(__name__)
 
 def update_dtoverlay(overlay: str | None = None, anchor: str | None = None):
     if anchor is not None:
-        subprocess.run(
-            ["sudo", "/usr/bin/python3", __file__, "dtoverlay", anchor, overlay or ""],
-            check=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        )
-        logger.debug(f"Updated config.txt with dtoverlay={overlay}")
+        try:
+            subprocess.run(
+                ["sudo", "/usr/bin/python3", __file__, "dtoverlay", anchor, overlay or ""],
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+            logger.debug(f"Updated config.txt with dtoverlay={overlay}")
+        except subprocess.CalledProcessError as e:
+            logger.error(f"dtoverlay update failed: {e.stderr.decode().strip()}")
+        except Exception as e:
+            logger.error(f"Unexpected error updating dtoverlay: {e}")
     else:
         logger.error("Anchor must be provided for dtoverlay update")
         sys.exit(1)
 
 
 def update_cmdline(config: str | None = None):
-    subprocess.run(
-        ["sudo", "/usr/bin/python3", __file__, "cmdline", config or ""],
-        check=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-    )
-    logger.debug(f"Updated cmdline.txt with config={config}")
+    try:
+        subprocess.run(
+            ["sudo", "/usr/bin/python3", __file__, "cmdline", config or ""],
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        logger.debug(f"Updated cmdline.txt with config={config}")
+    except subprocess.CalledProcessError as e:
+        logger.error(f"cmdline update failed: {e.stderr.decode().strip()}")
+    except Exception as e:
+        logger.error(f"Unexpected error updating cmdline: {e}")
 
 
 def _apply_dtoverlay(anchor: str, overlay: str):

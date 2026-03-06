@@ -113,8 +113,8 @@ class DisplayExtension(Actor):
                     if self._page == DisplayPage.NOW_PLAYING:
                         self._core.send(
                             target=["web", "display"],
-                            event="gpio_state_changed",
-                            key=Command.DIRECTORY,
+                            event="command",
+                            action=Command.DIRECTORY,
                         )
 
                     if self._page == DisplayPage.SOURCE_DIRECTORY:
@@ -134,7 +134,7 @@ class DisplayExtension(Actor):
                         )
                         if selected_item is not None:
                             if (
-                                selected_item.type == RefType.DIRECTORY
+                                selected_item.type == RefType.CATEGORY
                                 or selected_item.type == RefType.STORAGE
                                 or selected_item.type == RefType.ALBUM
                                 or selected_item.type == RefType.ARTIST
@@ -155,7 +155,7 @@ class DisplayExtension(Actor):
                                     )
                                     self.set_page(DisplayPage.NOW_PLAYING)
 
-                            elif selected_item.type == RefType.DIRECTORY:
+                            elif selected_item.type == RefType.CATEGORY:
                                 if selected_item.uri:
                                     self.set_page(DisplayPage.LOADING)
                                     _current_dir = await self._core.request(
@@ -367,19 +367,24 @@ class DisplayExtension(Actor):
                 self.set_page(DisplayPage.VOLUME)
                 self.start_timer(self._page_prev)
 
-            elif event == "storage_updated" or event == "storage_mounted" or event == "storage_unmounted":
+            elif (
+                event == "storage_updated"
+                or event == "storage_mounted"
+                or event == "storage_unmounted"
+            ):
                 if self._source is not None and self._source.uri == "storage":
                     if len(self._current_dir_breadcrumbs) == 0:
                         _current_dir = await self._core.request("storage.directory")
                         self.set_dir(_current_dir["mounted"])
 
     async def on_start(self):
+        self.set_display(self._config["display"]["output_display"])
+        self.set_visualizer_layout(self._config["display"]["visualizer_layout"])
+
         if self._power_state == "standby":
             self.set_page(DisplayPage.STANDBY)
             self.start_timer_blink()
 
-        self.set_display(self._config["display"]["output_display"])
-        self.set_visualizer_layout(self._config["display"]["visualizer_layout"])
         logger.info("Started")
 
     async def on_stop(self):
@@ -396,6 +401,7 @@ class DisplayExtension(Actor):
             self._core._request("gpio.set_encoder_mode", mode=EncoderMode.DIRECTION)
         else:
             self._core._request("gpio.set_encoder_mode", mode=EncoderMode.VOLUME)
+
         if self._controller is not None:
             self._controller._set_page(page)
 

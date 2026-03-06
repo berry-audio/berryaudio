@@ -32,7 +32,7 @@ class StorageSMB:
         if not folder.is_dir():
             raise ValueError(f"Path is not a directory {folder}")
 
-        name = re.sub(r'[\[\]\'\"@#$]', '', name or folder.name).strip()
+        name = re.sub(r"[\[\]\'\"@#$]", "", name or folder.name).strip()
 
         self._shares[name] = StorageShared(
             name=name,
@@ -63,9 +63,11 @@ class StorageSMB:
         return await self.status()
 
     def list_shares(self) -> list[StorageShared]:
-        config = configparser.ConfigParser()
+        config = configparser.RawConfigParser(
+            delimiters=("=",), comment_prefixes=("#", ";"), strict=False
+        )
+        config.optionxform = str
         config.read(SMBD_CONF)
-
         shares = {}
         for name in config.sections():
             if name.lower() in ("global", "homes", "printers"):
@@ -82,7 +84,6 @@ class StorageSMB:
                 create_permissions=s.get("create mask", ""),
                 directory_permissions=s.get("directory mask", ""),
             )
-
         return list(shares.values())
 
     def stop(self):
@@ -105,49 +106,68 @@ class StorageSMB:
         return status
 
     async def _remove_conf(self, path: str):
-        config = configparser.ConfigParser()
+        config = configparser.RawConfigParser(
+            delimiters=("=",), comment_prefixes=("#", ";"), strict=False
+        )
+        config.optionxform = str
         config.read(SMBD_CONF)
 
         name = next(
-            (s for s in config.sections() if config[s].get("path", "").strip() == path.strip()),
-            None
+            (
+                s
+                for s in config.sections()
+                if config[s].get("path", "").strip() == path.strip()
+            ),
+            None,
         )
-
         if not name:
             logger.warning(f"No share found for path '{path}'")
             return
 
-        config.remove_section(name)
-        buf = io.StringIO()
-        config.write(buf)
-        subprocess.run(
-            ["sudo", "tee", SMBD_CONF],
-            input=buf.getvalue(),
-            text=True,
-            capture_output=True,
-        )
-        self._shares = {s.name: s for s in self.list_shares()}
+        del self._shares[name]
+        await self._write_conf()
         logger.debug(f"Removed configuration for path: {name}")
 
     async def _write_conf(self):
-        config = configparser.ConfigParser()
-        config["global"] = {
+        lines = []
+
+        lines.append("[global]")
+        global_opts = {
             "workgroup": "WORKGROUP",
             "server string": "Python SMB",
             "security": "user",
             "map to guest": "bad user" if not self.username else "never",
             "dns proxy": "no",
             "log level": "0",
+            "socket options": "TCP_NODELAY IPTOS_LOWDELAY SO_RCVBUF=131072 SO_SNDBUF=131072",
+            "read raw": "yes",
+            "write raw": "yes",
+            "max xmit": "65535",
+            "dead time": "15",
+            "getwd cache": "yes",
+            "min protocol": "SMB2",
+            "max protocol": "SMB3",
+            "vfs objects": "fruit streams_xattr",
+            "fruit:metadata": "stream",
+            "fruit:posix_rename": "yes",
+            "fruit:zero_file_id": "yes",
+            "fruit:wipe_intentionally_left_blank_rfork": "yes",
+            "fruit:delete_empty_adfiles": "yes",
         }
+        for k, v in global_opts.items():
+            lines.append(f"\t{k} = {v}")
+        lines.append("")
 
+        config = configparser.RawConfigParser(delimiters=("=",))
+        config.optionxform = str
         for name, cfg in self._shares.items():
             cfg_name = name.replace("'", "")
-            cfg_path = cfg.uri.split(":", 1)[1] if cfg.uri.startswith("storage:") else None
-            
+            cfg_path = (
+                cfg.uri.split(":", 1)[1] if cfg.uri.startswith("storage:") else None
+            )
             if cfg_path is None:
                 logger.error(f"Invalid URI for share '{name}': {cfg.uri}")
                 continue
-
             config[cfg_name] = {
                 "path": cfg_path,
                 "comment": cfg.comment,
@@ -161,9 +181,12 @@ class StorageSMB:
 
         buf = io.StringIO()
         config.write(buf)
+        lines.append(buf.getvalue())
+
+        content = "\n".join(lines)
         subprocess.run(
             ["sudo", "tee", SMBD_CONF],
-            input=buf.getvalue(),
+            input=content,
             text=True,
             capture_output=True,
         )

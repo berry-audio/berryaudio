@@ -127,8 +127,21 @@ class Core:
             self._responses[message_id].set_result(response)
 
     async def stop_all(self):
-        for ext in self.extensions:
-            await ext.on_stop()
+        for ext in reversed(self.extensions):
+            try:
+                await ext.on_stop()
+            except Exception as e:
+                logger.error(f"Error in {ext._module_name}.on_stop: {e}")
+
+        for ext in reversed(self.extensions):
+            try:
+                await ext.stop()
+            except Exception as e:
+                logger.error(f"Error stopping {ext._module_name}: {e}")
+
+        if self.tasks:
+            await asyncio.gather(*self.tasks, return_exceptions=True)
+            self.tasks.clear()
 
         if self.db:
             try:

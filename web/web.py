@@ -39,8 +39,8 @@ class WebExtension(Actor):
 
     async def on_start(self):
         logger.info("Started")
-        self._server_task = asyncio.create_task(self.run_server())
         self._clients = set()
+        self._server_task = asyncio.create_task(self.run_server())
 
     async def stream_file(self, request, file_path: pathlib.Path, content_type: str):
         """Stream a file manually to avoid sendfile (compatible with gbulb)."""
@@ -118,18 +118,27 @@ class WebExtension(Actor):
             await asyncio.sleep(1)
         await runner.cleanup()
 
-    async def safe_send(self, ws, message: dict):
-        if ws is None:
+    async def safe_send_to(self, ws, message: dict):
+        """Send to a specific client only."""
+        try:
+            if ws and not ws.closed:
+                payload = json.dumps(json.loads(handle_json_ws(message)))
+                await ws.send_str(payload)
+        except Exception as e:
+            logger.error(f"Failed to send to client: {e}")
+            self._clients.discard(ws)
+
+    async def safe_send(self, message: dict):
+        if not self._clients:
             return
+        payload = json.dumps(json.loads(handle_json_ws(message)))
         for client in list(self._clients):
             try:
                 if not client.closed:
-                    await client.send_str(
-                        json.dumps(json.loads(handle_json_ws(message)))
-                    )
+                    await client.send_str(payload)
             except Exception as e:
                 logger.error(f"Failed to send to client: {e}")
-                self._clients.discard(ws)
+                self._clients.discard(client)
 
     async def webrpc_handler(self, request):
         try:
@@ -144,20 +153,20 @@ class WebExtension(Actor):
         return web.json_response(response)
 
     async def websocket_handler(self, request):
-        self.ws = web.WebSocketResponse()
-        await self.ws.prepare(request)
-        self._clients.add(self.ws)
+        ws = web.WebSocketResponse()
+        await ws.prepare(request)
+        self._clients.add(ws)
         logger.info(f"Client connected: {request.remote}")
         try:
-            async for msg in self.ws:
-                if msg.type == web.WSMsgType.TEXT:
-                    await self.handle_jsonrpc(self.ws, msg.data)
-                elif msg.type == web.WSMsgType.ERROR:
-                    logger.error(f"WS error: {self.ws.exception()}")
+            async for msg in ws:
+                if msg.type == WSMsgType.TEXT:
+                    await self.handle_jsonrpc(ws, msg.data)
+                elif msg.type == WSMsgType.ERROR:
+                    logger.error(f"WS error: {ws.exception()}")
         finally:
-            self._clients.discard(self.ws)
+            self._clients.discard(ws)
             logger.info(f"Client disconnected: {request.remote}")
-        return self.ws
+        return ws
 
     async def handle_jsonrpc(self, ws, data, send=True):
         try:
@@ -194,14 +203,22 @@ class WebExtension(Actor):
             )
 
         if ws and send:
-            await self.safe_send(ws, response)
+            await self.safe_send_to(ws, response)
         return response
 
     async def on_event(self, message):
-        await self.safe_send(self.ws, message)
         logger.debug(f"Sending message: {message}")
+        await self.safe_send(message)
 
     async def on_stop(self):
+        if hasattr(self, "_clients"):
+            for ws in list(self._clients):
+                try:
+                    await ws.close()
+                except Exception:
+                    pass
+            self._clients.clear()
+
         self.running = False
         if hasattr(self, "_server_task"):
             self._server_task.cancel()

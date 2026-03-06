@@ -21,7 +21,7 @@ def write_xinitrc(xrandr: str = None, path: str = "/home/pi/.xinitrc"):
         ]
         lines.append(f"xrandr {xrandr}")
         lines.append(
-            "berryaudio-1.0.0-app.AppImage --no-sandbox > /tmp/electron_app.log 2>&1"
+            "berryaudio-1.0.0-app.AppImage --force-device-scale-factor=1.4 --no-sandbox > /tmp/electron_app.log 2>&1"
         )
    
     lines.append("# Development")

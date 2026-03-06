@@ -1,4 +1,18 @@
 [
+  
+    {
+    "device": null,
+    "name": "Soundcard Disabled",
+    "description": "",
+    "volume_control_mixer": null,
+    "supports_hw_volume": false,
+    "supports_hw_mute": false,
+    "channel_count": 0,
+    "supported_sample_rates": [],
+    "supported_formats": [],
+    "dtoverlay": null
+  },
+  
   {
     "device": "hw:CARD=wm8960soundcard,DEV=0",
     "name": "Respeaker 2-Mics Pi Hat",
@@ -36,7 +50,7 @@
     "dtoverlay": null
   },
   {
-    "device": "hw:CARD=iqaudio-dacplus,DEV=0",
+    "device": "hw:CARD=IQaudIODAC,DEV=0",
     "name": "PCM5122 Audio Board (A)",
     "description": "Waveshare PCM5122 codec",
     "volume_control_mixer": "Digital",

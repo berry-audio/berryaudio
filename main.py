@@ -68,8 +68,18 @@ async def async_main(verbose=False):
     finally:
         logger.warning("Stopping extensions")
         await core.stop_all()
-        logger.info("Extensions stopped cleanly")
+        logger.debug("Extensions stopped cleanly")
 
+        current = asyncio.current_task()
+        tasks = [t for t in asyncio.all_tasks() if t is not current]
+        if tasks:
+            logger.warning(f"{len(tasks)} tasks still alive attempting to cancel...")
+            for t in tasks:
+                logger.debug(f"Pending: {t.get_name()} | {t.get_coro()}")
+            for t in tasks:
+                t.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
+        logger.info("Berryaudio Shutdown complete")
 
 def main():
     parser = argparse.ArgumentParser()

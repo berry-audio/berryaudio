@@ -515,7 +515,7 @@ class SnapcastExtension(SourceActor):
             raise RuntimeError(f"Invalid or no IP address defined")
 
         await self._core.request("playback.clear")
-        await self._core.request("source.set", type="snapcast")
+        await self._core.request("source.set", uri="snapcast")
         await self._init_snapclient(ip)
         return True
 

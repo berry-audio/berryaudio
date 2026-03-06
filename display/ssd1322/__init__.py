@@ -45,6 +45,7 @@ SPI_RST_PIN = 25
 DISPLAY_WIDTH = 256
 DISPLAY_HEIGHT = 64
 
+
 class DisplaySSD1322:
     def __init__(self, contrast=255):
         self.width = DISPLAY_WIDTH
@@ -92,7 +93,11 @@ class DisplaySSD1322:
             show_counter=False,
         )
         self.progress_bar = WidgetProgressBar(
-            font_path=FONT_STYLE_1, font_size=21, bar_height=4, bar_outline_color=False, show_labels=True
+            font_path=FONT_STYLE_1,
+            font_size=21,
+            bar_height=4,
+            bar_outline_color=False,
+            show_labels=True,
         )
         self.loader = WidgetLoader(display_width=self.width, display_height=self.height)
 
@@ -173,7 +178,9 @@ class DisplaySSD1322:
 
     def init(self):
         try:
-            self._serial = spi(device=0, port=SPI_PORT, gpio_DC=SPI_DC_PIN, gpio_RST=SPI_RST_PIN)
+            self._serial = spi(
+                device=0, port=SPI_PORT, gpio_DC=SPI_DC_PIN, gpio_RST=SPI_RST_PIN
+            )
             self._device = ssd1322(self._serial, width=self.width, height=self.height)
             self._device.contrast(self._contrast)
         except Exception as e:
@@ -194,8 +201,9 @@ class DisplaySSD1322:
         self.running = False
         if self.display_thread is not None and self.display_thread.is_alive():
             self.display_thread.join(timeout=1.0)
-        self._device.clear()
-        logger.info("Display stopped")
+        if self._device:
+            self._device.clear()
+        logger.info("Stopped")
 
     def _handle_messages(self):
         regulator = framerate_regulator(fps=60)

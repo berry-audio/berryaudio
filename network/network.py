@@ -6,8 +6,7 @@
 
 import logging
 import subprocess
-import threading
-import time
+import asyncio
 import nmcli
 
 from core.actor import Actor
@@ -24,41 +23,131 @@ class NetworkExtension(Actor):
         self._core = core
         self._db = db
         self._config = config
-        self._apmode_password = self._config["network"]["apmode_password"]
-        self._hostname = self._config["system"]["hostname"]
+        self._apmode_password = str(self._config["network"]["apmode_password"])
+        self._hostname = str(self._config["system"]["hostname"])
         self._devices = []
         self._conn_in_progress = False
         self._discovered_networks = []
+        self._monitor_task = None
+        self._hotspot_active = False
 
     async def on_start(self):
-        threading.Thread(target=self._init_network, daemon=True).start()
+        self._hotspot_active = False
+        self._monitor_task = asyncio.create_task(self._monitor_network())
         logger.info("Started")
 
     async def on_event(self, message):
         pass
 
     async def on_stop(self):
+        if hasattr(self, "_monitor_task"):
+            self._monitor_task.cancel()
+            await asyncio.gather(self._monitor_task, return_exceptions=True)
         logger.info("Stopped")
 
-    def _init_network(self):
-        doOnce_2 = True
-        while True:
-            _get_net_devices = self.on_devices()
-            for net_device in _get_net_devices:
-                device = net_device.get("device")
-                state = net_device.get("state")
-                connection = net_device.get("connection")
-                if device == "wlan0":
-                    if state == "connected":
-                        if doOnce_2:
-                            doOnce_2 = False
-                            logger.info(f"Wifi connected - {connection}")
-                    else:
-                        if connection != "Hotspot":
-                            if not self._conn_in_progress:
-                                self.on_ap_mode()
-            logger.debug("Network check complete")
-            time.sleep(CONFIG_WIFI_CHECK_INTERVAL)
+    async def _monitor_network(self):
+        while self.running:
+            try:
+                if not self._is_connected():
+                    if not self._hotspot_active:
+                        if not self._conn_in_progress:
+                            logger.warning("WLAN down, starting hotspot")
+                            await self.on_start_ap_mode()
+                else:
+                    if self._hotspot_active:
+                        if not self._conn_in_progress:
+                            logger.info("WLAN restored, stopping hotspot")
+                            await self.on_stop_ap_mode()
+            except Exception as e:
+                logger.error(f"Network monitor error: {e}")
+
+            await asyncio.sleep(CONFIG_WIFI_CHECK_INTERVAL)
+
+    def _is_connected(self) -> bool:
+        try:
+            _cmd = subprocess.run(
+                ["nmcli", "-t", "-f", "DEVICE,STATE,CONNECTION", "device"],
+                capture_output=True,
+                text=True,
+            )
+            for line in _cmd.stdout.splitlines():
+                parts = line.split(":")
+                if len(parts) >= 3:
+                    device, state, connection = parts[0], parts[1], parts[2]
+                    if device == "wlan0" and state == "connected":
+                        if "hotspot" in connection.lower():
+                            return False
+                        return True
+            return False
+        except Exception as e:
+            logger.error(e)
+            return False
+
+    async def on_start_ap_mode(self):
+        try:
+            subprocess.run(
+                [
+                    "sudo",
+                    "nmcli",
+                    "device",
+                    "wifi",
+                    "hotspot",
+                    "ifname",
+                    "wlan0",
+                    "ssid",
+                    self._hostname,
+                    "password",
+                    self._apmode_password,
+                ],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            self._hotspot_active = True
+            logger.info(f"{'─' * 40}")
+            logger.info(f"  Hotspot Started")
+            logger.info(f"  SSID     : {self._hostname}")
+            logger.info(f"  Password : {self._apmode_password}")
+            logger.info(f"{'─' * 40}")
+            self._core.send(
+                target="web",
+                event="network_state_changed",
+                device=self.on_device(ifname="wlan0"),
+                networks=self.on_wifi(),
+            )
+            return True
+        except subprocess.CalledProcessError as e:
+            logger.error(f"Failed to start hotspot: {e}")
+            raise ValueError(f"Failed to start hotspot: {e.stderr.strip()}")
+            
+
+    async def on_stop_ap_mode(self):
+        try:
+            result = subprocess.run(
+                ["nmcli", "-t", "-f", "NAME,TYPE", "connection", "show", "--active"],
+                capture_output=True,
+                text=True,
+            )
+            hotspot_active = any(
+                "hotspot" in line.lower() for line in result.stdout.splitlines()
+            )
+
+            if not hotspot_active:
+                logger.debug("Hotspot already inactive, skipping stop")
+                self._hotspot_active = False
+                return
+
+            subprocess.run(
+                ["sudo", "nmcli", "connection", "down", "Hotspot"],
+                capture_output=True,
+                check=True,
+            )
+            self._hotspot_active = False
+            logger.info("Hotspot stopped")
+        except subprocess.CalledProcessError as e:
+            logger.error(f"Failed to stop hotspot: {e}")
+            self._hotspot_active = False
+            raise ValueError(f"Failed to stop hotspot: {e.stderr.strip()}")
 
     def on_devices(self):
         self._devices = nmcli.device()
@@ -193,19 +282,6 @@ class NetworkExtension(Actor):
         }
         return result
 
-    def on_ap_mode(self):
-        logger.info(
-            f"Starting AP mode with name {self._hostname} and passkey {self._apmode_password}"
-        )
-        nmcli.device.wifi_hotspot(ssid=self._hostname, password=self._apmode_password)
-        self._core.send(
-            target="web",
-            event="network_state_changed",
-            device=self.on_device(ifname="wlan0"),
-            networks=self.on_wifi(),
-        )
-        return True
-
     def on_disconnect(self, ifname):
         nmcli.device.disconnect(ifname=ifname)
         self._core.send(
@@ -268,17 +344,29 @@ class NetworkExtension(Actor):
         )
         return True
 
-    def on_connect_wlan(self, ssid, password):
+    async def on_connect_wlan(self, ssid, password):
         self._conn_in_progress = True
-        nmcli.device.wifi_connect(ssid=ssid, password=password)
-        self._conn_in_progress = False
-        self._core.send(
-            target="web",
-            event="network_state_changed",
-            device=self.on_device(ifname="wlan0"),
-            networks=self.on_wifi(),
-        )
-        return True
+        try:
+            if self._hotspot_active:
+                await self.on_stop_ap_mode()
+
+            await subprocess.run(
+                ["sudo", "nmcli", "device", "wifi", "connect", ssid, "password", password],
+                check=True, capture_output=True, text=True
+            )
+            self._core.send(
+                target="web",
+                event="network_state_changed",
+                device=self.on_device(ifname="wlan0"),
+                networks=self.on_wifi(),
+            )
+            return True
+        except subprocess.CalledProcessError as e:
+            logger.error(f"Failed to connect to {ssid}: {e.stderr.strip()}")
+            await self.on_start_ap_mode()
+            return False
+        finally:
+            self._conn_in_progress = False
 
     def on_wifi(self, rescan=False):
         if rescan:

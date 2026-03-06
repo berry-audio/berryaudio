@@ -6,7 +6,6 @@ import subprocess
 import re
 import os
 import socket
-import threading
 import netifaces
 import asyncio
 
@@ -24,8 +23,6 @@ class SystemExtension(Actor):
         self._core = core
         self._db = db
         self._config = config
-        self._thread = None
-        self._stop_event = threading.Event()
         self._is_standby = True
         self._power_state = "standby"
 
@@ -35,27 +32,29 @@ class SystemExtension(Actor):
             self.on_set_hostname(updated_config.get("hostname"))
 
     async def on_start(self):
-        self._thread = threading.Thread(target=self.send_time_update, daemon=True)
-        self._thread.start()
+        self._time_task = asyncio.create_task(self._time_update())
         logger.info("Started")
 
-    async def on_stop(self):
-        self._stop_event.set()  # signal the thread to stop
-        if self._thread:
-            self._thread.join()  # wait for it to exit immediately
-        logger.info("Stopped")
-
-    async def on_event(self, message):
-        pass
-
-    def send_time_update(self):
-        while not self._stop_event.is_set():
+    async def _time_update(self):
+        while self.running:
             self._core.send(
                 target=["web", "display"],
                 event="system_time_updated",
                 datetime=self.on_datetime(),
             )
-            self._stop_event.wait(timeout=30)
+            try:
+                await asyncio.sleep(30)
+            except asyncio.CancelledError:
+                break
+
+    async def on_stop(self):
+        if hasattr(self, "_time_task"):
+            self._time_task.cancel()
+            await asyncio.gather(self._time_task, return_exceptions=True)
+        logger.info("Stopped")
+
+    async def on_event(self, message):
+        pass
 
     def on_datetime(self):
         tz = ZoneInfo(self._config["system"]["timezone"])
@@ -183,7 +182,7 @@ class SystemExtension(Actor):
             "os": f"{system} ({machine})",
             "hostname": hostname,
             "model": self.get_hardware_model(),
-            "software": "1.2.0",
+            "software": "3.0.0",
             "version": version,
             "cpu": {
                 "volts": self.get_volts("core"),
