@@ -1,0 +1,6 @@
+capture_device: hw:Loopback,0,1
+playback_device: plughw:Loopback,1,1
+server: true
+codec: flac
+chunk: 20
+buffer: 500

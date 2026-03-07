@@ -41,14 +41,15 @@ coverage/
 *.pid
 *.seed
 
-/web/www/images/local/*
+/core/db/
+/web/www/images/album/*
+/web/www/images/artist/*
 /web/www/images/storage/*
-/web/www/images/artists/*
 /web/www/images/nowplaying/*
 /web/www/images/shairportsync/*
 
-!/web/www/images/local/.gitkeep
+!/web/www/images/album/.gitkeep
+!/web/www/images/artist/.gitkeep
 !/web/www/images/storage/.gitkeep
-!/web/www/images/artists/.gitkeep
 !/web/www/images/nowplaying/.gitkeep
 !/web/www/images/shairportsync/.gitkeep

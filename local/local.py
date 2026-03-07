@@ -1,12 +1,12 @@
 import logging
 import asyncio
 import requests
-import glob
 import os
 import re
 
+from collections import namedtuple
 from urllib.parse import quote
-from core.actor import Actor
+from core.actor import SourceActor
 from core.types import PlaybackControls
 from core.util.metadata import Metadata
 from core.models import Image, RefType, Album, Artist, Ref, Track, Source
@@ -14,7 +14,6 @@ from pathlib import Path
 from typing import Optional
 
 logger = logging.getLogger(__name__)
-current_path = Path(__file__).resolve().parent.parent
 
 AUDIO_EXTS = {
     ".mp3",
@@ -28,12 +27,16 @@ AUDIO_EXTS = {
     ".wav",
     ".dsf",
 }
-ARTISTS_DIR = current_path / "web" / "www" / "images" / "artists"
-COVER_DIR = current_path / "web" / "www"
+BASE_DIR = Path(__file__).parent.parent / "web" / "www"
+
+ALBUM_IMAGES_DIR = BASE_DIR / "images" / "album"
+ALBUM_IMAGES_WEB_PATH = Path("images") / "album"
+
+ARTIST_IMAGES_DIR = BASE_DIR / "images" / "artist"
+ARTIST_IMAGES_WEB_PATH = Path("images") / "artist"
 
 AUDIO_DB_API = "https://www.theaudiodb.com/api/v1/json/123/search.php?s={artist}"
 BATCH_SIZE = 50
-
 
 SCHEMA_SQL = """
     PRAGMA journal_mode=WAL;
@@ -154,24 +157,22 @@ TYPES = {
     "track": RefType.TRACK,
     "album": RefType.ALBUM,
     "artist": RefType.ARTIST,
-    "genre": RefType.DIRECTORY,
+    "genre": RefType.CATEGORY,
 }
 
-
-class LocalExtension(Actor):
-    default_config = {
-        "library_path": [],
-    }
-
-    def __init__(self, core, db, config):
+class LocalExtension(SourceActor):
+    def __init__(self, name, core, db, config):
         super().__init__()
+        self._name = name
         self._core = core
         self._db = db
         self._config = config
-        self._metadata = Metadata(cover_dir="local")
+        self._metadata = Metadata(cover_dir="album")
         self._scan_progress = None
         self._source = Source(
-            type="local",
+            name="Library",
+            type=RefType.SOURCE,
+            uri=self._name,
             controls=[
                 PlaybackControls.SEEK,
                 PlaybackControls.PLAY,
@@ -184,14 +185,24 @@ class LocalExtension(Actor):
             state={},
         )
 
-    async def on_start(self):
-        logger.info("Started")
-
     async def on_event(self, message):
         pass
 
+    async def on_start(self):
+        logger.info("Started")
+
     async def on_stop(self):
         logger.info("Stopped")
+
+    def _directories(self):
+        Item = namedtuple('Item', ['uri', 'name', 'type'])
+        _dirs = [
+            Item(uri='artist', name='Artists', type=RefType.CATEGORY),
+            Item(uri='album', name='Albums', type=RefType.CATEGORY),
+            Item(uri='track', name='Tracks', type=RefType.CATEGORY),
+            Item(uri='genre', name='Genre', type=RefType.CATEGORY)
+        ]
+        return _dirs
 
     def on_directory(
         self,
@@ -200,7 +211,7 @@ class LocalExtension(Actor):
         offset: int | None = None,
     ):
         if not uri:
-            raise ValueError(f"No 'uri' was defined.")
+            return self._directories()
 
         values = uri.split(":")
         values_len = len(values)
@@ -252,10 +263,14 @@ class LocalExtension(Actor):
             obj["name"] = row.name
 
         if row.album_name:
-            image_src = (
-                COVER_DIR / row.album_image.lstrip("/") if row.album_image else None
-            )
-            image_uri = row.album_image if image_src and image_src.exists() else ""
+            image_uri = None
+
+            if row.album_image:
+                image_full_path = ALBUM_IMAGES_DIR / row.album_image
+                image_web_path = ALBUM_IMAGES_WEB_PATH / row.album_image
+
+                if image_full_path.is_file():
+                    image_uri = str(image_web_path)
 
             obj["albums"] = frozenset(
                 [
@@ -263,23 +278,27 @@ class LocalExtension(Actor):
                         uri=f"album:{row.album_id}",
                         name=row.album_name,
                         date=row.album_year or None,
-                        images=[Image(uri=image_uri)],
+                        images=[Image(uri=image_uri)] if image_uri else [],
                     )
                 ]
             )
 
         if row.artist_name:
-            image_src = (
-                COVER_DIR / row.artist_image.lstrip("/") if row.artist_image else None
-            )
-            image_uri = row.artist_image if image_src and image_src.exists() else ""
+            image_uri = None
+
+            if row.artist_image:
+                image_full_path = ARTIST_IMAGES_DIR / row.artist_image
+                image_web_path = ARTIST_IMAGES_WEB_PATH / row.artist_image
+
+                if image_full_path.is_file():
+                    image_uri = str(image_web_path)
 
             obj["artists"] = frozenset(
                 [
                     Artist(
                         uri=f"artist:{row.artist_id}",
                         name=row.artist_name,
-                        images=[Image(uri=image_uri)],
+                        images=[Image(uri=image_uri)] if image_uri else [],
                     )
                 ]
             )
@@ -310,10 +329,20 @@ class LocalExtension(Actor):
         if row.comment:
             obj["comment"] = row.comment
 
+        image_uri = None
         if row.image:
-            image_src = COVER_DIR / row.image.lstrip("/") if row.image else None
-            image_uri = row.image if image_src and image_src.exists() else ""
-            obj["images"] = [Image(uri=image_uri)]
+            image_full_path = (
+                ARTIST_IMAGES_DIR if view == "artist" else ALBUM_IMAGES_DIR
+            ) / row.image
+
+            image_web_path = (
+                ARTIST_IMAGES_WEB_PATH if view == "artist" else ALBUM_IMAGES_WEB_PATH
+            ) / row.image
+
+            if image_full_path.is_file():
+                image_uri = str(image_web_path)
+
+        obj["images"] = [Image(uri=image_uri)] if image_uri else []
 
         return obj
 
@@ -346,17 +375,15 @@ class LocalExtension(Actor):
         )
         logger.info("Cleared library")
 
-        image_dir = Path(__file__).parent.parent / "web" / "www" / "images" / "local"
-
-        for file_path in glob.glob(os.path.join(image_dir, "*")):
-            if not file_path.endswith(".gitkeep"):
+        for file_path in Path(ALBUM_IMAGES_DIR).iterdir():
+            if file_path.name != ".gitkeep" and file_path.is_file():
                 try:
-                    os.remove(file_path)
+                    file_path.unlink()
                     logger.debug(f"Deleted {file_path}")
                 except Exception as e:
                     logger.warning(f"Could not delete {file_path}: {e}")
 
-        logger.info("Cleared images in %s", image_dir)
+        logger.info("Cleared images in %s", ALBUM_IMAGES_DIR)
         return True
 
     def on_scan_progress(self):
@@ -378,7 +405,7 @@ class LocalExtension(Actor):
         )
         return parts[0].strip()
 
-    def fetch_artist_image(self, artist_name):
+    def fetch_artist_info(self, artist_name):
         """Fetch artist image URL from TheAudioDB API."""
         try:
             url = AUDIO_DB_API.format(artist=artist_name)
@@ -423,36 +450,32 @@ class LocalExtension(Actor):
         }
 
         self._core.send(
-            target="web",
+            target=["web","display"],
             event="scan_artist_updated",
             progress=_scan_artist_progress.copy(),
         )
         await asyncio.sleep(0.2)
 
         for artist in artists:
-            filename = os.path.join(ARTISTS_DIR, f"{artist.name}.jpg")
-            filename_db = f"/images/artists/{artist.name}.jpg"
+            filename = ARTIST_IMAGES_DIR / f"{artist.name}.jpg"
+            filename_db = f"{artist.name}.jpg"
 
-            if artist.image and os.path.exists(
-                f"/home/pi/berryaudio/web/www{artist.image}"
-            ):
+            if artist.image and (Path(ARTIST_IMAGES_DIR) / artist.image).exists():
                 logger.debug(f"Skipping {artist.name}, already has image.")
                 continue
 
             # pass 1
-            result = self.fetch_artist_image(quote(artist.name))
+            result = self.fetch_artist_info(quote(artist.name))
 
             if not result:
                 # pass 2
-                result = self.fetch_artist_image(
-                    self.normalize_artist_name(artist.name)
-                )
+                result = self.fetch_artist_info(self.normalize_artist_name(artist.name))
                 if not result:
                     logger.warning(f"No data found for {artist.name}")
                     _scan_artist_progress["unavailable"] += 1
                     continue
 
-            if os.path.exists(filename):
+            if Path(filename).exists():
                 logger.debug(f"File already exists for {artist.name}, updating DB...")
                 self._db.execute(
                     "UPDATE artist SET image = ?, comment = ?, genre = ?, country = ?  WHERE id = ?",
@@ -484,7 +507,7 @@ class LocalExtension(Actor):
                 await asyncio.sleep(0.2)
 
             self._core.send(
-                target="web",
+                target=["web","display"],
                 event="scan_artist_updated",
                 progress=_scan_artist_progress.copy(),
             )
@@ -492,7 +515,7 @@ class LocalExtension(Actor):
 
         _scan_artist_progress["completed"] = True
         self._core.send(
-            target="web",
+            target=["web","display"],
             event="scan_artist_updated",
             progress=_scan_artist_progress.copy(),
         )
@@ -558,8 +581,8 @@ class LocalExtension(Actor):
     async def scan_and_ingest(self):
         self._db.executescript(SCHEMA_SQL)
         _config = self._db.get_config()
-        _scan_paths = _config["local"]["library_path"]
-
+        _scan_paths = [path.removeprefix("storage:") for path in _config.get("local", {}).get("library_path", [])]
+    
         self._scan_progress = {
             "processed": 0,
             "inserted": 0,
@@ -567,7 +590,7 @@ class LocalExtension(Actor):
             "completed": False,
         }
         self._core.send(
-            target="web", event="scan_update", progress=self._scan_progress.copy()
+            target=["web","display"], event="scan_update", progress=self._scan_progress.copy()
         )
         await asyncio.sleep(0.3)
         logger.info(self._scan_progress)
@@ -667,7 +690,7 @@ class LocalExtension(Actor):
                         self._scan_progress["processed"] += 1
                         if self._scan_progress["processed"] % BATCH_SIZE == 0:
                             self._core.send(
-                                target="web",
+                                target=["web","display"],
                                 event="scan_update",
                                 progress=self._scan_progress.copy(),
                             )
@@ -679,6 +702,6 @@ class LocalExtension(Actor):
 
         self._scan_progress["completed"] = True
         self._core.send(
-            target="web", event="scan_update", progress=self._scan_progress.copy()
+            target=["web","display"], event="scan_update", progress=self._scan_progress.copy()
         )
         logger.info(self._scan_progress)

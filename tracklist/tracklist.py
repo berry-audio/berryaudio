@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 
 class TracklistExtension(Actor):
-    def __init__(self, core, db, config):
+    def __init__(self, name, core, db, config):
         """
         Initialize the tracklist extension.
         Keeps track of playback options (current queue, repeat, single, random),
@@ -17,8 +17,10 @@ class TracklistExtension(Actor):
         Handles and skips to next track if we have playback errors
         """
         super().__init__()
+        self._name = name
         self._core = core
         self._db = db
+        self._config = config
         self._repeat = False
         self._single = False
         self._random = False
@@ -76,7 +78,9 @@ class TracklistExtension(Actor):
             await self.on_next_track()
             self._playback_error = False
             self._core.send(
-                target="web", event="tracklist_changed", tl_tracks=self._tl_tracks
+                target=["web", "display"],
+                event="tracklist_changed",
+                tl_tracks=self._tl_tracks,
             )
             return _tracks
         else:
@@ -89,7 +93,9 @@ class TracklistExtension(Actor):
         """
         self._tl_tracks = [t for t in self._tl_tracks if t.tlid != tlid]
         self._core.send(
-            target="web", event="tracklist_changed", tl_tracks=self._tl_tracks
+            target=["web", "display"],
+            event="tracklist_changed",
+            tl_tracks=self._tl_tracks,
         )
         return self._tl_tracks
 
@@ -121,7 +127,9 @@ class TracklistExtension(Actor):
         self._tl_tracks = new_tl_tracks
         await self.on_next_track()
         self._core.send(
-            target="web", event="tracklist_changed", tl_tracks=self._tl_tracks
+            target=["web", "display"],
+            event="tracklist_changed",
+            tl_tracks=self._tl_tracks,
         )
         return True
 
@@ -139,7 +147,9 @@ class TracklistExtension(Actor):
         await self.on_next_track()
         self._playback_error = False
         self._core.send(
-            target="web", event="tracklist_changed", tl_tracks=self._tl_tracks
+            target=["web", "display"],
+            event="tracklist_changed",
+            tl_tracks=self._tl_tracks,
         )
         return True
 
@@ -151,7 +161,13 @@ class TracklistExtension(Actor):
         """Enable or disable repeat mode, and trigger option change event."""
         self._repeat = value
         await self.on_next_track()
-        self._core.send(target="web", event="options_changed")
+        self._core.send(
+            target=["web", "display"],
+            event="options_changed",
+            single=self._single,
+            repeat=self._repeat,
+            shuffle=self._random,
+        )
         return True
 
     def on_get_single(self) -> bool:
@@ -162,7 +178,13 @@ class TracklistExtension(Actor):
         """Enable or disable single mode, and trigger option change event."""
         self._single = value
         await self.on_next_track()
-        self._core.send(target="web", event="options_changed")
+        self._core.send(
+            target=["web", "display"],
+            event="options_changed",
+            single=self._single,
+            repeat=self._repeat,
+            shuffle=self._random,
+        )
         return True
 
     def on_get_random(self) -> bool:
@@ -185,7 +207,13 @@ class TracklistExtension(Actor):
         """Enable or disable shuffle, rebuild shuffled list, and trigger event."""
         self._random = value
         await self._init_shuffle()
-        self._core.send(target="web", event="options_changed")
+        self._core.send(
+            target=["web", "display"],
+            event="options_changed",
+            single=self._single,
+            repeat=self._repeat,
+            shuffle=self._random,
+        )
         return True
 
     def _get_index(self, tlid: int) -> int:

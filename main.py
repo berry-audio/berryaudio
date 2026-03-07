@@ -10,9 +10,8 @@ gi.require_version("Gst", "1.0")
 gi.require_version("GstPbutils", "1.0")
 
 from core.core import Core
-from core.actor import Actor
 from core.logger import setup_logging
-from gi.repository import GLib, Gst
+from gi.repository import Gst
 
 asyncio.set_event_loop_policy(asyncio_glib.GLibEventLoopPolicy())
 
@@ -49,6 +48,11 @@ async def async_main(verbose=False):
         "playback",
         "network",
         "snapcast",
+        "display",
+        # "gpio",
+        "infrared",
+        "tuner",
+        "command",
     ]
     await core.load_extensions_by_name(extensions)
 
@@ -64,8 +68,18 @@ async def async_main(verbose=False):
     finally:
         logger.warning("Stopping extensions")
         await core.stop_all()
-        logger.info("Extensions stopped cleanly")
+        logger.debug("Extensions stopped cleanly")
 
+        current = asyncio.current_task()
+        tasks = [t for t in asyncio.all_tasks() if t is not current]
+        if tasks:
+            logger.warning(f"{len(tasks)} tasks still alive attempting to cancel...")
+            for t in tasks:
+                logger.debug(f"Pending: {t.get_name()} | {t.get_coro()}")
+            for t in tasks:
+                t.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
+        logger.info("Berryaudio Shutdown complete")
 
 def main():
     parser = argparse.ArgumentParser()
@@ -87,7 +101,7 @@ def welcome():
     ██╔══██╗██╔══╝░░██╔══██╗██╔══██╗░░╚██╔╝░░  ██╔══██║██║░░░██║██║░░██║██║██║░░██║
     ██████╦╝███████╗██║░░██║██║░░██║░░░██║░░░  ██║░░██║╚██████╔╝██████╔╝██║╚█████╔╝
     ╚═════╝░╚══════╝╚═╝░░╚═╝╚═╝░░╚═╝░░░╚═╝░░░  ╚═╝░░╚═╝░╚═════╝░╚═════╝░╚═╝░╚════╝░
-    *** Welcome to Berry Audio by Varun Gujjar! ***
+    *** Welcome to Berry Audio by Varun Gujjar!  ***
     *** Hi-Fi audio streaming and rendering platform with a python backend server and react frontend. ***
     """
     print(banner)

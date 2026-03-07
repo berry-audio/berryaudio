@@ -11,4 +11,4 @@ payload = {
         "params": { "event": event },
         "id": 1
     }
-requests.get(JSONRPC_ENDPOINT, json=payload)
+requests.post(JSONRPC_ENDPOINT, json=payload)

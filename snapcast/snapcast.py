@@ -12,9 +12,9 @@ import websockets
 from zeroconf.asyncio import AsyncZeroconf, AsyncServiceBrowser
 from zeroconf._exceptions import NotRunningException
 
-from core.models import Album, Track, TlTrack, Source
+from core.models import Snapcast, Track, TlTrack, Source, RefType
 from pathlib import Path
-from core.actor import Actor
+from core.actor import SourceActor
 
 logger = logging.getLogger(__name__)
 
@@ -31,23 +31,20 @@ SNAPCLIENT_PATH = "/usr/local/bin/snapclient"
 SNAPSERVER_CONFIG_PATH = Path(__file__).parent / "snapserver.conf"
 
 
-class SnapcastExtension(Actor):
-    default_config = {
-        "capture_device": "hw:Loopback,0,1",
-        "playback_device": "plughw:Loopback,1,1",
-        "server": True,
-        "codec": "flac",
-        "chunk": 20,
-        "buffer": 500,
-    }
-
-    def __init__(self, core, db, config):
+class SnapcastExtension(SourceActor):
+    def __init__(self, name, core, db, config):
         super().__init__()
-        self._loop = asyncio.get_running_loop()
+        self._name = name
         self._core = core
         self._db = db
         self._config = config
-        self._local_hostname = socket.gethostname()
+        self._device = self._config["mixer"]["output_audio"]
+        self._server_enabled = self._config["snapcast"]["server"]
+        self._server_playback_device = self._config["snapcast"]["playback_device"]
+        self._server_codec = self._config["snapcast"]["codec"]
+        self._server_chunk = self._config["snapcast"]["chunk"]
+        self._server_buffer = self._config["snapcast"]["buffer"]
+        self._hostname = self._config["system"]["hostname"]
         self._proc_snapclient = None
         self._proc_snapserver = None
         self._prev_server = None
@@ -57,31 +54,22 @@ class SnapcastExtension(Actor):
         self._server_list = None
         self._reader: asyncio.StreamReader | None = None
         self._writer: asyncio.StreamWriter | None = None
-        self._device = self._config["mixer"]["output_audio"]
-        self._server_enabled = self._config["snapcast"]["server"]
-        self._server_playback_device = self._config["snapcast"]["playback_device"]
-        self._server_codec = self._config["snapcast"]["codec"]
-        self._server_chunk = self._config["snapcast"]["chunk"]
-        self._server_buffer = self._config["snapcast"]["buffer"]
         self.servers = {}
         self.jsonrpc_timeout = 5
         self._connected = False
         self.zeroconf = AsyncZeroconf()
         self._source = Source(
-            type="snapcast",
+            name="Multiroom",
+            type=RefType.SOURCE,
+            uri="snapcast",
             controls=[],
             state={
                 "icon": "speaker",
             },
         )
-        self._tl_track = TlTrack(
-            0,
-            track=Track(
-                name="Snapcast",
-                albums=frozenset([Album(name="Unknown")]),
-            ),
-        )
+        self._tl_track = TlTrack(0,track=Track())
         self._zc_tasks = set()
+        self._loop = asyncio.get_running_loop()
 
     async def on_start_service(self):
         await self._core.request("playback.set_metadata", tl_track=self._tl_track)
@@ -122,7 +110,7 @@ class SnapcastExtension(Actor):
                         )
                         self.servers[service_name]["status"] = stream_status
                     self._core.send(
-                        target="web",
+                        target=["web", "display"],
                         event="snapcast_added",
                         server=self.servers[service_name],
                     )
@@ -134,7 +122,7 @@ class SnapcastExtension(Actor):
                     self.servers[service_name]["status"] = "unavailable"
                     self.servers[service_name]["connected"] = False
                     self._core.send(
-                        target="web",
+                        target=["web", "display"],
                         event="snapcast_removed",
                         server=self.servers[service_name],
                     )
@@ -172,7 +160,7 @@ class SnapcastExtension(Actor):
                 info.server.rstrip(".") if info.server else "Unknown"
             ).removesuffix(".local")
 
-            # if self._local_hostname == hostname:
+            # if self._hostname == hostname:
             #     return
 
             self.servers[service_name] = {
@@ -238,7 +226,9 @@ class SnapcastExtension(Actor):
     async def _send_state_update(self):
         status = await self.on_get_status()
         self._core.send(
-            target="web", event="snapcast_state_changed", server=status.get("server")
+            target=["web", "display"],
+            event="snapcast_state_changed",
+            server=status.get("server"),
         )
 
     async def _send_connection_update(self, ip):
@@ -248,12 +238,16 @@ class SnapcastExtension(Actor):
             if server.get("ip") == ip:
                 if self._connected:
                     self._core.send(
-                        target="web", event="snapcast_connected", server=server
+                        target=["web", "display"],
+                        event="snapcast_connected",
+                        server=server,
                     )
                     logger.info(f"Snapcast connected to {self._server}:{AUDIO_PORT}")
                 else:
                     self._core.send(
-                        target="web", event="snapcast_disconnected", server=server
+                        target=["web", "display"],
+                        event="snapcast_disconnected",
+                        server=server,
                     )
                     logger.warning(f"Snapcast disconnected")
 
@@ -311,10 +305,14 @@ class SnapcastExtension(Actor):
                 SNAPSERVER_PATH,
                 "-c",
                 SNAPSERVER_CONFIG_PATH,
-                "--stream.codec", self._server_codec,
-                "--stream.chunk_ms", str(self._server_chunk),
-                "--stream.buffer", str(self._server_buffer),
-                "--stream.source", f"alsa://?name=Loopback&device={self._server_playback_device}&devicename=snapcast",
+                "--stream.codec",
+                self._server_codec,
+                "--stream.chunk_ms",
+                str(self._server_chunk),
+                "--stream.buffer",
+                str(self._server_buffer),
+                "--stream.source",
+                f"alsa://?name=Loopback&device={self._server_playback_device}&devicename=snapcast",
             ]
 
             self._proc_snapserver = subprocess.Popen(
@@ -335,7 +333,7 @@ class SnapcastExtension(Actor):
             def _log(stream, label):
                 for line in iter(stream.readline, ""):
                     logger.debug(line.strip())
-
+            
                     if "successfully established" in line:
                         self._loop.call_soon_threadsafe(
                             asyncio.create_task, _on_connected()
@@ -423,7 +421,7 @@ class SnapcastExtension(Actor):
 
                     self._tl_track = TlTrack(tlid=self._tl_track.tlid, track=_track)
                     self._core.send(
-                        target="web",
+                        target=["web", "display"],
                         event="track_meta_updated",
                         tl_track=self._tl_track,
                     )
@@ -517,7 +515,7 @@ class SnapcastExtension(Actor):
             raise RuntimeError(f"Invalid or no IP address defined")
 
         await self._core.request("playback.clear")
-        await self._core.request("source.set", type="snapcast")
+        await self._core.request("source.set", uri="snapcast")
         await self._init_snapclient(ip)
         return True
 
@@ -609,7 +607,7 @@ class SnapcastExtension(Actor):
 
                 client = params.get("client", {})
                 host = client.get("host", {})
-                name = host.get("name", self._local_hostname)
+                name = host.get("name", self._hostname)
                 ip = host.get("ip", self._server)
                 os = host.get("os", "unknown")
 
@@ -623,7 +621,7 @@ class SnapcastExtension(Actor):
                     logger.info(f"Client {name} ({ip}) [{os}] stream status changed")
 
                 self._core.send(
-                    target="web",
+                    target=["web", "display"],
                     event="snapcast_notification",
                     method=method,
                     params=params,

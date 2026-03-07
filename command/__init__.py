@@ -1,0 +1,1 @@
+from .command import CommandExtension as Extension

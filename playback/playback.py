@@ -10,11 +10,13 @@ logger = logging.getLogger(__name__)
 
 
 class PlaybackExtension(Actor):
-    def __init__(self, core, db, config):
+    def __init__(self, name, core, db, config):
         super().__init__()
+        self._name = name
         self._core = core
         self._db = db
         self._config = config
+        self._output_audio = self._config["mixer"]["output_audio"]
         self._state = PlaybackState.STOPPED
         self._playing = False
         self._buffering = False
@@ -39,7 +41,7 @@ class PlaybackExtension(Actor):
         self._capsfilter = Gst.ElementFactory.make("capsfilter", "caps")
         self._sink = Gst.ElementFactory.make("alsasink", "sink")
 
-        self._sink.set_property("device", self._config["mixer"]["output_audio"])
+        self._sink.set_property("device", self._output_audio)
         self._sink.set_property("sync", True)
         self._sink.set_property("buffer-time", 500000)  # 500 ms buffer, microseconds
 
@@ -115,7 +117,7 @@ class PlaybackExtension(Actor):
                     )
                     self._track = TlTrack(tlid=self._track.tlid, track=_track)
                     self._core.send(
-                        target="web", event="track_meta_updated", tl_track=self._track
+                        target=["web","display"] , event="track_meta_updated", tl_track=self._track
                     )
                 return Gst.PadProbeReturn.REMOVE
 
@@ -179,7 +181,7 @@ class PlaybackExtension(Actor):
                 if _has_changes(self._track, _track):
                     self._track = _track
                     self._core.send(
-                        target="web", event="track_meta_updated", tl_track=self._track
+                        target=["web","display"], event="track_meta_updated", tl_track=self._track
                     )
 
         if t == Gst.MessageType.DURATION_CHANGED:
@@ -188,12 +190,12 @@ class PlaybackExtension(Actor):
         elif t == Gst.MessageType.BUFFERING:
             if not self._buffering:
                 self._buffering = True
-                self._core.send(target="web", event="track_playback_buffering")
+                self._core.send(target=["web","display"], event="track_playback_buffering")
 
         elif t == Gst.MessageType.EOS:
             self._stop()
             self._core.send(
-                target="web", event="track_playback_ended", tl_track=self._track
+                target=["web","display"], event="track_playback_ended", tl_track=self._track
             )
 
         elif t == Gst.MessageType.ERROR:
@@ -212,13 +214,13 @@ class PlaybackExtension(Actor):
                 self._track = TlTrack(tlid=self._track.tlid, track=_track)
                 self._stop()
                 self._core.send(
-                    target="web", event="track_meta_updated", tl_track=self._track
+                    target=["web","display"], event="track_meta_updated", tl_track=self._track
                 )
                 self._core.send(
-                    target="web", event="track_playback_error", tl_track=self._track
+                    target=["web","display"], event="track_playback_error", tl_track=self._track
                 )
                 self._core.send(
-                    target="web", event="track_playback_ended", tl_track=self._track
+                    target=["web","display"], event="track_playback_ended", tl_track=self._track
                 )
                 logger.warning(f"Unavailable {self._track}")
 
@@ -232,7 +234,7 @@ class PlaybackExtension(Actor):
             _track = self._track.track.copy(update={"length": self._duration})
             self._track = TlTrack(tlid=self._track.tlid, track=_track)
             self._core.send(
-                target="web", event="track_meta_updated", tl_track=self._track
+                target=["web","display"], event="track_meta_updated", tl_track=self._track
             )
 
     def _start_time_tracking(self):
@@ -243,8 +245,9 @@ class PlaybackExtension(Actor):
             if self._pipeline:
                 success, position = self._pipeline.query_position(Gst.Format.TIME)
                 if success:
-                    self._elapsed = int((position / Gst.SECOND) * 1000)
+                    _elapsed = int((position / Gst.SECOND) * 1000)
                     duration_sec = (self._duration / Gst.SECOND) * 1000
+                    self.on_set_time_position(_elapsed)
             return True
 
         self._time_source_id = GLib.timeout_add(500, update_elapsed)
@@ -257,7 +260,7 @@ class PlaybackExtension(Actor):
                 return
 
             ext, track_id = _uri
-            await self._core.request("source.set", type=ext)
+            await self._core.request("source.set", uri=ext)
 
             get_track = await self._core.request(f"{ext}.lookup_track", id=track_id)
             playback_uri = await self._core.request(f"{ext}.playback_uri", id=track_id)
@@ -273,8 +276,9 @@ class PlaybackExtension(Actor):
             self._playback_uri = playback_uri
             self._track = TlTrack(tlid=tlid, track=get_track)
             self._core.send(
-                target="web", event="track_meta_updated", tl_track=self._track
+                target=["web","display"], event="track_meta_updated", tl_track=self._track
             )
+            
 
         except Exception as e:
             logger.exception(f"Error starting playback for {uri}: {e}")
@@ -314,6 +318,8 @@ class PlaybackExtension(Actor):
         else:
             if self._state in (PlaybackState.PAUSED, PlaybackState.STOPPED):
                 return self._play()
+            else:
+                self.on_pause()
 
     def on_seek(self, time_position: int):
         if time_position < 1:
@@ -331,7 +337,7 @@ class PlaybackExtension(Actor):
             )
             self._elapsed = time_position
             self._core.send(
-                target="web",
+                target=["web","display"],
                 event="track_position_updated",
                 time_position=time_position,
             )
@@ -370,7 +376,7 @@ class PlaybackExtension(Actor):
 
     def on_set_state(self, state: PlaybackState) -> bool:
         self._state = state
-        self._core.send(target="web", event="playback_state_changed", state=self._state)
+        self._core.send(target=["web","display"], event="playback_state_changed", state=self._state)
         return True
 
     def on_get_time_position(self) -> int:
@@ -378,6 +384,9 @@ class PlaybackExtension(Actor):
 
     def on_set_time_position(self, position_ms: int) -> bool:
         self._elapsed = position_ms
+        self._core.send(
+                    target=["display"], event="track_position_updated", time_position=self._elapsed,
+                )
         return True
 
     def on_set_metadata(self, tl_track: TlTrack | None) -> bool:
@@ -386,7 +395,7 @@ class PlaybackExtension(Actor):
             self._track = TlTrack(tlid=0, track=Track())
         else:
             self._track = tl_track
-        self._core.send(target="web", event="track_meta_updated", tl_track=self._track)
+        self._core.send(target=["web","display"], event="track_meta_updated", tl_track=self._track)
         return True
 
     def on_pause(self):
@@ -399,13 +408,13 @@ class PlaybackExtension(Actor):
                 self._time_source_id = None
 
             self._core.send(
-                target="web",
+                target=["web","display"],
                 event="track_playback_paused",
                 tl_track=self._track,
                 time_position=self._elapsed,
             )
             self._core.send(
-                target="web", event="playback_state_changed", state=self._state
+                target=["web","display"], event="playback_state_changed", state=self._state
             )
         return True
 
@@ -419,7 +428,8 @@ class PlaybackExtension(Actor):
             self._time_source_id = None
 
         self._elapsed = 0
-        self._core.send(target="web", event="playback_state_changed", state=self._state)
+        self._core.send(target=["web","display"], event="playback_state_changed", state=self._state)
+        self._core.send(target=["web","display"], event="track_position_updated", time_position=self._elapsed)
         return True
 
     def _play(self):
@@ -441,7 +451,7 @@ class PlaybackExtension(Actor):
 
         if old_state == PlaybackState.PAUSED:
             self._core.send(
-                target="web",
+                target=["web","display"],
                 event="track_playback_resumed",
                 tl_track=self._track,
                 time_position=self._elapsed,
@@ -449,11 +459,11 @@ class PlaybackExtension(Actor):
         else:
             self._elapsed = 0
             self._core.send(
-                target="web",
+                target=["web","display"],
                 event="track_playback_started",
                 tl_track=self._track,
                 time_position=self._elapsed,
             )
 
-        self._core.send(target="web", event="playback_state_changed", state=self._state)
+        self._core.send(target=["web","display"], event="playback_state_changed", state=self._state)
         return True

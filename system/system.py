@@ -6,73 +6,55 @@ import subprocess
 import re
 import os
 import socket
-import threading
 import netifaces
+import asyncio
 
-from tzlocal import get_localzone
 from datetime import datetime
 from zoneinfo import ZoneInfo
 from core.actor import Actor
 
-
-logging.getLogger("tzlocal").setLevel(logging.WARNING)
-
-tz = get_localzone()
 logger = logging.getLogger(__name__)
 
 
-def get_timezone():
-    try:
-        tz = get_localzone()
-        timezone_name = tz.key
-    except Exception:
-        try:
-            with open("/etc/timezone") as f:
-                timezone_name = f.read().strip()
-        except FileNotFoundError:
-            timezone_name = ""
-    return timezone_name
-
-
-def get_hostname():
-    return socket.gethostname() or "berryaudio"
-
-
 class SystemExtension(Actor):
-    default_config = {
-        "hostname": get_hostname(),
-        "timezone": get_timezone(),
-    }
-
-    def __init__(self, core, db, config):
+    def __init__(self, name, core, db, config):
         super().__init__()
+        self._name = name
         self._core = core
         self._db = db
         self._config = config
-        self._thread = None
-        self._stop_event = threading.Event()
         self._is_standby = True
+        self._power_state = "standby"
+
+    async def on_config_update(self, config):
+        updated_config = config[self._name]
+        if "hostname" in updated_config:
+            self.on_set_hostname(updated_config.get("hostname"))
 
     async def on_start(self):
-        self._thread = threading.Thread(target=self.send_time_update, daemon=True)
-        self._thread.start()
+        self._time_task = asyncio.create_task(self._time_update())
         logger.info("Started")
 
+    async def _time_update(self):
+        while self.running:
+            self._core.send(
+                target=["web", "display"],
+                event="system_time_updated",
+                datetime=self.on_datetime(),
+            )
+            try:
+                await asyncio.sleep(30)
+            except asyncio.CancelledError:
+                break
+
     async def on_stop(self):
-        self._stop_event.set()  # signal the thread to stop
-        if self._thread:
-            self._thread.join()  # wait for it to exit immediately
+        if hasattr(self, "_time_task"):
+            self._time_task.cancel()
+            await asyncio.gather(self._time_task, return_exceptions=True)
         logger.info("Stopped")
 
     async def on_event(self, message):
         pass
-
-    def send_time_update(self):
-        while not self._stop_event.is_set():
-            self._core.send(
-                target="web", event="system_time_updated", datetime=self.on_datetime()
-            )
-            self._stop_event.wait(timeout=30)
 
     def on_datetime(self):
         tz = ZoneInfo(self._config["system"]["timezone"])
@@ -80,29 +62,46 @@ class SystemExtension(Actor):
         time = now.strftime("%Y-%m-%dT%H:%M:%S")
         return time
 
-    async def on_standby(self, state: bool):
-        self._is_standby = state
-        self._core.send(
-            target="web", event="system_power_state", state=self.on_get_power_state()
-        )
-
-        await self._core.request("source.set", type=None)
-        await self._core.request("bluetooth.adapter_set_state", state=False)
-
-        if state:
+    async def on_standby(self):
+        if self._power_state is None:
+            self._power_state = "standby"
             logger.info("System going into Standby...")
         else:
+            self._power_state = None
             logger.info("System wakeup...")
+
+        self._core.send(
+            target=["web", "display"],
+            event="system_power_state_changed",
+            state=self._power_state,
+        )
+
+        await self._core.request("source.set", uri=None)
+        await self._core.request("bluetooth.adapter_set_state", state=False)
         return True
 
-    def on_get_power_state(self):
-        return {"standby": self._is_standby}
+    def on_power_state(self):
+        return self._power_state
 
-    def on_shutdown(self):
+    async def on_shutdown(self):
+        self._power_state = "shutdown"
+        self._core.send(
+            target=["web", "display"],
+            event="system_power_state_changed",
+            state=self._power_state,
+        )
+        await asyncio.sleep(2.0)
         os.system("sudo shutdown -h now")
         return True
 
-    def on_reboot(self):
+    async def on_reboot(self):
+        self._power_state = "reboot"
+        self._core.send(
+            target=["web", "display"],
+            event="system_power_state_changed",
+            state=self._power_state,
+        )
+        await asyncio.sleep(2.0)
         os.system("sudo shutdown -r now")
         return True
 
@@ -183,7 +182,7 @@ class SystemExtension(Actor):
             "os": f"{system} ({machine})",
             "hostname": hostname,
             "model": self.get_hardware_model(),
-            "software": "1.2.0",
+            "software": "3.0.0",
             "version": version,
             "cpu": {
                 "volts": self.get_volts("core"),

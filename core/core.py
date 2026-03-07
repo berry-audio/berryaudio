@@ -1,7 +1,9 @@
 import asyncio
 import importlib
+import yaml
 import logging
 
+from pathlib import Path
 from collections import defaultdict
 from core.db import DBConnection
 
@@ -19,27 +21,37 @@ class Core:
 
     async def load_extensions_by_name(self, extension_names):
         extensions_to_start = []
+        loaded_extensions = []
 
-        self.db.init_db()
-        
+        # Init Extensions config in database
         for name in extension_names:
             module = importlib.import_module(name)
             ext_class = getattr(module, "Extension")
+            loaded_extensions.append((name, ext_class))
 
-            default_config = getattr(ext_class, "default_config", {})
+            ext_folder = Path(module.__file__).parent
+            config_path = ext_folder / "config.yaml"
 
-            self.db.init_extension(name, default_config)
+            if config_path.exists():
+                with open(config_path, "r", encoding="utf-8") as f:
+                    config = yaml.safe_load(f) or {}
+            else:
+                config = {}
+
+            self.db.init_extension(name, config)
+
+        # Load & Run Extensions 
+        for name, ext_class in loaded_extensions:
             config = self.db.get_config()
 
-            ext = ext_class(core=self, db=self.db, config=config)
+            ext = ext_class(name=name, core=self, db=self.db, config=config)
             ext.set_loop(self._loop)
-
             ext._module_name = name
+
             self.extensions.append(ext)
             self.routes[name].append(ext)
             extensions_to_start.append(ext)
 
-        for ext in extensions_to_start:
             task = asyncio.create_task(ext.run())
             self.tasks.append(task)
 
@@ -98,24 +110,38 @@ class Core:
                 handler = getattr(ext, f"on_{method_name}", None)
 
                 if not callable(handler):
-                    raise ValueError(
+                    logger.warning(
                         f"Method {method_name} not found in extension {ext_name}"
                     )
+                    return
 
                 if asyncio.iscoroutinefunction(handler):
                     return await handler(**params)
                 else:
                     return handler(**params)
-
-        raise ValueError(f"Extension {ext_name} not found")
+        logger.debug(f"Extension {ext_name} not found or disabled")
+        return
 
     async def handle_response(self, message_id, response):
         if message_id in self._responses:
             self._responses[message_id].set_result(response)
 
     async def stop_all(self):
-        for ext in self.extensions:
-            await ext.on_stop()
+        for ext in reversed(self.extensions):
+            try:
+                await ext.on_stop()
+            except Exception as e:
+                logger.error(f"Error in {ext._module_name}.on_stop: {e}")
+
+        for ext in reversed(self.extensions):
+            try:
+                await ext.stop()
+            except Exception as e:
+                logger.error(f"Error stopping {ext._module_name}: {e}")
+
+        if self.tasks:
+            await asyncio.gather(*self.tasks, return_exceptions=True)
+            self.tasks.clear()
 
         if self.db:
             try:
