@@ -54,11 +54,18 @@ Scroll below to see a list of supported hardware
 
 ## Getting Started
 
-Installation guides, SD card flashing instructions, and hardware compatibility details will be shared here.
+Installation guides, SD card flashing instructions, and hardware compatibility & features.
 
-- **Installation & Setup**: [Wiki](https://github.com/berry-audio/berryaudio/wiki/Installation-&-Setup)
-- **Community Forum**: [community.berryaudio.org](https://community.berryaudio.org/)
-- **Website**: [www.berryaudio.org](https://www.berryaudio.org/)
+- [Documentation](https://docs.berryaudio.org/)
+- [Getting Started](https://docs.berryaudio.org/getting-started/introduction.html)
+- [Installation & Setup](https://docs.berryaudio.org/getting-started/installation.html)
+- [Community Forum](https://community.berryaudio.org/)
+- [Website](https://www.berryaudio.org/)
+
+## Supported Hardware
+- [Raspberry Pi Boards](https://docs.berryaudio.org/getting-started/supported-hardware.html#supported-raspberry-pi)
+- [Audio Boards](https://docs.berryaudio.org/getting-started/supported-hardware.html#supported-dac-adc)
+
 
 ## Features
 
