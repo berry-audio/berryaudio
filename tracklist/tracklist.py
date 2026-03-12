@@ -69,8 +69,8 @@ class TracklistExtension(Actor):
         if uris:
             _tracks: list[TlTrack] = []
             for uri in uris:
-                ext, track_id = uri.split(":")
-                tl_track = await self._core.request(f"{ext}.lookup_track", id=track_id)
+                ext, file_path = uri.split(":", 1)
+                tl_track = await self._core.request(f"{ext}.lookup_track", path=file_path)
                 next_track_tlid = generate_tlid()
                 self._tl_tracks.append(TlTrack(next_track_tlid, track=tl_track))
                 _tracks.append(TlTrack(next_track_tlid, track=tl_track))

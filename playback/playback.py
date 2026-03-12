@@ -254,16 +254,16 @@ class PlaybackExtension(Actor):
 
     async def _load_uri(self, uri: str, tlid: int) -> None:
         try:
-            _uri = uri.split(":")
+            _uri = uri.split(":", 1)
             if len(_uri) != 2:
                 logger.error(f"Invalid URI format: {uri}")
                 return
 
-            ext, track_id = _uri
+            ext, file_path = _uri
             await self._core.request("source.set", uri=ext)
 
-            get_track = await self._core.request(f"{ext}.lookup_track", id=track_id)
-            playback_uri = await self._core.request(f"{ext}.playback_uri", id=track_id)
+            get_track = await self._core.request(f"{ext}.lookup_track", path=file_path)
+            playback_uri = await self._core.request(f"{ext}.playback_uri", path=file_path)
 
             if not get_track:
                 logger.error(f"Track not found for {uri}")

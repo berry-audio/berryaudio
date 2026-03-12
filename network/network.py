@@ -119,7 +119,6 @@ class NetworkExtension(Actor):
         except subprocess.CalledProcessError as e:
             logger.error(f"Failed to start hotspot: {e}")
             raise ValueError(f"Failed to start hotspot: {e.stderr.strip()}")
-            
 
     async def on_stop_ap_mode(self):
         try:
@@ -350,21 +349,44 @@ class NetworkExtension(Actor):
             if self._hotspot_active:
                 await self.on_stop_ap_mode()
 
-            await subprocess.run(
-                ["sudo", "nmcli", "device", "wifi", "connect", ssid, "password", password],
-                check=True, capture_output=True, text=True
-            )
+            async def _connect():
+                process = await asyncio.create_subprocess_exec(
+                    "sudo",
+                    "nmcli",
+                    "device",
+                    "wifi",
+                    "connect",
+                    ssid,
+                    "password",
+                    password,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                )
+                stdout, stderr = await process.communicate()
+                if process.returncode != 0:
+                    raise ValueError(
+                        f"Failed to connect to {ssid}: {stderr.decode().strip()}"
+                    )
+
+            await asyncio.wait_for(_connect(), timeout=8)
+
             self._core.send(
                 target="web",
                 event="network_state_changed",
                 device=self.on_device(ifname="wlan0"),
                 networks=self.on_wifi(),
             )
-            return True
-        except subprocess.CalledProcessError as e:
-            logger.error(f"Failed to connect to {ssid}: {e.stderr.strip()}")
+        except asyncio.TimeoutError:
+            logger.error(f"Connection to {ssid} timed out")
             await self.on_start_ap_mode()
-            return False
+            raise ConnectionError(f"Connection to {ssid} timed out")
+        except ValueError:
+            await self.on_start_ap_mode()
+            raise
+        except Exception as e:
+            logger.error(f"Failed to connect to {ssid}: {e}")
+            await self.on_start_ap_mode()
+            raise ConnectionError(f"Failed to connect to {ssid}: {e}")
         finally:
             self._conn_in_progress = False
 

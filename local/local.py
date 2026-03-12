@@ -254,7 +254,11 @@ class LocalExtension(SourceActor):
 
     def _build_ref(self, row, view, is_ref=True):
         obj = {}
-        obj["uri"] = f"{'local' if view == 'track' else view}:{row.id}"
+
+        if view == 'track':
+            obj["uri"] = f"{self._name}:{row.file_path}"
+        else:
+            obj["uri"] = f"{view}:{row.id}"   
 
         if is_ref:
             obj["type"] = TYPES[view]
@@ -346,13 +350,12 @@ class LocalExtension(SourceActor):
 
         return obj
 
-    async def on_playback_uri(self, id: int) -> any:
+    async def on_playback_uri(self, path: str) -> any:
         self._core._request("source.update_source", source=self._source)
-        row = self._db.fetchone(f"SELECT * FROM track WHERE id = {id}")
-        return f"file://{row.file_path}" if row else None
+        return f"file://{path}"
 
-    async def on_lookup_track(self, id: int) -> Track:
-        sql = QUERIES["track"] % (f"a.id = {id}")
+    async def on_lookup_track(self, path: str) -> Track:
+        sql = QUERIES["track"] % (f"a.file_path = '{path}'")
         row = self._db.fetchall(sql)
         return Track(**self._build_ref(row[0], "track", False))
 

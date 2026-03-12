@@ -46,7 +46,6 @@ class InfraredExtension(Actor):
         self._config = config
         self._ir_device = None
         self._last_time = 0
-        self._loop = asyncio.get_event_loop()
         self._volume = 0
         self._mute = False
         self._thread = None
