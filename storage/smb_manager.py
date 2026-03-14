@@ -358,6 +358,7 @@ class StorageSMB:
                             ),
                         )
                     )
+
         self._smb_shares = storages
         return storages
 
@@ -444,24 +445,22 @@ class StorageSMB:
                         free=u.free,
                     ),
                 )
-
                 self._smb_shares[dev] = storage
 
                 config = self._db.get_config()
-                config_storage = config.get(self._name, {}).get("smb_clients", []) or []
+                config_storage = config.get(self._name, {}).get("smb_clients", {}) or {}
                 if dev not in config_storage:
-                    config_storage.append(
-                        {
-                            "dev": str(dev),
-                            "username": self._remote_username,
-                            "password": self._remote_password,
-                        }
-                    )
-                    self._db.set_config({self._name: {"smb_clients": config_storage}})
+                    config_storage[str(dev)] = {
+                        "username": self._remote_username,
+                        "password": self._remote_password,
+                    }
+                self._db.set_config({self._name: {"smb_clients": config_storage}})
 
                 if not is_mounted:
-                    self._core.send(    
-                        target=["web", "display"], event="storage_mounted", storage=storage
+                    self._core.send(
+                        target=["web", "display"],
+                        event="storage_mounted",
+                        storage=storage,
                     )
 
             return True
@@ -511,10 +510,8 @@ class StorageSMB:
                 subprocess.run(["sudo", "rmdir", mount_point], capture_output=True)
 
             config = self._db.get_config()
-            config_storage = config.get(self._name, {}).get("smb_clients", []) or []
-            config_storage = [
-                item for item in config_storage if item["dev"] != str(dev)
-            ]
+            config_storage = config.get(self._name, {}).get("smb_clients", {}) or {}
+            config_storage.pop(str(dev), None)
             self._db.set_config({self._name: {"smb_clients": config_storage}})
 
             if self._smb_shares[dev]:

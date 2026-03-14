@@ -136,9 +136,13 @@ class DisplayExtension(Actor):
                             if (
                                 selected_item.type == RefType.CATEGORY
                                 or selected_item.type == RefType.STORAGE
+                                or selected_item.type == RefType.NAS
+                                or selected_item.type == RefType.REMOVABLE
                                 or selected_item.type == RefType.ALBUM
                                 or selected_item.type == RefType.ARTIST
+                                or selected_item.type == RefType.DIRECTORY
                             ):
+
                                 self._current_dir_breadcrumbs.append(
                                     {
                                         "items": self._current_dir,
@@ -202,7 +206,12 @@ class DisplayExtension(Actor):
                                         finally:
                                             self.set_page(DisplayPage.NOW_PLAYING)
 
-                            elif selected_item.type == RefType.STORAGE:
+                            elif (
+                                selected_item.type == RefType.STORAGE
+                                or selected_item.type == RefType.NAS
+                                or selected_item.type == RefType.REMOVABLE
+                                or selected_item.type == RefType.DIRECTORY
+                            ):
                                 if selected_item.uri:
                                     self.set_page(DisplayPage.LOADING)
                                     _current_dir = await self._core.request(
@@ -226,7 +235,7 @@ class DisplayExtension(Actor):
                                 _current_dir = await self._core.request(
                                     "storage.directory"
                                 )
-                                last_items = _current_dir["mounted"]
+                                last_items = _current_dir
                                 last_selected_index = 0
                                 last_scroll_offset = 0
 
@@ -271,7 +280,7 @@ class DisplayExtension(Actor):
                                     _current_dir = await self._core.request(
                                         "storage.directory"
                                     )
-                                    self.set_dir(_current_dir["mounted"])
+                                    self.set_dir(_current_dir)
 
                             elif self._source.uri == "bluetooth":
                                 if self._current_dir is None:
@@ -554,7 +563,7 @@ class DisplayExtension(Actor):
             self._controller = DisplaySSD1322(contrast=255)
         elif device == "ssd1306":
             self._controller = DisplaySSD1306(contrast=255)
-        elif device in ("waveshare_28_dsi", "generic_hdmi"):
+        elif device in ("waveshare_28_dsi", "generic_hdmi", "generic_dsi"):
             pass
         else:
             logger.error(f"Display device '{device}' not supported")

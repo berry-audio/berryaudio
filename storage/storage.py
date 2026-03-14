@@ -29,7 +29,13 @@ class StorageExtension(SourceActor):
         self._album_images_full_path = BASE_DIR / "images" / self._name
         self._album_images_web_path = Path("images") / self._name
         self._metadata = Metadata(cover_dir=self._album_images_full_path)
-        self._smb = StorageSMB(name=self._name, core=self._core, db=self._db, username=None, password=None)
+        self._smb = StorageSMB(
+            name=self._name,
+            core=self._core,
+            db=self._db,
+            username=self._config[self._name]["username"],
+            password=self._config[self._name]["password"],
+        )
         self._storage = StorageManager(name=self._name, core=self._core)
         self._storage_list = self._storage.get_storages_list()
         self._loop = asyncio.get_event_loop()
@@ -50,16 +56,21 @@ class StorageExtension(SourceActor):
         )
 
     async def on_start(self):
-        config_smb_clients = self._config.get(self._name, {}).get("smb_clients", [])
+        config_smb_clients = self._config.get(self._name, {}).get("smb_clients", {})
         if config_smb_clients:
-            for client in config_smb_clients:
+            for dev, creds in config_smb_clients.items():
                 try:
                     await self._smb.mount_shared(
-                        devs=[client['dev']],
-                        username=client.get('username'),
-                        password=client.get('password', '')
+                        devs=[dev],
+                        username=creds.get("username"),
+                        password=creds.get("password", ""),
                     )
-                except (ValueError, PermissionError, ConnectionError, FileNotFoundError) as e:
+                except (
+                    ValueError,
+                    PermissionError,
+                    ConnectionError,
+                    FileNotFoundError,
+                ) as e:
                     logger.error(e)
         threading.Thread(target=self._monitor_usb, daemon=True).start()
         await self._smb.status()
@@ -149,7 +160,7 @@ class StorageExtension(SourceActor):
                     ".ogg",
                     ".aac",
                     ".dsf",
-                    ".dsf"
+                    ".dsf",
                 ],
                 limit=limit,
                 offset=offset,
@@ -194,7 +205,7 @@ class StorageExtension(SourceActor):
 
     def on_list_smb_shared(self):
         return self._smb.list_smb_shared()
-    
+
     def on_list_shares(self):
         return self._smb.list_shares()
 

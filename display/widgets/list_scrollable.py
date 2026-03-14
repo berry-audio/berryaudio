@@ -68,7 +68,9 @@ class WidgetListScrollable:
             y_pos = (i - start_idx) * self.line_height
             display_name = items[i].name
             display_type = items[i].type
-            display_active = getattr(items[i], 'active', False) or getattr(items[i], 'connected', False)
+            display_active = getattr(items[i], "active", False) or getattr(
+                items[i], "connected", False
+            )
 
             max_chars = 35
             if len(display_name) > max_chars:
@@ -90,7 +92,11 @@ class WidgetListScrollable:
                     or display_type == RefType.ARTIST
                 ):
                     draw.bitmap((2, y_pos + 4), self.folder_icon, fill="black")
-                elif display_type == RefType.STORAGE:
+                elif (
+                    display_type == RefType.STORAGE
+                    or display_type == RefType.NAS
+                    or display_type == RefType.REMOVABLE
+                ):
                     draw.bitmap((2, y_pos + 4), self.storage_icon, fill="black")
                 elif display_type == RefType.BLUETOOTH:
                     draw.bitmap((2, y_pos + 4), self.bluetooth_icon, fill="black")
@@ -114,18 +120,22 @@ class WidgetListScrollable:
                     or display_type == RefType.ARTIST
                 ):
                     draw.bitmap((2, y_pos + 4), self.folder_icon, fill=240)
-                elif display_type == RefType.STORAGE:
+                elif (
+                    display_type == RefType.STORAGE
+                    or display_type == RefType.NAS
+                    or display_type == RefType.REMOVABLE
+                ):
                     draw.bitmap((2, y_pos + 4), self.storage_icon, fill=240)
-                    
+
                 elif display_type == RefType.BLUETOOTH:
-                    draw.bitmap((2, y_pos + 4), self.bluetooth_icon, fill=240)    
+                    draw.bitmap((2, y_pos + 4), self.bluetooth_icon, fill=240)
                 else:
                     pass
-                
+
                 if display_active:
                     if display_type == RefType.BLUETOOTH:
                         draw.bitmap((2, y_pos + 4), self.bluetooth_icon, fill="white")
-                    else:     
+                    else:
                         draw.bitmap((4, y_pos + 4), self.bullet_icon, fill="white")
 
                 draw.text(
@@ -171,12 +181,14 @@ class WidgetListScrollable:
 
         if self.show_counter:
             counter_text = f"{self.selected_index + 1}/{len(self.items)}"
-            font = ImageFont.truetype(FONT_STYLE_1, 5, layout_engine=ImageFont.Layout.BASIC)
-            
+            font = ImageFont.truetype(
+                FONT_STYLE_1, 5, layout_engine=ImageFont.Layout.BASIC
+            )
+
             bbox = font.getbbox(counter_text)
             text_w = bbox[2] - bbox[0]
             text_h = bbox[3] - bbox[1]
-            
+
             rect_x1 = content_width - 40
             rect_y1 = self.height - 12
             rect_x2 = content_width
@@ -184,8 +196,10 @@ class WidgetListScrollable:
 
             text_x = rect_x1 + (40 - text_w) // 2
             text_y = rect_y1 + (12 - text_h) // 2
-            
-            draw.rectangle([(rect_x1, rect_y1), (rect_x2, rect_y2)], fill="black", outline="white")
+
+            draw.rectangle(
+                [(rect_x1, rect_y1), (rect_x2, rect_y2)], fill="black", outline="white"
+            )
             draw.text((text_x, text_y), counter_text, font=font, fill="white")
 
     def scroll_down(self):
@@ -201,7 +215,6 @@ class WidgetListScrollable:
 
             return True
         return False
-       
 
     def scroll_up(self):
         if self.items is None:
@@ -247,7 +260,11 @@ class WidgetListScrollable:
 
     def get_selected_item(self):
         """Returns tuple: (item, selected_index, scroll_offset)"""
-        if not self.items or self.selected_index >= len(self.items) or self.selected_index < 0:
+        if (
+            not self.items
+            or self.selected_index >= len(self.items)
+            or self.selected_index < 0
+        ):
             return None
         return self.items[self.selected_index], self.selected_index, self.scroll_offset
 

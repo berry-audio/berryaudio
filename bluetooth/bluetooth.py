@@ -287,8 +287,10 @@ class BluetoothExtension(SourceActor):
             event="bluetooth_device_disconnected",
             device=disconnected_device,
         )
-        self._tl_track = TlTrack(0, track=Track())
-        self._core._request("playback.set_metadata", tl_track=self._tl_track)
+        if current_source.uri == self._name:
+            self._tl_track = TlTrack(0, track=Track())
+            self._core._request("playback.set_metadata", tl_track=self._tl_track)
+            
         logger.info(
             f"Bluetooth device disconnected: {disconnected_device.name} {disconnected_device.address}"
         )

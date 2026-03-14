@@ -1,1 +1,3 @@
-smb_clients: []
+username: null
+password: null
+smb_clients: {}

@@ -120,8 +120,8 @@ class Track(BaseModel):
     sample_rate: NonNegativeInt | None = None
     audio_codec: str | None = None
     channels: NonNegativeInt | None = None
-    bit_depth: str = None
-    resample: bool = None
+    bit_depth: str | None = None
+    resample: bool | None = None
 
 
 class TlTrack(BaseModel):

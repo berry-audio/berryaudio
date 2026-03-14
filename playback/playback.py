@@ -1,9 +1,10 @@
 import logging
-from pathlib import Path
+import os
 
+from pathlib import Path
 from gi.repository import GLib, Gst
 from core.actor import Actor
-from core.models import Image, Album, Artist, Track, TlTrack
+from core.models import Album, Artist, Track, TlTrack
 from core.types import PlaybackState
 
 logger = logging.getLogger(__name__)
@@ -195,7 +196,7 @@ class PlaybackExtension(Actor):
         elif t == Gst.MessageType.EOS:
             self._stop()
             self._core.send(
-                target=["web","display"], event="track_playback_ended", tl_track=self._track
+                target=["web","display","tracklist"], event="track_playback_ended", tl_track=self._track
             )
 
         elif t == Gst.MessageType.ERROR:
@@ -217,12 +218,12 @@ class PlaybackExtension(Actor):
                     target=["web","display"], event="track_meta_updated", tl_track=self._track
                 )
                 self._core.send(
-                    target=["web","display"], event="track_playback_error", tl_track=self._track
+                    target=["web","display","tracklist"], event="track_playback_error", tl_track=self._track
                 )
                 self._core.send(
-                    target=["web","display"], event="track_playback_ended", tl_track=self._track
+                    target=["web","display","tracklist"], event="track_playback_ended", tl_track=self._track
                 )
-                logger.warning(f"Unavailable {self._track}")
+                logger.warning(f"Playback error {self._track}")
 
         elif t == Gst.MessageType.STREAM_START:
             pass
@@ -260,7 +261,7 @@ class PlaybackExtension(Actor):
                 return
 
             ext, file_path = _uri
-            await self._core.request("source.set", uri=ext)
+            await self._core.request("source.set", uri=ext)          
 
             get_track = await self._core.request(f"{ext}.lookup_track", path=file_path)
             playback_uri = await self._core.request(f"{ext}.playback_uri", path=file_path)
@@ -275,11 +276,19 @@ class PlaybackExtension(Actor):
 
             self._playback_uri = playback_uri
             self._track = TlTrack(tlid=tlid, track=get_track)
+
+            if not file_path.startswith(("http://", "https://")):
+                if not os.path.exists(file_path):
+                    logger.error("Track unavailable or not found")
+                    self._core.send(
+                        target=["web","display","tracklist"], event="track_playback_error", tl_track=self._track
+                    )
+                    return
+
             self._core.send(
                 target=["web","display"], event="track_meta_updated", tl_track=self._track
             )
             
-
         except Exception as e:
             logger.exception(f"Error starting playback for {uri}: {e}")
 
@@ -451,7 +460,7 @@ class PlaybackExtension(Actor):
 
         if old_state == PlaybackState.PAUSED:
             self._core.send(
-                target=["web","display"],
+                target=["web","display","tracklist"],
                 event="track_playback_resumed",
                 tl_track=self._track,
                 time_position=self._elapsed,
@@ -459,7 +468,7 @@ class PlaybackExtension(Actor):
         else:
             self._elapsed = 0
             self._core.send(
-                target=["web","display"],
+                target=["web","display","tracklist"],
                 event="track_playback_started",
                 tl_track=self._track,
                 time_position=self._elapsed,

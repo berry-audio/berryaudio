@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 tables_to_search = ["artist", "album", "genre", "track", "radio"]
 
 BASE_DIR = Path(__file__).parent.parent / "web" / "www" / "images"
-IMAGES_WEB_PATH = Path("images") 
+IMAGES_WEB_PATH = Path("images")
 
 TYPES = {
     "track": RefType.TRACK,
@@ -70,8 +70,12 @@ class SearchExtension(Actor):
     def _build_ref(self, row, table, is_ref=True):
         obj = {}
 
-        uri = "local" if table == "track" else table
-        obj["uri"] = f"{uri}:{row.id}"
+        if table == "track":
+            obj["uri"] = f"local:{row.path}"
+        elif table == "radio":
+            obj["uri"] = f"{table}:{row.path}"
+        else:
+            obj["uri"] = f"{table}:{row.id}"
 
         if is_ref:
             obj["type"] = TYPES[table]
@@ -129,7 +133,6 @@ class SearchExtension(Actor):
 
         if row.comment:
             obj["comment"] = row.comment
-
 
         image_uri = None
         if row.image:
