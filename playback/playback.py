@@ -281,7 +281,7 @@ class PlaybackExtension(Actor):
                 if not os.path.exists(file_path):
                     logger.error("Track unavailable or not found")
                     self._core.send(
-                        target=["web","display","tracklist"], event="track_playback_error", tl_track=self._track
+                        target=["web","display","tracklist"], event="track_unavailable", tl_track=self._track
                     )
                     return
 

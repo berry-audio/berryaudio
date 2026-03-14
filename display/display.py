@@ -1,5 +1,4 @@
 import logging
-import asyncio
 import threading
 import json
 
@@ -7,8 +6,7 @@ from pathlib import Path
 from core.actor import Actor
 from core.types import PlaybackState, Command, EncoderMode, DisplayPage
 from core.models import RefType
-from core.util.xinitrc import write_xinitrc
-from core.util.boot import update_dtoverlay, update_cmdline
+from core.util.system import SystemUtil
 
 from .ssd1322 import DisplaySSD1322
 from .ssd1306 import DisplaySSD1306
@@ -27,9 +25,9 @@ class DisplayExtension(Actor):
         self._core = core
         self._db = db
         self._config = config
+        self._system = SystemUtil(core, db)
         self._device = None
         self._visualizer_layout = 1
-        self._loop = asyncio.get_running_loop()
         self._playback_state = PlaybackState.STOPPED
         self._controller = None
         self._single = False
@@ -54,7 +52,7 @@ class DisplayExtension(Actor):
     async def on_config_update(self, config):
         updated_config = config[self._name]
         if "output_display" in updated_config:
-            self.set_display(updated_config.get("output_display"))
+            await self.set_display(updated_config.get("output_display"))
 
         if "visualizer_layout" in updated_config:
             self.set_visualizer_layout(updated_config.get("visualizer_layout"))
@@ -387,7 +385,7 @@ class DisplayExtension(Actor):
                         self.set_dir(_current_dir["mounted"])
 
     async def on_start(self):
-        self.set_display(self._config["display"]["output_display"])
+        await self.set_display(self._config["display"]["output_display"])
         self.set_visualizer_layout(self._config["display"]["visualizer_layout"])
 
         if self._power_state == "standby":
@@ -519,7 +517,7 @@ class DisplayExtension(Actor):
             displays = json.load(f)
         return displays
 
-    def set_display(self, device: str | None = None):
+    async def set_display(self, device: str | None = None):
         """Sets display and updates dtoverlay."""
         dtoverlay_anchor = "#display_overlay"
 
@@ -537,9 +535,9 @@ class DisplayExtension(Actor):
         if device is None:
             logger.info("Display disabled")
             self._device = None
-            update_dtoverlay(anchor=dtoverlay_anchor, overlay=None)
-            update_cmdline(config=None)
-            write_xinitrc(xrandr=None)
+            await self._system.write_dtoverlay(dtoverlay_anchor)
+            await self._system.write_cmdline()
+            await self._system.write_xinitrc()
             return
 
         with open(DISPLAY_LIST_PATH, "r", encoding="utf-8") as f:
@@ -553,11 +551,9 @@ class DisplayExtension(Actor):
             return
 
         self._device = found_display
-        update_dtoverlay(
-            anchor=dtoverlay_anchor, overlay=self._device.get("dtoverlay") or None
-        )
-        update_cmdline(config=self._device.get("cmdline") or None)
-        write_xinitrc(xrandr=self._device.get("xrandr") or None)
+        await self._system.write_dtoverlay(dtoverlay_anchor, self._device.get("dtoverlay"))
+        await self._system.write_cmdline(self._device.get("cmdline"))
+        await self._system.write_xinitrc(self._device.get("xrandr"))
 
         if device == "ssd1322":
             self._controller = DisplaySSD1322(contrast=255)

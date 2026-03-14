@@ -6,8 +6,10 @@ import re
 import psutil
 import socket
 
-from core.models import Storage, StorageUsage
 from pathlib import Path
+from core.models import Storage, StorageUsage
+from core.util.system import SystemUtil
+
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +21,7 @@ class StorageSMB:
         self._name = name
         self._core = core
         self._db = db
+        self._system = SystemUtil(core, db)
         self.username = username
         self.password = password
         self._remote_username = None
@@ -61,7 +64,7 @@ class StorageSMB:
             uri=uri,
         )
 
-        await self.restart()
+        await self._system.service_samba("restart")
         logger.info(f"Shared '{path}' (read_only={read_only})")
         return await self.status()
 
@@ -78,7 +81,7 @@ class StorageSMB:
             event="storage_unshared",
             uri=uri,
         )
-        await self.restart()
+        await self._system.service_samba("restart")
         logger.info(f"Removed share for {path}")
         return await self.status()
 
@@ -106,14 +109,6 @@ class StorageSMB:
                 status="mounted",
             )
         return list(shares.values())
-
-    def stop(self):
-        subprocess.run(["sudo", "systemctl", "stop", "smbd"], check=False)
-        logger.info("Stopped Samba service")
-
-    async def restart(self):
-        logger.debug("Restarting Samba service...")
-        subprocess.run(["sudo", "systemctl", "restart", "smbd"], check=True)
 
     async def status(self):
         result = subprocess.run(

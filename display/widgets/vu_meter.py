@@ -1,7 +1,7 @@
 import subprocess
 import logging
 import os
-import sys
+import threading
 import time
 import numpy as np
 
@@ -31,21 +31,42 @@ class WidgetVUMeter:
     def init(self):
         if os.path.exists(CAVA_FIFO):
             os.unlink(CAVA_FIFO)
-        
+
         os.mkfifo(CAVA_FIFO)
-        
+
         try:
             self.cava_process = subprocess.Popen(
                 ["cava", "-p", self.cava_config],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                bufsize=1,
             )
-            logger.debug("Started CAVA...")
-            time.sleep(0.2)
+            logger.debug(f"Started CAVA with config {self.cava_config}")
 
+            def log(stream, label):
+                for line in iter(stream.readline, ""):
+                    line = line.strip()
+                    if label == "STDERR":
+                        logger.error(f"CAVA {label}: {line}")
+                    elif "error" in line.lower():
+                        logger.error(f"CAVA {label}: {line}")
+                    elif "warning" in line.lower():
+                        logger.warning(f"CAVA {label}: {line}")
+                    else:
+                        logger.debug(f"CAVA {label}: {line}")
+                stream.close()
+
+            threading.Thread(
+                target=log, args=(self.cava_process.stdout, "STDOUT"), daemon=True
+            ).start()
+            threading.Thread(
+                target=log, args=(self.cava_process.stderr, "STDERR"), daemon=True
+            ).start()
+
+            time.sleep(0.2)
             fd = os.open(CAVA_FIFO, os.O_RDONLY | os.O_NONBLOCK)
-            self.fifo = os.fdopen(fd, 'rb', buffering=0) 
-            
+            self.fifo = os.fdopen(fd, "rb", buffering=0)
         except Exception as e:
             logger.error(f"Error starting CAVA: {e}")
             self.cleanup()
@@ -53,16 +74,16 @@ class WidgetVUMeter:
 
     def cleanup(self, signum=None, frame=None):
         self.stop_threads = True
-        
+
         if self.fifo:
             try:
                 self.fifo.close()
             except:
                 pass
-        
+
         if self.cava_process:
             self.cava_process.terminate()
-            self.cava_process.wait() 
+            self.cava_process.wait()
 
     def draw(
         self,
@@ -98,21 +119,21 @@ class WidgetVUMeter:
         font = ImageFont.truetype(FONT_STYLE_1, CUSTOM_FONT_SIZE)
 
         try:
-            available_data = b''
+            available_data = b""
             while True:
-                chunk = self.fifo.read(self.num_bars) 
+                chunk = self.fifo.read(self.num_bars)
                 if not chunk:
                     break
                 available_data += chunk
-            
+
             if len(available_data) >= self.num_bars:
-                data = available_data[-self.num_bars:]
+                data = available_data[-self.num_bars :]
                 self.last_data = data
             elif self.last_data:
                 data = self.last_data
             else:
                 return
-                
+
         except (BlockingIOError, OSError):
             if self.last_data:
                 data = self.last_data

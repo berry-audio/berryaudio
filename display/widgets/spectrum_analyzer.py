@@ -2,7 +2,7 @@ import os
 import logging
 import subprocess
 import time
-import sys
+import threading
 import numpy as np
 
 from pathlib import Path
@@ -11,13 +11,18 @@ logger = logging.getLogger(__name__)
 
 CAVA_FIFO = "/tmp/cava_fifo_sa"
 
+
 class WidgetSpectumAnalyzer:
     def __init__(self, num_bars=51):
         self.num_bars = num_bars
         self.smoothed_bars = np.zeros(self.num_bars)
         self.peaks = np.zeros(self.num_bars)
         self.peak_hold_time = np.zeros(self.num_bars)
-        self.cava_config = Path(__file__).parent.parent / "widgets" / f"spectrum_analyzer_{self.num_bars}.conf"
+        self.cava_config = (
+            Path(__file__).parent.parent
+            / "widgets"
+            / f"spectrum_analyzer_{self.num_bars}.conf"
+        )
         self.cava_process = None
         self.data_received = False
         self.frame = 0
@@ -28,21 +33,42 @@ class WidgetSpectumAnalyzer:
     def init(self):
         if os.path.exists(CAVA_FIFO):
             os.unlink(CAVA_FIFO)
-        
+
         os.mkfifo(CAVA_FIFO)
-        
+
         try:
             self.cava_process = subprocess.Popen(
                 ["cava", "-p", self.cava_config],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                bufsize=1,
             )
-            logger.debug("Started CAVA...")
-            time.sleep(0.2)
+            logger.debug(f"Started CAVA with config {self.cava_config}")
 
+            def log(stream, label):
+                for line in iter(stream.readline, ""):
+                    line = line.strip()
+                    if label == "STDERR":
+                        logger.error(f"CAVA {label}: {line}")
+                    elif "error" in line.lower():
+                        logger.error(f"CAVA {label}: {line}")
+                    elif "warning" in line.lower():
+                        logger.warning(f"CAVA {label}: {line}")
+                    else:
+                        logger.debug(f"CAVA {label}: {line}")
+                stream.close()
+
+            threading.Thread(
+                target=log, args=(self.cava_process.stdout, "STDOUT"), daemon=True
+            ).start()
+            threading.Thread(
+                target=log, args=(self.cava_process.stderr, "STDERR"), daemon=True
+            ).start()
+
+            time.sleep(0.2)
             fd = os.open(CAVA_FIFO, os.O_RDONLY | os.O_NONBLOCK)
-            self.fifo = os.fdopen(fd, 'rb', buffering=0) 
-            
+            self.fifo = os.fdopen(fd, "rb", buffering=0)
         except Exception as e:
             logger.error(f"Error starting CAVA: {e}")
             self.cleanup()
@@ -50,16 +76,16 @@ class WidgetSpectumAnalyzer:
 
     def cleanup(self, signum=None, frame=None):
         self.stop_threads = True
-        
+
         if self.fifo:
             try:
                 self.fifo.close()
             except:
                 pass
-        
+
         if self.cava_process:
             self.cava_process.terminate()
-            self.cava_process.wait() 
+            self.cava_process.wait()
 
     def draw_textured_bar(self, draw, x, y, width, height, pattern, color):
         if pattern == "solid":
@@ -85,21 +111,21 @@ class WidgetSpectumAnalyzer:
         hold_frames = 8
 
         try:
-            available_data = b''
+            available_data = b""
             while True:
-                chunk = self.fifo.read(self.num_bars) 
+                chunk = self.fifo.read(self.num_bars)
                 if not chunk:
                     break
                 available_data += chunk
-            
+
             if len(available_data) >= self.num_bars:
-                data = available_data[-self.num_bars:]
+                data = available_data[-self.num_bars :]
                 self.last_data = data
             elif self.last_data:
                 data = self.last_data
             else:
                 return
-                
+
         except (BlockingIOError, OSError):
             if self.last_data:
                 data = self.last_data

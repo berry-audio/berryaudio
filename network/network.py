@@ -350,25 +350,12 @@ class NetworkExtension(Actor):
                 await self.on_stop_ap_mode()
 
             async def _connect():
-                process = await asyncio.create_subprocess_exec(
-                    "sudo",
-                    "nmcli",
-                    "device",
-                    "wifi",
-                    "connect",
-                    ssid,
-                    "password",
-                    password,
-                    stdout=asyncio.subprocess.PIPE,
-                    stderr=asyncio.subprocess.PIPE,
-                )
-                stdout, stderr = await process.communicate()
-                if process.returncode != 0:
-                    raise ValueError(
-                        f"Failed to connect to {ssid}: {stderr.decode().strip()}"
-                    )
+                nmcli.device.wifi_connect(
+                    ssid=ssid,
+                    password=password
+                ) 
 
-            await asyncio.wait_for(_connect(), timeout=8)
+            await asyncio.wait_for(_connect(), timeout=30)
 
             self._core.send(
                 target="web",

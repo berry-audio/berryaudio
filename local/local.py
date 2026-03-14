@@ -223,7 +223,7 @@ class LocalExtension(SourceActor):
                 if view == RefType.TRACK:
                     raise ValueError(f"Track does not have listings")
 
-                if ref_type != "list":
+                if ref_type != "tracks":
                     raise ValueError(f"View type '{ref_type}' not supported")
 
                 sql = QUERIES["track"] % (f"a.{view}_id = {ref_id}")

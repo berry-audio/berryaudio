@@ -10,6 +10,7 @@ from gi.repository import GLib
 from core.actor import SourceActor
 from core.models import Album, Artist, Track, TlTrack, Source, RefType, Bluetooth
 from core.types import PlaybackState
+from core.util.system import SystemUtil
 
 logger = logging.getLogger(__name__)
 bus = pydbus.SystemBus()
@@ -35,7 +36,6 @@ BLUEALSA_SOFT_VOLUME = True
 BLUEALSA_HW_VOLUME = 100
 
 # paths
-ASOUNDRC_PATH = "/home/pi/.asoundrc"
 BLUETOOTH_APLAY_PATH = "/usr/bin/bluealsa-aplay"
 BLUETOOTH_AGENT_PATH = "/usr/bin/bt-agent"
 PCM_BLUEALSA = "bluealsa"
@@ -52,6 +52,7 @@ class BluetoothExtension(SourceActor):
         self._core = core
         self._db = db
         self._config = config
+        self._system = SystemUtil(core, db)
         self._hostname = self._config["system"]["hostname"]
         self._device_playback = self._config["mixer"]["output_audio"]
         self._output_device = self._config["mixer"]["output_device"]
@@ -81,7 +82,9 @@ class BluetoothExtension(SourceActor):
             logger.error("Bluetooth aplay service missing")
             return
 
-        await self._update_pcm()
+        await self._system.write_asoundrc()
+        await self._system.service_camilladsp('restart')
+
         await self.on_adapter_set_state(False)
         threading.Thread(target=self._init_agent, daemon=True).start()
         logger.info("Started")
@@ -222,10 +225,11 @@ class BluetoothExtension(SourceActor):
         if self._mode == MODE_RX:
             await self._stop_aplay()
             await self._init_aplay()
-            await self._update_pcm()
+            await self._system.write_asoundrc()
+            await self._system.service_camilladsp('restart')
 
             if not current_source or current_source.uri != self._source.uri:
-                await self._core.request("source.set", type=self._source.uri)
+                await self._core.request("source.set", uri=self._source.uri)
 
             self._source.state.connected = connected_device.connected
             self._source.state.name = connected_device.name
@@ -235,7 +239,9 @@ class BluetoothExtension(SourceActor):
 
         if self._mode == MODE_TX:
             await self._stop_aplay()
-            await self._update_pcm(PCM_BLUEALSA)
+            await self._system.write_asoundrc(PCM_BLUEALSA)
+            await self._system.service_camilladsp('restart')
+
             await self.on_set_volume(  # set initial device hardware volume to 100
                 address=connected_device.address,
                 volume=BLUEALSA_HW_VOLUME,
@@ -270,7 +276,8 @@ class BluetoothExtension(SourceActor):
 
         if not connected_device:
             await self._stop_aplay()
-            await self._update_pcm()
+            await self._system.write_asoundrc()
+            await self._system.service_camilladsp('restart')
 
             if self._mode == MODE_RX:
                 self._clear_source_info()
@@ -342,7 +349,7 @@ class BluetoothExtension(SourceActor):
                 if not properties.get("Powered"):
                     self._loop.call_soon_threadsafe(
                         asyncio.create_task,
-                        self._update_pcm(),
+                        self._system.write_asoundrc(),
                     )
 
             if "Status" in properties:
@@ -760,33 +767,3 @@ class BluetoothExtension(SourceActor):
         }
         return mapping.get(fmt, None)
 
-    async def _update_pcm(self, new_pcm=None):
-        """Switches between PCM Device and bluealsa for RX/TX Mode"""
-        new_pcm = new_pcm or self._output_device or "null_device"
-
-        with open(ASOUNDRC_PATH, "r") as f:
-            content = f.read()
-
-        match = re.search(r'pcm\s+"([^"]+)"', content)
-        current_pcm = match.group(1) if match else None
-
-        if current_pcm == new_pcm:
-            return
-
-        updated_content = re.sub(r'pcm\s+"[^"]+"', f'pcm "{new_pcm}"', content)
-        with open(ASOUNDRC_PATH, "w") as f:
-            f.write(updated_content)
-
-        logger.debug(f"PCM device updated to {new_pcm}")
-        self._restart_camilladsp()
-
-    def _restart_camilladsp(self):
-        """Restarts Camilla DSP after pcm device update"""
-        subprocess.run(
-            ["sudo", "/bin/systemctl", "restart", "camilladsp.service"],
-            check=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-        )
-        logger.debug("Restarted Camilla DSP")
