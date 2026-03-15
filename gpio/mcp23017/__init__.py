@@ -229,9 +229,10 @@ class GpioMCP23017:
     def close(self):
         if hasattr(self, "callback_id"):
             self.callback_id.cancel()
-
         if hasattr(self, "gpio_handle"):
-            lgpio.gpio_free(self.gpio_handle, self.interrupt_pin)
-            lgpio.gpiochip_close(self.gpio_handle)
-
+            try:
+                lgpio.gpio_free(self.gpio_handle, self.interrupt_pin)
+                lgpio.gpiochip_close(self.gpio_handle)
+            except lgpio.error:
+                pass
         self.bus.close()

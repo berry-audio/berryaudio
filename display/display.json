@@ -8,7 +8,7 @@
     "cmdline": null,
     "xrandr": null
   },
-  {
+    {
     "device": "generic_hdmi",
     "name": "Generic HDMI Display",
     "description": "Raspberry Pi HDMI Output",
@@ -16,6 +16,15 @@
     "dtoverlay": null,
     "cmdline": null,
     "xrandr": "--output HDMI-1 --auto --primary"
+  },
+  {
+    "device": "generic_dsi",
+    "name": "Generic DSI (Beta)",
+    "description": "Raspberry Pi DSI Output",
+    "address": null,
+    "dtoverlay": null,
+    "cmdline": null,
+    "xrandr": "--output DSI-1 --rotate left"
   },
   {
     "device": "ssd1322",

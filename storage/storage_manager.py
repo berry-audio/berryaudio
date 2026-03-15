@@ -4,7 +4,7 @@ import subprocess
 import re
 import logging
 
-from core.models import RefType, Storage
+from core.models import RefType, Storage, StorageUsage
 from pathlib import Path
 from .smb_manager import StorageSMB
 
@@ -18,8 +18,11 @@ class StorageManager:
     def __init__(self, name=None, core=None):
         self._core = core
         self._name = name
+        self._smb = StorageSMB(
+            name=self._name, core=self._core, username=None, password=None
+        )
 
-    def get_mounted_partitions(self) -> dict:
+    def _get_mounted_partitions(self) -> dict:
         mounts = {}
         for p in psutil.disk_partitions(all=False):
             if "rw" in p.opts and p.fstype:
@@ -31,7 +34,7 @@ class StorageManager:
                 }
         return mounts
 
-    def get_fs_info(self, dev: str) -> tuple[str, str]:
+    def _get_fs_info(self, dev: str) -> tuple[str, str]:
         try:
             output = subprocess.check_output(["blkid", dev], text=True).strip()
             fs_type = None
@@ -49,11 +52,11 @@ class StorageManager:
         except subprocess.CalledProcessError:
             return None, None
 
-    def _is_internal(self, dev_node: str) -> bool:
+    def _is_internal(self, dev_node: str) -> bool:  ##todo use uri
         if not Path(dev_node).exists():
             logger.warning(f"Device {dev_node} no longer exists")
             return False
-          
+
         context = pyudev.Context()
         device = pyudev.Devices.from_device_file(context, dev_node)
         parent = device.find_parent("block")
@@ -62,97 +65,82 @@ class StorageManager:
             logger.warning(f"Cannot mount/unmount internal storage: {dev_node}")
         return not removable
 
-    def get_storage(self, dev: str) -> dict | None:
-        for section in ("mounted", "unmounted"):
-            data = self.get_storages_list()
-            for item in data.get(section, []):
-                if item.dev == dev:
-                    return item
+    def get_storage(self, dev: str) -> dict | None:  ##todo use uri
+        for item in self.get_storages_list():
+            if item.dev == dev:
+                return item
         return False
 
-    def get_storages_list(self) -> dict[str, list[Storage]]:
+    def get_storages_list(self) -> list[Storage]:
         context = pyudev.Context()
-        mounts = self.get_mounted_partitions()
-        mounted = []
-        unmounted = []
-
+        mounts = self._get_mounted_partitions()
+        storages = []
         INTERNAL_MUSIC_PATH.mkdir(parents=True, exist_ok=True)
 
         for device in context.list_devices(subsystem="block", DEVTYPE="partition"):
             devname = device.device_node
             is_internal = self._is_internal(devname)
-
-            parent = device.find_parent("block").device_node
-            size_bytes = int(device.attributes.asint("size")) * 512
-            removable = bool(int(device.attributes.get("removable", 0)))
-            fs_type, label = self.get_fs_info(devname)
+            fs_type, label = self._get_fs_info(devname)
 
             if devname in mounts:
                 mount_point = mounts[devname]["mount"]
-
                 if is_internal and mount_point == "/":
                     continue
-
                 if is_internal:
                     mount_point = str(INTERNAL_MUSIC_PATH)
-
                 u = mounts[devname]["usage"]
-                storage = Storage(
-                    dev=devname,
-                    type=RefType.STORAGE,
-                    parent=parent,
-                    removable=removable,
-                    size=size_bytes,
-                    actual_size=int(size_bytes / 1_000_000_000),
-                    fstype=fs_type,
-                    name=INTERNAL_MUSIC_DIR if is_internal else label or "Unknown",
-                    status="mounted",
-                    uri=f"{self._name}:{mount_point}",
-                    total=u.total,
-                    used=u.used,
-                    free=u.free,
-                    percent=u.percent,
+                storages.append(
+                    Storage(
+                        type=RefType.STORAGE if is_internal else RefType.REMOVABLE,
+                        name=INTERNAL_MUSIC_DIR if is_internal else label or "Unknown",
+                        dev=devname,
+                        fstype=fs_type,
+                        status="mounted",
+                        uri=f"{self._name}:{mount_point}",
+                        usage=StorageUsage(
+                            total=u.total,
+                            used=u.used,
+                            free=u.free,
+                        ),
+                    )
                 )
-                mounted.append(storage)
             else:
                 if is_internal:
                     continue
-
-                storage = Storage(
-                    dev=devname,
-                    type=RefType.STORAGE,
-                    parent=parent,
-                    removable=removable,
-                    size=size_bytes,
-                    actual_size=int(size_bytes / 1_000_000_000),
-                    fstype=fs_type,
-                    name=label or "Unknown",
-                    status="unmounted",
+                storages.append(
+                    Storage(
+                        type=RefType.REMOVABLE,
+                        name=label or "Unknown",
+                        dev=devname,
+                        fstype=fs_type,
+                        status="unmounted",
+                    )
                 )
-                unmounted.append(storage)
 
-        self._storage_list = {"mounted": mounted, "unmounted": unmounted}
-
+        storages.extend(self._smb.list_smb_shared())
+        self._storage_list = storages
         return self._storage_list
 
-    def list_directory(self, uri: str, extensions=None) -> list[Storage]:
+    def list_directory(
+        self,
+        uri: str,
+        extensions=None,
+        limit: int | None = None,
+        offset: int | None = None,
+    ) -> dict:
         if not uri.startswith(f"{self._name}:"):
             raise ValueError(f"Not a valid storage path: {uri}")
 
         _, path = uri.split(":", 1)
         p = Path(path)
-
-        _smb = StorageSMB()
-        _smb_list_shares = {s.uri for s in _smb.list_shares()}
-
+        _smb_list_shares = {s.uri for s in self._smb.list_shares()}
         entries = []
+
         try:
             for item in p.iterdir():
                 if item.name.startswith("."):
                     continue
-
                 item_uri = f"{self._name}:{str(item.resolve())}"
-
                 if item.is_dir():
                     entries.append(
                         Storage(
@@ -177,7 +165,13 @@ class StorageManager:
                     )
 
             entries.sort(key=lambda x: (x.type != RefType.DIRECTORY, x.name.lower()))
-            return entries
+
+            _offset = offset or 0
+            paginated = entries[_offset:]
+            if limit is not None:
+                paginated = paginated[:limit]
+
+            return paginated
+
         except Exception:
             return []
-

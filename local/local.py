@@ -70,7 +70,7 @@ SCHEMA_SQL = """
 
     CREATE TABLE IF NOT EXISTS track (
         id INTEGER PRIMARY KEY,
-        file_path TEXT NOT NULL UNIQUE,
+        path TEXT NOT NULL UNIQUE,
         file_name TEXT NOT NULL,
         name TEXT,
         track_number INTEGER,
@@ -223,7 +223,7 @@ class LocalExtension(SourceActor):
                 if view == RefType.TRACK:
                     raise ValueError(f"Track does not have listings")
 
-                if ref_type != "list":
+                if ref_type != "tracks":
                     raise ValueError(f"View type '{ref_type}' not supported")
 
                 sql = QUERIES["track"] % (f"a.{view}_id = {ref_id}")
@@ -254,7 +254,11 @@ class LocalExtension(SourceActor):
 
     def _build_ref(self, row, view, is_ref=True):
         obj = {}
-        obj["uri"] = f"{'local' if view == 'track' else view}:{row.id}"
+
+        if view == 'track':
+            obj["uri"] = f"{self._name}:{row.path}"
+        else:
+            obj["uri"] = f"{view}:{row.id}"   
 
         if is_ref:
             obj["type"] = TYPES[view]
@@ -346,14 +350,13 @@ class LocalExtension(SourceActor):
 
         return obj
 
-    async def on_playback_uri(self, id: int) -> any:
+    async def on_playback_uri(self, path: str) -> any:
         self._core._request("source.update_source", source=self._source)
-        row = self._db.fetchone(f"SELECT * FROM track WHERE id = {id}")
-        return f"file://{row.file_path}" if row else None
+        return f"file://{path}"
 
-    async def on_lookup_track(self, id: int) -> Track:
-        sql = QUERIES["track"] % (f"a.id = {id}")
-        row = self._db.fetchall(sql)
+    async def on_lookup_track(self, path: str) -> Track:
+        sql = QUERIES["track"] % "a.path = ?"
+        row = self._db.fetchall(sql, (path,))
         return Track(**self._build_ref(row[0], "track", False))
 
     async def on_stop_service(self) -> bool:
@@ -375,13 +378,13 @@ class LocalExtension(SourceActor):
         )
         logger.info("Cleared library")
 
-        for file_path in Path(ALBUM_IMAGES_DIR).iterdir():
-            if file_path.name != ".gitkeep" and file_path.is_file():
+        for path in Path(ALBUM_IMAGES_DIR).iterdir():
+            if path.name != ".gitkeep" and path.is_file():
                 try:
-                    file_path.unlink()
-                    logger.debug(f"Deleted {file_path}")
+                    path.unlink()
+                    logger.debug(f"Deleted {path}")
                 except Exception as e:
-                    logger.warning(f"Could not delete {file_path}: {e}")
+                    logger.warning(f"Could not delete {path}: {e}")
 
         logger.info("Cleared images in %s", ALBUM_IMAGES_DIR)
         return True
@@ -614,7 +617,7 @@ class LocalExtension(SourceActor):
 
                         # Check if already in DB with same mtime
                         row = self._db.fetchone(
-                            "SELECT id, mtime FROM track WHERE file_path = ?",
+                            "SELECT id, mtime FROM track WHERE path = ?",
                             (fullpath,),
                         )
                         if (
@@ -667,7 +670,7 @@ class LocalExtension(SourceActor):
                         else:
                             self._db.execute(
                                 """INSERT INTO track
-                                    (file_path, file_name, name, track_number, disc_number, length, bitrate, sample_rate,
+                                    (path, file_name, name, track_number, disc_number, length, bitrate, sample_rate,
                                     album_id, artist_id, genre_id, image, mtime)
                                 VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                                 (

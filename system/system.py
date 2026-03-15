@@ -12,6 +12,7 @@ import asyncio
 from datetime import datetime
 from zoneinfo import ZoneInfo
 from core.actor import Actor
+from version import __version__
 
 logger = logging.getLogger(__name__)
 
@@ -180,10 +181,10 @@ class SystemExtension(Actor):
 
         system_info = {
             "os": f"{system} ({machine})",
+            "os_version": version,
             "hostname": hostname,
             "model": self.get_hardware_model(),
-            "software": "3.0.0",
-            "version": version,
+            "version": __version__,
             "cpu": {
                 "volts": self.get_volts("core"),
                 "usage_percent": cpu_percent,

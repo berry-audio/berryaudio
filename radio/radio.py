@@ -97,7 +97,7 @@ class RadioExtension(SourceActor):
 
     def build_track(self, row, is_track: bool = True) -> any:
         obj = {
-            "uri": f"radio:{row.id}",
+            "uri": f"radio:{row.path}",
             "name": row.name,
             "genre": row.genre or None,
         }
@@ -157,11 +157,10 @@ class RadioExtension(SourceActor):
             rows = self._db.fetchall(sql, params)
         return [Ref(**self.build_track(row)) for row in rows]
 
-    async def on_playback_uri(self, id: int) -> any:
+    async def on_playback_uri(self, path: str) -> any:
         self._core._request("source.update_source", source=self._source)
-        row = self._db.fetchone(f"SELECT * FROM radio WHERE id = {id}")
-        return row.path if row else None
+        return path
 
-    async def on_lookup_track(self, id: int) -> Track:
-        row = self._db.fetchall(f"SELECT * FROM radio WHERE id = {id}")
+    async def on_lookup_track(self, path: str) -> Track:
+        row = self._db.fetchall(f"SELECT * FROM radio WHERE path = '{path}'")
         return Track(**self.build_track(row[0], False))

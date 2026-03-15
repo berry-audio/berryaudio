@@ -81,7 +81,7 @@ class GpioExtension(Actor):
             _action = Command.VOLUME_UP if direction == "CW" else Command.VOLUME_DOWN
         elif self._encoder_mode == EncoderMode.DIRECTION:
             _action = Command.DOWN if direction == "CW" else Command.UP
-        asyncio.run_coroutine_threadsafe(self.send_event(_action), self._loop)
+        asyncio.run_coroutine_threadsafe(self._press_event(_action), self._loop)
 
     async def _press_event(self, action):
         self._core.send(

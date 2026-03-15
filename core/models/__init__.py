@@ -37,6 +37,8 @@ class RefType(enum.StrEnum):
     SOURCE = "source"
     STORAGE = "storage"
     BLUETOOTH = "bluetooth"
+    REMOVABLE = "removable"
+    NAS = "nas"
 
     def __repr__(self) -> str:
         return self.name
@@ -118,8 +120,8 @@ class Track(BaseModel):
     sample_rate: NonNegativeInt | None = None
     audio_codec: str | None = None
     channels: NonNegativeInt | None = None
-    bit_depth: str = None
-    resample: bool = None
+    bit_depth: str | None = None
+    resample: bool | None = None
 
 
 class TlTrack(BaseModel):
@@ -207,24 +209,29 @@ class Source(BaseModel):
     state: State = Field(default_factory=State)
 
 
-class Storage(BaseModel):
-    model_config = ConfigDict(frozen=False)
-    model: Literal["Storage"] = Field(default="Storage", alias="__model__", repr=False)
-    dev: Optional[str] = None
-    parent: Optional[str] = None
-    type: Optional[str] = None
-    removable: Optional[bool] = None
-    shared: Optional[bool] = False
-    size: Optional[int] = None
-    actual_size: Optional[int] = None
-    fstype: Optional[str] = None
-    name: Optional[str] = None
-    status: Optional[str] = None
-    uri: Optional[str] = None
+class StorageUsage(BaseModel):
     total: Optional[int] = None
     used: Optional[int] = None
     free: Optional[int] = None
-    percent: Optional[float] = None
+
+
+class Storage(BaseModel):
+    model_config = ConfigDict(frozen=False)
+    model: Literal["Storage"] = Field(default="Storage", alias="__model__", repr=False)
+    type: RefType = RefType.STORAGE
+    name: Optional[str] = None
+    dev: Optional[str] = None
+    shared: Optional[bool] = False
+    fstype: Optional[str] = None
+    size: Optional[int] = None
+    status: Optional[str] = None
+    uri: Optional[str] = None
+    usage: Optional[StorageUsage] = None
+    read_only: Optional[bool] = None
+    guest_allowed: Optional[bool] = None
+    user: Optional[str] = None
+    create_permissions: Optional[str] = None
+    directory_permissions: Optional[str] = None
 
 
 class Bluetooth(BaseModel):
@@ -262,21 +269,3 @@ class Snapcast(BaseModel):
     port: Optional[int] = None
     connected: Optional[bool] = None
     status: Optional[str] = None
-
-
-class StorageShared(BaseModel):
-    model_config = ConfigDict(frozen=False)
-
-    model: Literal["StorageShared"] = Field(
-        default="StorageShared", alias="__model__", repr=False
-    )
-
-    name: Optional[str] = None
-    uri: Optional[str] = None
-    comment: Optional[str] = None
-    browseable: bool = False
-    read_only: bool = False
-    guest_allowed: bool = False
-    user: Optional[str] = None
-    create_permissions: Optional[str] = None
-    directory_permissions: Optional[str] = None

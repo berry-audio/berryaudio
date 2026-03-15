@@ -1,9 +1,12 @@
 import logging
 import random
+import json
 
 from core.actor import Actor
 from core.util import generate_tlid
-from core.models import TlTrack
+from core.models import TlTrack, Track
+from playlist.utils import to_unserialize, to_serialize
+
 
 logger = logging.getLogger(__name__)
 
@@ -31,8 +34,20 @@ class TracklistExtension(Actor):
         self._tl_tracks: list[TlTrack] = []
         self._tl_tracks_shuffled: list[TlTrack] = []
 
+    def _store_tl_tracks(self):
+        """Persists current track queue in db"""
+        self._db.set_config(
+            {self._name: {"current_queue": to_serialize(self._tl_tracks)}}
+        )
+
     async def on_start(self) -> None:
         """Called when the extension starts up."""
+        try:
+            _tl_tracks = self._config.get(self._name, {}).get("current_queue", []) or []
+            self._tl_tracks = [to_unserialize(tlTrack) for tlTrack in _tl_tracks]
+        except Exception as e:
+            logger.error(f"Failed to restore tracklist queue: {e}")
+            self._tl_tracks = []
         logger.info("Started")
 
     async def on_event(self, message) -> None:
@@ -47,7 +62,8 @@ class TracklistExtension(Actor):
         if message["event"] == "track_playback_ended":
             # if tlid = 0 then dont skip to next track
             # TODO
-            if await self.on_next_track() is not None:
+            _next_track = await self.on_next_track()
+            if _next_track is not None:
                 if self._playback_errors >= len(self._tl_tracks):
                     logger.warning("All tracks failed to play, stopping.")
                     self._playback_errors = 0
@@ -69,11 +85,14 @@ class TracklistExtension(Actor):
         if uris:
             _tracks: list[TlTrack] = []
             for uri in uris:
-                ext, track_id = uri.split(":")
-                tl_track = await self._core.request(f"{ext}.lookup_track", id=track_id)
+                ext, file_path = uri.split(":", 1)
+                track: Track = await self._core.request(
+                    f"{ext}.lookup_track", path=file_path
+                )
                 next_track_tlid = generate_tlid()
-                self._tl_tracks.append(TlTrack(next_track_tlid, track=tl_track))
-                _tracks.append(TlTrack(next_track_tlid, track=tl_track))
+                tl_track = TlTrack(tlid=next_track_tlid, track=track)
+                self._tl_tracks.append(tl_track)
+                _tracks.append(tl_track)
             await self._init_shuffle()
             await self.on_next_track()
             self._playback_error = False
@@ -82,6 +101,7 @@ class TracklistExtension(Actor):
                 event="tracklist_changed",
                 tl_tracks=self._tl_tracks,
             )
+            self._store_tl_tracks()
             return _tracks
         else:
             ValueError(f"No uris were provided")
@@ -97,6 +117,7 @@ class TracklistExtension(Actor):
             event="tracklist_changed",
             tl_tracks=self._tl_tracks,
         )
+        self._store_tl_tracks()
         return self._tl_tracks
 
     async def on_move(self, start: int, end: int, to_position: int) -> list[TlTrack]:
@@ -131,6 +152,7 @@ class TracklistExtension(Actor):
             event="tracklist_changed",
             tl_tracks=self._tl_tracks,
         )
+        self._store_tl_tracks()
         return True
 
     def on_get_tltracks(self) -> list[TlTrack]:
@@ -151,6 +173,7 @@ class TracklistExtension(Actor):
             event="tracklist_changed",
             tl_tracks=self._tl_tracks,
         )
+        self._store_tl_tracks()
         return True
 
     def on_get_repeat(self) -> bool:

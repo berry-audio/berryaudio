@@ -3,6 +3,7 @@ import pyudev
 import threading
 import psutil
 import subprocess
+import asyncio
 
 from core.actor import SourceActor
 from core.types import PlaybackControls
@@ -28,10 +29,16 @@ class StorageExtension(SourceActor):
         self._album_images_full_path = BASE_DIR / "images" / self._name
         self._album_images_web_path = Path("images") / self._name
         self._metadata = Metadata(cover_dir=self._album_images_full_path)
-        self._smb = StorageSMB(username=None, password=None)
+        self._smb = StorageSMB(
+            name=self._name,
+            core=self._core,
+            db=self._db,
+            username=self._config[self._name]["username"],
+            password=self._config[self._name]["password"],
+        )
         self._storage = StorageManager(name=self._name, core=self._core)
         self._storage_list = self._storage.get_storages_list()
-
+        self._loop = asyncio.get_event_loop()
         self._source = Source(
             name="Storage",
             type=RefType.SOURCE,
@@ -49,7 +56,23 @@ class StorageExtension(SourceActor):
         )
 
     async def on_start(self):
-        threading.Thread(target=self.monitor_usb, daemon=True).start()
+        config_smb_clients = self._config.get(self._name, {}).get("smb_clients", {})
+        if config_smb_clients:
+            for dev, creds in config_smb_clients.items():
+                try:
+                    await self._smb.mount_shared(
+                        devs=[dev],
+                        username=creds.get("username"),
+                        password=creds.get("password", ""),
+                    )
+                except (
+                    ValueError,
+                    PermissionError,
+                    ConnectionError,
+                    FileNotFoundError,
+                ) as e:
+                    logger.error(e)
+        threading.Thread(target=self._monitor_usb, daemon=True).start()
         await self._smb.status()
         logger.info("Started")
 
@@ -113,15 +136,17 @@ class StorageExtension(SourceActor):
             )
         return obj
 
-    async def on_playback_uri(self, id: str) -> any:
+    async def on_playback_uri(self, path: str) -> any:
         self._core._request("source.update_source", source=self._source)
-        uri = Path(id).as_uri()
-        return f"{uri}" if id else None
+        path = Path(path).as_uri()
+        return f"{path}" if id else None
 
-    async def on_lookup_track(self, id: str) -> Track:
-        return Track(**self._build_ref(id))
+    async def on_lookup_track(self, path: str) -> Track:
+        return Track(**self._build_ref(path))
 
-    async def on_directory(self, uri: str = None):
+    async def on_directory(
+        self, uri: str = None, limit: int | None = None, offset: int | None = None
+    ):
         if uri is None:
             return self._storage.get_storages_list()
         else:
@@ -133,10 +158,12 @@ class StorageExtension(SourceActor):
                     ".flac",
                     ".wav",
                     ".ogg",
+                    ".aac",
                     ".dsf",
-                    ".m3u",
-                    ".m3u8",
+                    ".dsf",
                 ],
+                limit=limit,
+                offset=offset,
             )
 
     def _handle_library_paths(self, uri: str, *, add: bool) -> bool:
@@ -162,33 +189,33 @@ class StorageExtension(SourceActor):
         return self._handle_library_paths(uri, add=False)
 
     def on_mount(self, dev: str):
-        return self.mount_devices(dev)
+        return self._mount_device(dev)
 
     def on_unmount(self, dev: str):
-        return self.unmount_device(dev)
+        return self._unmount_device(dev)
+
+    def on_add_shared(self, ip: str, username: str = None, password: str = None):
+        return self._smb.add_shared(ip, username, password)
+
+    async def on_mount_shared(self, devs: list[str]):
+        return await self._smb.mount_shared(devs)
+
+    async def on_unmount_shared(self, dev: str):
+        return await self._smb.unmount_shared(dev)
+
+    def on_list_smb_shared(self):
+        return self._smb.list_smb_shared()
 
     def on_list_shares(self):
         return self._smb.list_shares()
 
     async def on_unshare(self, uri: str):
-        self._core.send(
-            target=["web", "display"],
-            event="storage_unshared",
-            uri=uri,
-        )
-        return  await self._smb.unshare(uri)
+        return await self._smb.unshare(uri)
 
-    async def on_share(
-        self, uri: str, name: str = None, read_only: bool = False, comment: str = ""
-    ):
-        self._core.send(
-                target=["web", "display"],
-                event="storage_shared",
-                uri=uri,
-            )
-        return await self._smb.share(uri, name, read_only, comment)
+    async def on_share(self, uri: str, name: str = None, read_only: bool = False):
+        return await self._smb.share(uri, name, read_only)
 
-    def monitor_usb(self):
+    def _monitor_usb(self):
         context = pyudev.Context()
         monitor = pyudev.Monitor.from_netlink(context)
         monitor.filter_by(subsystem="block", device_type="partition")
@@ -204,7 +231,7 @@ class StorageExtension(SourceActor):
                 self.unmount_device(device.device_node)
                 logger.info(f"Device removed: {device.device_node}")
 
-    def mount_device(self, dev_node: str) -> str | None:
+    def _mount_device(self, dev_node: str) -> str | None:
         if self._storage._is_internal(dev_node):
             raise ValueError(f"Cannot mount internal device {dev_node}")
 
@@ -240,17 +267,17 @@ class StorageExtension(SourceActor):
         except Exception as e:
             raise ValueError(f"Error mounting {dev_node}: {e}")
 
-    def mount_devices(self, dev_node: str | None = None) -> bool:
+    def mount_devices(self, dev: str | None = None) -> bool:
         context = pyudev.Context()
 
         def _is_mounted(node: str) -> bool:
             return any(p.device == node for p in psutil.disk_partitions(all=False))
 
-        if dev_node:
-            if _is_mounted(dev_node):
-                logger.debug(f"{dev_node} is already mounted.")
+        if dev:
+            if _is_mounted(dev):
+                logger.debug(f"{dev} is already mounted.")
                 return False
-            self.mount_device(dev_node)
+            self.mount_device(dev)
             return True
 
         for device in context.list_devices(subsystem="block", DEVTYPE="partition"):
@@ -259,43 +286,42 @@ class StorageExtension(SourceActor):
                 self.mount_device(node)
         return True
 
-    def unmount_device(self, dev_node: str) -> bool:
-        if self._storage._is_internal(dev_node):
-            raise ValueError(f"Cannot unmount internal device {dev_node}")
+    def _unmount_device(self, dev: str) -> bool:
+        if self._storage._is_internal(dev):
+            raise ValueError(f"Cannot unmount internal device {dev}")
 
-        logger.debug(f"Unmounting {dev_node}")
+        logger.debug(f"Unmounting {dev}")
 
         try:
             result = subprocess.run(
-                ["udisksctl", "unmount", "-b", dev_node],
+                ["udisksctl", "unmount", "-b", dev],
                 text=True,
                 capture_output=True,
             )
             logger.debug(result.stdout.strip())
 
             self._core._request("playback.stop_playback")
-            current_storage = self._storage.get_storage(dev_node)
+            _storage = self._storage.get_storage(dev)
 
-            if not current_storage:
-                for key in ["mounted", "unmounted"]:
-                    for device in self._storage_list[key]:
-                        if device.dev == dev_node:
-                            self._core.send(
-                                target=["web", "display"],
-                                event="storage_removed",
-                                storage=device,
-                            )
-                            break
+            if not _storage:
+                for device in self._storage_list:
+                    if device.dev == dev:
+                        self._core.send(
+                            target=["web", "display"],
+                            event="storage_removed",
+                            storage=device,
+                        )
+                        break
 
-            if not current_storage:
+            if not _storage:
                 return True
 
             self._core.send(
                 target=["web", "display"],
                 event="storage_unmounted",
-                storage=current_storage,
+                storage=_storage,
             )
             return True
 
         except Exception as e:
-            raise ValueError(f"Error unmounting {dev_node}: {e}")
+            raise ValueError(f"Error unmounting {dev}: {e}")

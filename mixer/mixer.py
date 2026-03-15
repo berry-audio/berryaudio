@@ -7,9 +7,11 @@ import json
 from pathlib import Path
 from typing import Optional
 
-from core.actor import Actor
 from .utils import aplay_devices
-from core.util.boot import update_dtoverlay, update_cmdline
+from core.actor import Actor
+from core.util.system import SystemUtil
+
+
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +25,7 @@ class MixerExtension(Actor):
         self._core = core
         self._db = db
         self._config = config
+        self._system = SystemUtil(core, db)
         self._output_device = self._config["mixer"]["output_device"]
         self._volume_default = self._config["mixer"]["volume_default"]
         self._volume_muted = False
@@ -35,7 +38,7 @@ class MixerExtension(Actor):
     async def on_config_update(self, config):
         updated_config = config[self._name]
         if "output_device" in updated_config:
-            self.set_mixer(updated_config.get("output_device"))
+            await self.set_mixer(updated_config.get("output_device"))
 
     async def on_start(self):
         if self._output_device is None:
@@ -240,12 +243,11 @@ class MixerExtension(Actor):
 
         return _mixers
 
-    def set_mixer(self, mixer: str):
+    async def set_mixer(self, mixer: str):
         with open(PLAYBACK_MIXERS_PATH, "r", encoding="utf-8") as f:
             cards = json.load(f)
 
         for card in cards:
             if card.get("device") == mixer:
                 dtoverlay = card.get("dtoverlay") or None
-                update_dtoverlay(overlay=dtoverlay, anchor="#mixer_overlay")
-                logger.debug(f"dtoverlay={dtoverlay}")
+                await self._system.write_dtoverlay("#mixer_overlay", dtoverlay)

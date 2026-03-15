@@ -193,8 +193,8 @@ class PlaylistExtension(Actor):
         tracks = []
 
         for uri in track_uris:
-            ext, track_id = uri.split(":")
-            track = await self._core.request(f"{ext}.lookup_track", id=track_id)
+            ext, file_path = uri.split(":", 1)
+            track = await self._core.request(f"{ext}.lookup_track", path=file_path)
             tracks.append(track)
 
         for uri in uris:
