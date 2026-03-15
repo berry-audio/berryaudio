@@ -71,84 +71,85 @@ Installation guides, SD card flashing instructions, and hardware compatibility &
 
 ### Playback
 
-- Supports MP3, M4A, MP4, AAC, FLAC, OGG, OPUS, WMA, WAV and DSF (Supported DAC only) audio formats.
-- Reads ID3 tags and extracts cover art from various file types
-- Displays detailed audio codec, sample rate and bit-depth information
-- Fast search by artist, album and track
+- Supports **MP3, M4A, MP4, AAC, FLAC, OGG, OPUS, WMA, WAV, and DSF** audio formats *(DSF requires a supported DAC)*  
+- Reads **ID3 tags** and extracts **embedded cover art** from various file types  
+- Displays detailed **audio codec, sample rate, and bit-depth information**  
+- Fast search by **artist, album, and track**
 
 ### Sources
 
-- Bluetooth streaming with aptX, LDAC, SBC XQ+, with metadata display (Supported devices only)
-- Use as a Bluetooth receiver or transmitter
-- AirPlay 2 receiver (PCM 44/48 kHz / 32-bit), supports cover art & metadata display ([Shairport Sync v5.0](https://github.com/mikebrady/shairport-sync))
-- Spotify Connect supports cover art & metadata display ([Librespot](https://github.com/librespot-org/librespot))
-- Built-in File Browser for easy navigation and library management
+- **Bluetooth streaming** with **aptX, LDAC, SBC XQ+**, including metadata display *(supported devices only)*  
+- Can be used as a **Bluetooth receiver or transmitter**  
+- **AirPlay 2 receiver** *(PCM 44/48 kHz / 32-bit)* with cover art & metadata display — powered by [Shairport Sync v5.0](https://github.com/mikebrady/shairport-sync)  
+- **Spotify Connect** with cover art & metadata display — powered by [Librespot](https://github.com/librespot-org/librespot)  
+- Built-in **File Browser** for easy navigation and library management  
 
 ### Display
 
-- Added support for SSD1322, SSD1306, Waveshare 2.8" DSI displays, with new fonts and icons — ([see Docs for wiring guides](https://docs.berryaudio.org/display/generic-hdmi.html)) .
-- OLED displays (SSD1322 & SSD1306) now include **Spectrum Analyzer modes and a Retro VU Meter visualizer**.
-  
+- Supports **SSD1322, SSD1306, and Waveshare 2.8" DSI displays** with new fonts and icons — ([Display wiring guide](https://docs.berryaudio.org/display/generic-hdmi.html))  
+- OLED displays *(SSD1322 & SSD1306)* include **Spectrum Analyzer modes and a Retro VU Meter visualizer**
+
 ### Multiroom
 
-- Synchronized audio playback across multiple rooms
-- Low-latency streaming with Snapcast (PCM, FLAC, Opus, Ogg)
-- Group and manage multiple audio clients easily
-- Perfectly in-sync playback between devices
-- Client and server-side volume control management
-- Can be used as a receiver or transmitter
+- **Synchronized audio playback** across multiple rooms  
+- **Low-latency streaming** with **Snapcast** *(PCM, FLAC, Opus, Ogg)*  
+- Easily **group and manage multiple audio clients**  
+- **Perfectly synchronized playback** between devices  
+- **Client and server-side volume control**  
+- Can be used as a **receiver or transmitter**
 
 ### Internet Radio
 
-- Curated list of 200+ radio stations
-- Includes Pop, Rock, 80s, News, and more
-- Features major radio stations from providers such as BBC, Flux FM and SomaFM
+- **Curated list of 200+ radio stations**  
+- Includes **Pop, Rock, 80s, News, and more**  
+- Features major stations such as **BBC, FluxFM, and SomaFM**
 
 ### Library
 
-- Full ID3 tag and cover art support for various file formats
-- Scan for music from multiple storage locations
-- Automatically download artist information from TheAudioDB.com [AudioDB](https://www.theaudiodb.com/)
-- Browse your library by Artist, Album, Genre and Tracks
-- Add artists or albums directly to playlists & queue
-- Infinite query based smooth scroll to support large music libraries
+- Full **ID3 tag and cover art support** across various file formats  
+- Scan and index music from **multiple storage locations**  
+- Automatically download **artist information** from [TheAudioDB](https://www.theaudiodb.com/)  
+- Browse music by **Artist, Album, Genre, and Tracks**  
+- Add **artists or albums directly to playlists or the queue**  
+- **Infinite query-based smooth scrolling** for large music libraries  
 
 ### Playlists
 
-- Create and manage playlists
-- Touch-friendly drag & drop sortable playlists and the Now Playing queue
-- Playback modes: Repeat All, Repeat One and Shuffle
+- **Create and manage playlists**  
+- **Touch-friendly drag-and-drop** sorting for playlists and the **Now Playing queue**  
+- Playback modes: **Repeat All, Repeat One, and Shuffle**
 
 ### Storage
 
-- Supports SD Card
-- External USB Pen Drives & HDD Drives
-- Mounts & Un-Mounts Automatically
-- NVME & PCle (not tested but should work)
-- Network folder sharing from mounted drives
+- Supports **SD cards**  
+- Supports **external USB drives** *(pen drives & HDDs)*  
+- **Automatic mount and unmount** for connected storage devices  
+- Supports **NVMe & PCIe storage** *(not fully tested but expected to work)*  
+- **SMB network folder sharing** from mounted drives  
+- Supports adding **remote NAS storage** from **Windows, macOS, and other network locations**
 
 ### Networking
 
-- Scan and manage Bluetooth devices via D-Bus
-- Discover and manage Wi-Fi networks
-- Enables Wi-Fi hotspot if no wireless network connected
-- Manage Ethernet connection
-- Configure IP settings (manual/static or DHCP)
+- Scan and manage **Bluetooth devices via D-Bus**  
+- Discover and manage **Wi-Fi networks**  
+- Automatically enables a **Wi-Fi hotspot if no network is connected**  
+- Manage **Ethernet connections**  
+- Configure **IP settings** *(DHCP or manual/static)*
 
 ### Power
 
-- View CPU, memory, and internal storage usage stats
-- Shutdown, Reboot, and Standby options available from the interface
-- Standby screen displays local date and time
+- View **CPU, memory, and storage usage statistics**  
+- **Shutdown, reboot, and standby** controls from the interface  
+- Standby screen displays **local date and time**
 
 ### Camilla DSP
 
-- Supports all DSP features [Camilla DSP](https://github.com/HEnquist/camilladsp)
-- Supports high-quality filters, routing, mixing, and gain control
-- Create custom EQ profiles (PEQ, GEQ, FIR, IIR filters)
-- Load and switch between multiple DSP presets
-- Real-time DSP updates without restarting playback
-- Supports high-resolution audio pipelines (up to 32-bit / 384 kHz depending on hardware)
+- Supports all DSP features of [CamillaDSP](https://github.com/HEnquist/camilladsp)  
+- Advanced **filtering, routing, mixing, and gain control**  
+- Create custom **EQ profiles** *(PEQ, GEQ, FIR, IIR filters)*  
+- **Load and switch between multiple DSP presets**  
+- **Real-time DSP updates** without restarting playback  
+- Supports **high-resolution audio pipelines** *(up to 32-bit / 384 kHz depending on hardware)*
 
 ### Coming Soon
 
