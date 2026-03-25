@@ -357,6 +357,8 @@ class LocalExtension(SourceActor):
     async def on_lookup_track(self, path: str) -> Track:
         sql = QUERIES["track"] % "a.path = ?"
         row = self._db.fetchall(sql, (path,))
+        if not row:
+            return None
         return Track(**self._build_ref(row[0], "track", False))
 
     async def on_stop_service(self) -> bool:

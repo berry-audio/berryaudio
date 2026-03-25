@@ -83,7 +83,7 @@ class BluetoothExtension(SourceActor):
             return
 
         await self._system.write_asoundrc()
-        await self._system.service_camilladsp('restart')
+        await self._system.service_camilladsp("restart")
 
         await self.on_adapter_set_state(False)
         threading.Thread(target=self._init_agent, daemon=True).start()
@@ -226,7 +226,7 @@ class BluetoothExtension(SourceActor):
             await self._stop_aplay()
             await self._init_aplay()
             await self._system.write_asoundrc()
-            await self._system.service_camilladsp('restart')
+            await self._system.service_camilladsp("restart")
 
             if not current_source or current_source.uri != self._source.uri:
                 await self._core.request("source.set", uri=self._source.uri)
@@ -240,7 +240,7 @@ class BluetoothExtension(SourceActor):
         if self._mode == MODE_TX:
             await self._stop_aplay()
             await self._system.write_asoundrc(PCM_BLUEALSA)
-            await self._system.service_camilladsp('restart')
+            await self._system.service_camilladsp("restart")
 
             await self.on_set_volume(  # set initial device hardware volume to 100
                 address=connected_device.address,
@@ -277,7 +277,7 @@ class BluetoothExtension(SourceActor):
         if not connected_device:
             await self._stop_aplay()
             await self._system.write_asoundrc()
-            await self._system.service_camilladsp('restart')
+            await self._system.service_camilladsp("restart")
 
             if self._mode == MODE_RX:
                 self._clear_source_info()
@@ -297,7 +297,7 @@ class BluetoothExtension(SourceActor):
         if current_source.uri == self._name:
             self._tl_track = TlTrack(0, track=Track())
             self._core._request("playback.set_metadata", tl_track=self._tl_track)
-            
+
         logger.info(
             f"Bluetooth device disconnected: {disconnected_device.name} {disconnected_device.address}"
         )
@@ -334,18 +334,23 @@ class BluetoothExtension(SourceActor):
             if "Discoverable" in properties:
                 self._core.send(
                     target=["web", "display"],
-                    event="bluetooth_state_changed",
-                    state=self.on_adapter_get_state(),
+                    event="bluetooth_discoverable",
+                    state=properties["Discoverable"],
                 )
 
             if "Pairable" in properties:
                 self._core.send(
                     target=["web", "display"],
-                    event="bluetooth_state_changed",
-                    state=self.on_adapter_get_state(),
+                    event="bluetooth_pairable",
+                    state=properties["Pairable"],
                 )
 
             if "Powered" in properties:
+                self._core.send(
+                    target=["web", "display"],
+                    event="bluetooth_powered",
+                    state=properties["Powered"],
+                )
                 if not properties.get("Powered"):
                     self._loop.call_soon_threadsafe(
                         asyncio.create_task,
@@ -766,4 +771,3 @@ class BluetoothExtension(SourceActor):
             32808: "S32_LE",
         }
         return mapping.get(fmt, None)
-

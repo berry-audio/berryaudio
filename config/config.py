@@ -28,6 +28,10 @@ class ConfigExtension(Actor):
         for ext in config:
             self._core._request(f"{ext}.config_update", config=config)
         logger.info(config)
+        self._core.send(
+            target=["web", "display"],
+            event="config_updated"
+        )
         return True
 
     def on_get(self):

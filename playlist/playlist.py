@@ -113,16 +113,21 @@ class PlaylistExtension(Actor):
         if id and name:
             self._db.execute("UPDATE playlist SET name = ? WHERE id = ?", (name, id))
             logger.debug(f"{uri} updated")
-            self._core.send(target="web", event="playlists_updated")
+            self._core.send(
+                target=["web", "display"], event="playlist_updated", uri=uri
+            )
             return True
         raise ValueError("id or name not provided")
 
     async def on_delete(self, uri: str) -> list[TlTrack]:
+        playlist = self.on_item(uri)
         id = int(uri.split(":")[1])
         if id:
             self._db.execute("DELETE FROM playlist WHERE id = ?", (id,))
-            logger.debug(f"{uri} deleted")
-            self._core.send(target="web", event="playlists_updated")
+            logger.debug(f"{uri} removed")
+            self._core.send(
+                target=["web", "display"], event="playlist_removed", uri=uri
+            )
             return True
 
     async def on_create(
@@ -132,13 +137,13 @@ class PlaylistExtension(Actor):
         last_modified = datetime.now().isoformat()
         playlist_name = name if name is not None else f"Mix #{last_modified}"
 
-        self._db.execute(
+        cursor = self._db.execute(
             """INSERT INTO playlist (name, tracks, last_modified)
             VALUES (?, ?, ?)""",
             (playlist_name, tl_tracks, last_modified),
         )
         logger.debug(f"{playlist_name} created")
-        self._core.send(target="web", event="playlists_updated")
+        self._core.send(target=["web", "display"], event="playlist_created", uri=f"playlist:{cursor.lastrowid}")
         return True
 
     async def on_move(
@@ -172,7 +177,7 @@ class PlaylistExtension(Actor):
             "UPDATE playlist SET tracks = ? WHERE id = ?",
             (json.dumps(to_serialize(new_tl_tracks)), id),
         )
-        self._core.send(target="web", event="playlist_updated")
+        self._core.send(target=["web", "display"], event="playlist_updated", uri=uri)
         return True
 
     async def on_remove(self, uri: str, tlid: int) -> list[TlTrack]:
@@ -186,8 +191,13 @@ class PlaylistExtension(Actor):
                 (json.dumps(tl_tracks_updated), id),
             )
             logger.debug(f"Track {tlid} removed from {uri}")
-            self._core.send(target="web", event="playlist_updated")
-            return self.on_item(uri)
+            self._core.send(
+                target=["web", "display"],
+                event="playlist_updated",
+                uri=uri,
+            )
+            return True
+        raise ValueError("id or tlid not provided")
 
     async def on_add(self, uris: list[str], track_uris: list[str]) -> bool:
         tracks = []
@@ -205,12 +215,17 @@ class PlaylistExtension(Actor):
             tl_tracks = [to_unserialize(tlTrack) for tlTrack in json.loads(row.tracks)]
 
             for track in tracks:
-                tl_tracks.append(TlTrack(tlid=generate_tlid(), track=track))
+                tlid = generate_tlid()
+                tl_tracks.append(TlTrack(tlid=tlid, track=track))
 
             self._db.execute(
                 "UPDATE playlist SET tracks = ? WHERE id = ?",
                 (json.dumps(to_serialize(tl_tracks)), playlist_id),
             )
 
-        self._core.send(target="web", event="playlists_updated")
+            self._core.send(
+                target=["web", "display"],
+                event="playlist_updated",
+                uri=uri,
+            )
         return True

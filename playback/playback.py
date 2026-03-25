@@ -118,7 +118,9 @@ class PlaybackExtension(Actor):
                     )
                     self._track = TlTrack(tlid=self._track.tlid, track=_track)
                     self._core.send(
-                        target=["web","display"] , event="track_meta_updated", tl_track=self._track
+                        target=["web", "display"],
+                        event="track_meta_updated",
+                        tl_track=self._track,
                     )
                 return Gst.PadProbeReturn.REMOVE
 
@@ -182,7 +184,9 @@ class PlaybackExtension(Actor):
                 if _has_changes(self._track, _track):
                     self._track = _track
                     self._core.send(
-                        target=["web","display"], event="track_meta_updated", tl_track=self._track
+                        target=["web", "display"],
+                        event="track_meta_updated",
+                        tl_track=self._track,
                     )
 
         if t == Gst.MessageType.DURATION_CHANGED:
@@ -191,12 +195,16 @@ class PlaybackExtension(Actor):
         elif t == Gst.MessageType.BUFFERING:
             if not self._buffering:
                 self._buffering = True
-                self._core.send(target=["web","display"], event="track_playback_buffering")
+                self._core.send(
+                    target=["web", "display"], event="track_playback_buffering"
+                )
 
         elif t == Gst.MessageType.EOS:
             self._stop()
             self._core.send(
-                target=["web","display","tracklist"], event="track_playback_ended", tl_track=self._track
+                target=["web", "display", "tracklist"],
+                event="track_playback_ended",
+                tl_track=self._track,
             )
 
         elif t == Gst.MessageType.ERROR:
@@ -215,13 +223,19 @@ class PlaybackExtension(Actor):
                 self._track = TlTrack(tlid=self._track.tlid, track=_track)
                 self._stop()
                 self._core.send(
-                    target=["web","display"], event="track_meta_updated", tl_track=self._track
+                    target=["web", "display"],
+                    event="track_meta_updated",
+                    tl_track=self._track,
                 )
                 self._core.send(
-                    target=["web","display","tracklist"], event="track_playback_error", tl_track=self._track
+                    target=["web", "display", "tracklist"],
+                    event="track_playback_error",
+                    tl_track=self._track,
                 )
                 self._core.send(
-                    target=["web","display","tracklist"], event="track_playback_ended", tl_track=self._track
+                    target=["web", "display", "tracklist"],
+                    event="track_playback_ended",
+                    tl_track=self._track,
                 )
                 logger.warning(f"Playback error {self._track}")
 
@@ -235,7 +249,9 @@ class PlaybackExtension(Actor):
             _track = self._track.track.copy(update={"length": self._duration})
             self._track = TlTrack(tlid=self._track.tlid, track=_track)
             self._core.send(
-                target=["web","display"], event="track_meta_updated", tl_track=self._track
+                target=["web", "display"],
+                event="track_meta_updated",
+                tl_track=self._track,
             )
 
     def _start_time_tracking(self):
@@ -261,36 +277,44 @@ class PlaybackExtension(Actor):
                 return
 
             ext, file_path = _uri
-            await self._core.request("source.set", uri=ext)          
+            await self._core.request("source.set", uri=ext)
 
             get_track = await self._core.request(f"{ext}.lookup_track", path=file_path)
-            playback_uri = await self._core.request(f"{ext}.playback_uri", path=file_path)
+            playback_uri = await self._core.request(
+                f"{ext}.playback_uri", path=file_path
+            )
 
             if not get_track:
-                logger.error(f"Track not found for {uri}")
-                return
+                raise ValueError(f"Track not found")
 
             if not playback_uri:
-                logger.error(f"Playback URI not found for {uri}")
-                return
+                raise ValueError(f"Playback URI not found")
 
             self._playback_uri = playback_uri
             self._track = TlTrack(tlid=tlid, track=get_track)
 
             if not file_path.startswith(("http://", "https://")):
                 if not os.path.exists(file_path):
-                    logger.error("Track unavailable or not found")
-                    self._core.send(
-                        target=["web","display","tracklist"], event="track_unavailable", tl_track=self._track
-                    )
-                    return
+                    raise ValueError(f"Track not found")
 
             self._core.send(
-                target=["web","display"], event="track_meta_updated", tl_track=self._track
+                target=["web", "display"],
+                event="track_meta_updated",
+                tl_track=self._track,
             )
-            
+
+        except ValueError as e:
+            logger.error(f"Playback failed: {e}")
+            self._core.send(
+                target=["web", "display", "tracklist"],
+                event="track_unavailable",
+            )
         except Exception as e:
-            logger.exception(f"Error starting playback for {uri}: {e}")
+            logger.exception(f"Unexpected error for {uri}: {e}")
+            self._core.send(
+                target=["web", "display", "tracklist"],
+                event="track_unavailable",
+            )
 
     async def on_start(self):
         try:
@@ -346,7 +370,7 @@ class PlaybackExtension(Actor):
             )
             self._elapsed = time_position
             self._core.send(
-                target=["web","display"],
+                target=["web", "display"],
                 event="track_position_updated",
                 time_position=time_position,
             )
@@ -385,7 +409,9 @@ class PlaybackExtension(Actor):
 
     def on_set_state(self, state: PlaybackState) -> bool:
         self._state = state
-        self._core.send(target=["web","display"], event="playback_state_changed", state=self._state)
+        self._core.send(
+            target=["web", "display"], event="playback_state_changed", state=self._state
+        )
         return True
 
     def on_get_time_position(self) -> int:
@@ -394,8 +420,10 @@ class PlaybackExtension(Actor):
     def on_set_time_position(self, position_ms: int) -> bool:
         self._elapsed = position_ms
         self._core.send(
-                    target=["display"], event="track_position_updated", time_position=self._elapsed,
-                )
+            target=["display"],
+            event="track_position_updated",
+            time_position=self._elapsed,
+        )
         return True
 
     def on_set_metadata(self, tl_track: TlTrack | None) -> bool:
@@ -404,7 +432,9 @@ class PlaybackExtension(Actor):
             self._track = TlTrack(tlid=0, track=Track())
         else:
             self._track = tl_track
-        self._core.send(target=["web","display"], event="track_meta_updated", tl_track=self._track)
+        self._core.send(
+            target=["web", "display"], event="track_meta_updated", tl_track=self._track
+        )
         return True
 
     def on_pause(self):
@@ -417,13 +447,15 @@ class PlaybackExtension(Actor):
                 self._time_source_id = None
 
             self._core.send(
-                target=["web","display"],
+                target=["web", "display"],
                 event="track_playback_paused",
                 tl_track=self._track,
                 time_position=self._elapsed,
             )
             self._core.send(
-                target=["web","display"], event="playback_state_changed", state=self._state
+                target=["web", "display"],
+                event="playback_state_changed",
+                state=self._state,
             )
         return True
 
@@ -437,13 +469,19 @@ class PlaybackExtension(Actor):
             self._time_source_id = None
 
         self._elapsed = 0
-        self._core.send(target=["web","display"], event="playback_state_changed", state=self._state)
-        self._core.send(target=["web","display"], event="track_position_updated", time_position=self._elapsed)
+        self._core.send(
+            target=["web", "display"], event="playback_state_changed", state=self._state
+        )
+        self._core.send(
+            target=["web", "display"],
+            event="track_position_updated",
+            time_position=self._elapsed,
+        )
         return True
 
     def _play(self):
         if not self._playback_uri:
-            logger.warning("No track provided")
+            logger.warning("No playback uri")
             return
         old_state = self._state
         self._source.set_property("uri", self._playback_uri)
@@ -460,7 +498,7 @@ class PlaybackExtension(Actor):
 
         if old_state == PlaybackState.PAUSED:
             self._core.send(
-                target=["web","display","tracklist"],
+                target=["web", "display", "tracklist"],
                 event="track_playback_resumed",
                 tl_track=self._track,
                 time_position=self._elapsed,
@@ -468,11 +506,13 @@ class PlaybackExtension(Actor):
         else:
             self._elapsed = 0
             self._core.send(
-                target=["web","display","tracklist"],
+                target=["web", "display", "tracklist"],
                 event="track_playback_started",
                 tl_track=self._track,
                 time_position=self._elapsed,
             )
 
-        self._core.send(target=["web","display"], event="playback_state_changed", state=self._state)
+        self._core.send(
+            target=["web", "display"], event="playback_state_changed", state=self._state
+        )
         return True

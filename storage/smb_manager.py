@@ -58,13 +58,10 @@ class StorageSMB:
         if self.username and self.password:
             self._set_samba_password()
 
-        self._core.send(
-            target=["web", "display"],
-            event="storage_shared",
-            uri=uri,
-        )
-
         await self._system.service_samba("restart")
+
+        self._core.send(target=["web", "display"], event="storage_shared", uri=uri)
+
         logger.info(f"Shared '{path}' (read_only={read_only})")
         return await self.status()
 
@@ -76,12 +73,9 @@ class StorageSMB:
         _, path = uri.split(":", 1)
 
         await self._remove_conf(path)
-        self._core.send(
-            target=["web", "display"],
-            event="storage_unshared",
-            uri=uri,
-        )
         await self._system.service_samba("restart")
+
+        self._core.send(target=["web", "display"], event="storage_unshared", uri=uri)
         logger.info(f"Removed share for {path}")
         return await self.status()
 
@@ -143,6 +137,7 @@ class StorageSMB:
         del self._shares[name]
         await self._write_conf()
         logger.debug(f"Removed configuration for path: {name}")
+        return name
 
     async def _write_conf(self):
         lines = []

@@ -169,16 +169,18 @@ class StorageExtension(SourceActor):
     def _handle_library_paths(self, uri: str, *, add: bool) -> bool:
         if not uri.startswith(f"{self._name}:"):
             raise ValueError(f"Not a valid {self._name} path: {uri}")
-
+        
         library_paths = self._config.get("local", {}).get("library_path", [])
-
-        if add and uri not in library_paths:
+        
+        if add:
+            if uri in library_paths:
+                raise ValueError("Path already exists in library")
             library_paths.append(uri)
-        elif not add and uri in library_paths:
-            library_paths.remove(uri)
         else:
-            return False
-
+            if uri not in library_paths:
+                raise ValueError("Path does not exist in library")
+            library_paths.remove(uri)
+        
         self._db.set_config({"local": {"library_path": library_paths}})
         return True
 
