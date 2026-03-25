@@ -236,6 +236,7 @@ class BluetoothExtension(SourceActor):
             self._source.state.icon = connected_device.icon
             self._source.state.address = connected_device.address
             self._core._request("source.update_source", source=self._source)
+            self._bluealsa_aplay_to_pcm()
 
         if self._mode == MODE_TX:
             await self._stop_aplay()
