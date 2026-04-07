@@ -8,6 +8,7 @@ from core.models import RefType
 
 logger = logging.getLogger(__name__)
 
+
 class SourceExtension(Actor):
     def __init__(self, name, core, db, config):
         super().__init__()
@@ -31,10 +32,12 @@ class SourceExtension(Actor):
     def on_directory(self):
         _dirs = []
         for ext in self._core.extensions:
-            if (isinstance(ext, SourceActor)
-                    and hasattr(ext, "_source")
-                    and isinstance(ext._source, Source)
-                    and ext._source.uri is not None):
+            if (
+                isinstance(ext, SourceActor)
+                and hasattr(ext, "_source")
+                and isinstance(ext._source, Source)
+                and ext._source.uri is not None
+            ):
                 ext._source.active = self._current.uri == ext._source.uri
                 _dirs.append(ext._source)
         return _dirs
@@ -63,6 +66,24 @@ class SourceExtension(Actor):
                 if await self._core.request(stop_method):
                     logger.info(f"Stopping {previous} service")
 
+            self._current = Source(
+                name=None,
+                uri=uri,
+                type=RefType.SOURCE,
+                controls=[],
+                state={"connected": False},
+            )
+            self._core.send(
+                target=["web", "display"], event="source_changed", source=self._current
+            )
+            self._core.send(
+                target=["web", "display"],
+                event="options_changed",
+                single=False,
+                repeat=False,
+                shuffle=False,
+            )
+
         if current_source is None:
             return
 
@@ -71,10 +92,10 @@ class SourceExtension(Actor):
 
         if current == previous:
             return
-        
-        uris = [source.uri for source in directory] 
 
-        if current is not None and current in uris: 
+        uris = [source.uri for source in directory]
+
+        if current is not None and current in uris:
             start_method = f"{current}.start_service"
             stop_method = f"{previous}.stop_service"
 
@@ -115,24 +136,6 @@ class SourceExtension(Actor):
             else:
                 logger.error(f"Failed to start service for source {current}")
                 raise RuntimeError(f"Failed to start service for source {current}")
-        else:
-            self._current = Source(
-                name=None,
-                uri=uri,
-                type=RefType.SOURCE,
-                controls=[],
-                state={"connected": False},
-            )
-            self._core.send(
-                target=["web", "display"], event="source_changed", source=self._current
-            )
-            self._core.send(
-                    target=["web", "display"],
-                    event="options_changed",
-                    single=False,
-                    repeat=False,
-                    shuffle=False,
-            )
 
         return True
 

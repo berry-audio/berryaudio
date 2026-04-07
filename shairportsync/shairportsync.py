@@ -110,9 +110,12 @@ class ShairportsyncExtension(SourceActor):
 
     def _reset_meta(self):
         """Reset metadata handling"""
-        self._tl_track = TlTrack(0, track=Track())
-        if self._source_active:
-            self._core._request("playback.set_metadata", tl_track=self._tl_track)
+        track = Track(
+                uri=self._name,
+                name="Airplay",
+            )
+        self._tl_track = TlTrack(0, track=track)
+        self._core._request("playback.set_metadata", tl_track=self._tl_track)
 
     def _shairportsync_init(self):
         """Starting shairportsync service"""

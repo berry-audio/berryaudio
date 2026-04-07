@@ -53,6 +53,7 @@ async def async_main(verbose=False):
         # "gpio",
         "infrared",
         "tuner",
+        "linein",
         "command",
     ]
     await core.load_extensions_by_name(extensions)

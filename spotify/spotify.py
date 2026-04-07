@@ -27,6 +27,7 @@ class SpotifyExtension(SourceActor):
         self._volume_normalization = self._config["spotify"]["volume_normalization"]
         self._bit_depth = self._config["spotify"]["bit_depth"]
         self._output_audio = self._config["mixer"]["output_audio"]
+        self._channels = 2
         self._proc = None
         self._tl_track = None
         self._timer = None
@@ -84,7 +85,15 @@ class SpotifyExtension(SourceActor):
 
     async def _meta_init(self):
         """Reset metadata handling"""
-        self._tl_track = TlTrack(0, track=Track())
+        track = Track(
+                uri=self._name,
+                name="Spotify Connect",
+                sample_rate=self._sample_rate,
+                bit_depth=self._bit_depth,
+                channels=self._channels,
+                audio_codec=self._audio_codec,
+            )
+        self._tl_track = TlTrack(0, track=track)
         await self._core.request("playback.set_metadata", tl_track=self._tl_track)
 
     async def on_message(self, event):

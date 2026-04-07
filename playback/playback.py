@@ -229,8 +229,8 @@ class PlaybackExtension(Actor):
                 )
                 self._core.send(
                     target=["web", "display", "tracklist"],
-                    event="track_playback_error",
-                    tl_track=self._track,
+                    event="error",
+                    message=self._track,
                 )
                 self._core.send(
                     target=["web", "display", "tracklist"],
@@ -307,13 +307,15 @@ class PlaybackExtension(Actor):
             logger.error(f"Playback failed: {e}")
             self._core.send(
                 target=["web", "display", "tracklist"],
-                event="track_unavailable",
+                event="error",
+                message="Track Unavailable",
             )
         except Exception as e:
             logger.exception(f"Unexpected error for {uri}: {e}")
             self._core.send(
                 target=["web", "display", "tracklist"],
-                event="track_unavailable",
+                event="error",
+                message="Track Unavailable",
             )
 
     async def on_start(self):
