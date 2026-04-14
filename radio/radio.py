@@ -52,27 +52,25 @@ class RadioExtension(SourceActor):
 
     async def on_start_service(self):
         logger.debug("Starting Service")
-        return True
+        return self._source
 
     def _init_table(self):
         self._db.executescript(
             """
-            DROP TABLE IF EXISTS radio;
-
-            CREATE TABLE radio (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                path TEXT NOT NULL UNIQUE,
-                name TEXT,
-                genre TEXT,
+            CREATE TABLE IF NOT EXISTS radio (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                path        TEXT    NOT NULL UNIQUE,
+                name        TEXT    NOT NULL,
+                genre       TEXT,
                 broadcaster TEXT,
-                language TEXT,
-                country TEXT,
-                region TEXT,
-                bitrate INTEGER,
-                format TEXT,
-                home_page TEXT,
-                views INTEGER,
-                image TEXT
+                language    TEXT,
+                country     TEXT,
+                region      TEXT,
+                bitrate     INTEGER,
+                format      TEXT,
+                home_page   TEXT,
+                views       INTEGER NOT NULL DEFAULT 0,
+                image       TEXT
             );
             """
         )
@@ -158,7 +156,6 @@ class RadioExtension(SourceActor):
         return [Ref(**self.build_track(row)) for row in rows]
 
     async def on_playback_uri(self, path: str) -> any:
-        self._core._request("source.update_source", source=self._source)
         return path
 
     async def on_lookup_track(self, path: str) -> Track:

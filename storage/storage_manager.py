@@ -1,12 +1,14 @@
 import psutil
-import pyudev
-import subprocess
-import re
+import pydbus
+import asyncio
 import logging
 
-from core.models import RefType, Storage, StorageUsage
 from pathlib import Path
-from .smb_manager import StorageSMB
+from gi.repository import GLib
+from core.models import RefType, Storage, StorageUsage
+from core.util.system import SystemUtil
+
+from .smb_manager import StorageSmbManager
 
 logger = logging.getLogger(__name__)
 
@@ -15,113 +17,216 @@ INTERNAL_MUSIC_PATH = Path(f"/home/pi/{INTERNAL_MUSIC_DIR}")
 
 
 class StorageManager:
-    def __init__(self, name=None, core=None):
+    def __init__(self, name=None, core=None, db=None):
         self._core = core
         self._name = name
-        self._smb = StorageSMB(
+        self.db = db
+        self._system = SystemUtil(self._core, self.db)
+        self._bus = pydbus.SystemBus()
+        self._udisks = self._bus.get(
+            "org.freedesktop.UDisks2", "/org/freedesktop/UDisks2"
+        )
+        self._smb = StorageSmbManager(
             name=self._name, core=self._core, username=None, password=None
         )
+        self._storage_list = []
 
-    def _get_mounted_partitions(self) -> dict:
-        mounts = {}
-        for p in psutil.disk_partitions(all=False):
-            if "rw" in p.opts and p.fstype:
-                usage = psutil.disk_usage(p.mountpoint)
-                mounts[p.device] = {
-                    "mount": p.mountpoint,
-                    "fstype": p.fstype,
-                    "usage": usage,
-                }
-        return mounts
-
-    def _get_fs_info(self, dev: str) -> tuple[str, str]:
-        try:
-            output = subprocess.check_output(["blkid", dev], text=True).strip()
-            fs_type = None
-            label = None
-
-            type_match = re.search(r'TYPE="([^"]+)"', output)
-            if type_match:
-                fs_type = type_match.group(1)
-
-            label_match = re.search(r'LABEL="([^"]+)"', output)
-            if label_match:
-                label = label_match.group(1)
-
-            return fs_type, label
-        except subprocess.CalledProcessError:
-            return None, None
-
-    def _is_internal(self, dev_node: str) -> bool:  ##todo use uri
-        if not Path(dev_node).exists():
-            logger.warning(f"Device {dev_node} no longer exists")
-            return False
-
-        context = pyudev.Context()
-        device = pyudev.Devices.from_device_file(context, dev_node)
-        parent = device.find_parent("block")
-        removable = bool(int(parent.attributes.get("removable", 0)))
-        if not removable:
-            logger.warning(f"Cannot mount/unmount internal storage: {dev_node}")
-        return not removable
-
-    def get_storage(self, dev: str) -> dict | None:  ##todo use uri
-        for item in self.get_storages_list():
+    def storage_item(
+        self, dev: str, internal: bool = False
+    ) -> dict | None:  ##todo use uri\
+        if internal:
+            storage_list = self.storages_internal()
+        else:
+            storage_list = self.storages_list()
+        for item in storage_list:
             if item.dev == dev:
                 return item
         return False
 
-    def get_storages_list(self) -> list[Storage]:
-        context = pyudev.Context()
-        mounts = self._get_mounted_partitions()
+    def storages_internal(self) -> list[Storage]:
+        objects = self._udisks.GetManagedObjects()
         storages = []
         INTERNAL_MUSIC_PATH.mkdir(parents=True, exist_ok=True)
 
-        for device in context.list_devices(subsystem="block", DEVTYPE="partition"):
-            devname = device.device_node
-            is_internal = self._is_internal(devname)
-            fs_type, label = self._get_fs_info(devname)
+        def decode_bytes(b_array):
+            return "".join(chr(b) for b in b_array if b != 0)
 
-            if devname in mounts:
-                mount_point = mounts[devname]["mount"]
-                if is_internal and mount_point == "/":
-                    continue
-                if is_internal:
-                    mount_point = str(INTERNAL_MUSIC_PATH)
-                u = mounts[devname]["usage"]
-                storages.append(
-                    Storage(
-                        type=RefType.STORAGE if is_internal else RefType.REMOVABLE,
-                        name=INTERNAL_MUSIC_DIR if is_internal else label or "Unknown",
-                        dev=devname,
-                        fstype=fs_type,
-                        status="mounted",
-                        uri=f"{self._name}:{mount_point}",
-                        usage=StorageUsage(
+        for path, interfaces in objects.items():
+            if "org.freedesktop.UDisks2.Block" not in interfaces:
+                continue
+
+            block = interfaces["org.freedesktop.UDisks2.Block"]
+            if "org.freedesktop.UDisks2.Filesystem" not in interfaces:
+                continue
+
+            try:
+                devname = decode_bytes(block.get("PreferredDevice", []))
+                fs_type = block.get("IdType", "") or "Unknown"
+                label = block.get("IdLabel", "") or None
+
+                drive_path = block.get("Drive")
+                if drive_path and drive_path != "/":
+                    drive = self._bus.get("org.freedesktop.UDisks2", drive_path)
+                    connection_bus = drive.ConnectionBus
+                else:
+                    connection_bus = ""
+
+                is_internal = connection_bus in ("sdio", "ata", "nvme", "")
+
+                fs = interfaces.get("org.freedesktop.UDisks2.Filesystem", {})
+                mount_points = fs.get("MountPoints", [])
+                mountpoint = decode_bytes(mount_points[0]) if mount_points else None
+
+                if mountpoint:
+                    if is_internal and mountpoint == "/":
+                        continue
+
+                    if is_internal:
+                        mountpoint = str(INTERNAL_MUSIC_PATH)
+
+                    try:
+                        u = psutil.disk_usage(mountpoint)
+                        usage = StorageUsage(
                             total=u.total,
                             used=u.used,
                             free=u.free,
-                        ),
-                    )
-                )
-            else:
-                if is_internal:
-                    continue
-                storages.append(
-                    Storage(
-                        type=RefType.REMOVABLE,
-                        name=label or "Unknown",
-                        dev=devname,
-                        fstype=fs_type,
-                        status="unmounted",
-                    )
-                )
+                        )
+                    except Exception:
+                        usage = None
 
+                    storages.append(
+                        Storage(
+                            type=RefType.STORAGE if is_internal else RefType.REMOVABLE,
+                            name=(
+                                INTERNAL_MUSIC_DIR
+                                if is_internal
+                                else label or "Unknown"
+                            ),
+                            dev=devname,
+                            fstype=fs_type,
+                            status="mounted",
+                            uri=f"{self._name}:{mountpoint}",
+                            usage=usage,
+                        )
+                    )
+
+                else:
+                    if is_internal:
+                        continue
+
+                    storages.append(
+                        Storage(
+                            type=RefType.REMOVABLE,
+                            name=label or "Unknown",
+                            dev=devname,
+                            fstype=fs_type,
+                            status="unmounted",
+                        )
+                    )
+
+            except Exception as e:
+                print(f"Error reading {path}: {e}")
+                continue
+        return storages
+
+    def storages_list(self) -> list[Storage]:
+        storages = self.storages_internal()
         storages.extend(self._smb.list_smb_shared())
-        self._storage_list = storages
-        return self._storage_list
+        return storages
 
-    def list_directory(
+    async def storage_mount(self, dev_node: str) -> str | None:
+        device = dev_node.replace("/dev/", "")
+        logger.debug(f"Mounting {dev_node}")
+
+        loop = asyncio.get_event_loop()
+
+        try:
+            obj = self._bus.get(
+                "org.freedesktop.UDisks2",
+                f"/org/freedesktop/UDisks2/block_devices/{device}",
+            )
+
+            existing = await loop.run_in_executor(None, lambda: obj.MountPoints)
+            if existing:
+                mount_point = "".join(chr(b) for b in existing[0] if b != 0)
+                raise ValueError(f"{dev_node} already mounted at {mount_point}")
+
+            # Stop camilladsp before mounting to prevent cpu throttling on pizero 2W
+            if self._system.get_board() == "PI_ZERO_2W":
+                await self._core.request("dsp.service", state="stop")
+            mount_point = await asyncio.wait_for(
+                loop.run_in_executor(
+                    None,
+                    lambda: obj.Mount(
+                        {"auth.no_user_interaction": GLib.Variant("b", True)}
+                    ),
+                ),
+                timeout=60,
+            )
+
+            logger.debug(f"Mounted {dev_node} at {mount_point}")
+            storage = await loop.run_in_executor(
+                None, lambda: self.storage_item(dev_node, internal=True)
+            )
+
+            if self._system.get_board() == "PI_ZERO_2W":
+                await self._core.request("dsp.service", state="start")
+
+            logger.info(
+                f"Mounted {dev_node}, Total: {storage.usage.total}, "
+                f"Used: {storage.usage.used}, Free: {storage.usage.free}"
+            )
+
+            if mount_point:
+                self._core.send(
+                    target=["web", "display"], event="storage_mounted", storage=storage
+                )
+                return True
+
+        except asyncio.TimeoutError:
+            raise ValueError(f"Mount timed out for {dev_node}")
+        except Exception as e:
+            raise ValueError(f"Error mounting {dev_node}: {e}")
+
+    async def storage_unmount(self, dev_node: str) -> bool:
+        device = dev_node.replace("/dev/", "")
+        logger.debug(f"Unmounting {dev_node}")
+
+        try:
+            obj = self._bus.get(
+                "org.freedesktop.UDisks2",
+                f"/org/freedesktop/UDisks2/block_devices/{device}",
+            )
+
+            existing = obj.MountPoints
+            if not existing:
+                logger.debug(f"{dev_node} is not mounted, skipping unmount")
+            else:
+                obj.Unmount({"auth.no_user_interaction": GLib.Variant("b", True)})
+                logger.debug(f"Unmounted {dev_node}")
+
+            self._core._request("playback.stop")
+            storage = self.storage_item(dev_node, internal=True)
+
+            if not storage:
+                self._core.send(
+                    target=["web", "display"],
+                    event="storage_removed",
+                    storage=storage,
+                )
+                return True
+
+            self._core.send(
+                target=["web", "display"],
+                event="storage_unmounted",
+                storage=storage,
+            )
+            return True
+
+        except Exception as e:
+            raise ValueError(f"Error unmounting {dev_node}: {e}")
+
+    def directory(
         self,
         uri: str,
         extensions=None,

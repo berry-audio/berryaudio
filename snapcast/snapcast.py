@@ -12,7 +12,7 @@ import websockets
 from zeroconf.asyncio import AsyncZeroconf, AsyncServiceBrowser
 from zeroconf._exceptions import NotRunningException
 
-from core.models import Snapcast, Track, TlTrack, Source, RefType
+from core.models import Snapcast, Track, Source, RefType
 from pathlib import Path
 from core.actor import SourceActor
 
@@ -38,7 +38,7 @@ class SnapcastExtension(SourceActor):
         self._core = core
         self._db = db
         self._config = config
-        self._device = self._config["mixer"]["output_audio"]
+        self._output_device = self._config["mixer"]["output_device"]
         self._server_enabled = self._config["snapcast"]["server"]
         self._server_playback_device = self._config["snapcast"]["playback_device"]
         self._server_codec = self._config["snapcast"]["codec"]
@@ -67,12 +67,12 @@ class SnapcastExtension(SourceActor):
                 "icon": "speaker",
             },
         )
-        self._tl_track = TlTrack(0,track=Track())
+        self._track = Track()
         self._zc_tasks = set()
         self._loop = asyncio.get_running_loop()
 
     async def on_start_service(self):
-        await self._core.request("playback.set_metadata", tl_track=self._tl_track)
+        await self._core.request("playback.set_metadata", track=self._track)
         return True
 
     async def on_stop_service(self):
@@ -374,7 +374,7 @@ class SnapcastExtension(SourceActor):
             "--player",
             "alsa",
             "--soundcard",
-            self._device,
+            self._output_device,
         ]
         self._proc_snapclient = subprocess.Popen(
             cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1
@@ -410,7 +410,7 @@ class SnapcastExtension(SourceActor):
                     if sampleformat:
                         rate, bit_depth, channels = map(int, sampleformat.split(":"))
 
-                    _track = self._tl_track.track.copy(
+                    self._track = self._track.copy(
                         update={
                             "audio_codec": codec,
                             "sample_rate": rate,
@@ -419,11 +419,10 @@ class SnapcastExtension(SourceActor):
                         }
                     )
 
-                    self._tl_track = TlTrack(tlid=self._tl_track.tlid, track=_track)
                     self._core.send(
                         target=["web", "display"],
                         event="track_meta_updated",
-                        tl_track=self._tl_track,
+                        track=self._track,
                     )
 
                 # Connected successfully

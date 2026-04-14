@@ -1,5 +1,4 @@
 input_device: hw:CARD=sndrpihifiberry,DEV=0
 sample_rate: 192000
 bit_depth: S32_LE
-gain: 20
-
+gain: 5

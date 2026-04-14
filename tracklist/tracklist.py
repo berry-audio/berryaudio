@@ -56,21 +56,13 @@ class TracklistExtension(Actor):
         - track_playback_error → increment error counter
         - track_playback_ended → move to next track, unless all failed
         """
-        if message["event"] == "track_playback_error":
-            self._playback_errors += 1
-
+        # if tlid = 0 then dont skip to next track
+        # TODO
         if message["event"] == "track_playback_ended":
-            # if tlid = 0 then dont skip to next track
-            # TODO
             _next_track = await self.on_next_track()
             if _next_track is not None:
-                if self._playback_errors >= len(self._tl_tracks):
-                    logger.warning("All tracks failed to play, stopping.")
-                    self._playback_errors = 0
-                    return
                 await self._core.request("playback.next", from_ui=False)
-            else:
-                self._playback_errors = 0
+            
 
     async def on_stop(self) -> None:
         """Called when the extension is shutting down."""

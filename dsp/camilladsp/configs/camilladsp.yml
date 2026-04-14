@@ -1,0 +1,202 @@
+description: null
+devices:
+  adjust_period: null
+  capture:
+    channels: 2
+    device: hw:CARD=Loopback,DEV=1
+    labels: null
+    link_mute_control: null
+    link_volume_control: null
+    stop_on_inactive: null
+    type: Alsa
+  capture_samplerate: 44100
+  chunksize: 4096
+  enable_rate_adjust: null
+  multithreaded: true
+  playback:
+    channels: 8
+    device: audio_out
+    format: null
+    type: Alsa
+  queuelimit: 2
+  rate_measure_interval: null
+  samplerate: 48000
+  silence_threshold: null
+  silence_timeout: null
+  stop_on_rate_change: null
+  target_level: null
+  volume_limit: null
+  volume_ramp_time: null
+  worker_threads: null
+filters:
+  15 Band EQ:
+    description: null
+    parameters:
+      freq_max: 20000
+      freq_min: 45
+      gains:
+      - 5.7
+      - 2
+      - -0.7
+      - -1.9
+      - -3.6
+      - -3.9
+      - -3.5
+      - -3.7
+      - -3.5
+      - -2.5
+      - -1.7
+      - -1.1
+      - -0.3
+      - 2.7
+      - 6.6
+      type: GraphicEqualizer
+    type: BiquadCombo
+  Bass:
+    description: null
+    parameters:
+      freq: 60
+      gain: 11
+      q: 0.5
+      type: Peaking
+    type: Biquad
+  Gain:
+    description: null
+    parameters:
+      gain: -15
+      inverted: false
+      mute: null
+      scale: null
+    type: Gain
+  Treble:
+    description: null
+    parameters:
+      freq: 19366
+      gain: 3
+      q: 0.4
+      type: Peaking
+    type: Biquad
+mixers:
+  Main Distributer:
+    channels:
+      in: 2
+      out: 8
+    description: null
+    labels:
+    - Output L
+    - Output R
+    - Snapcast L
+    - Snapcast R
+    - Spectrum L
+    - Spectrum R
+    - BT L
+    - BT R
+    mapping:
+    - dest: 0
+      mute: false
+      sources:
+      - channel: 0
+        gain: 0
+        inverted: false
+        mute: false
+        scale: dB
+    - dest: 1
+      mute: false
+      sources:
+      - channel: 1
+        gain: 0
+        inverted: false
+        mute: false
+        scale: dB
+    - dest: 2
+      mute: false
+      sources:
+      - channel: 0
+        gain: 0
+        inverted: false
+        mute: false
+        scale: dB
+    - dest: 3
+      mute: false
+      sources:
+      - channel: 1
+        gain: 0
+        inverted: false
+        mute: false
+        scale: dB
+    - dest: 4
+      mute: false
+      sources:
+      - channel: 0
+        gain: 0
+        inverted: false
+        mute: false
+        scale: dB
+    - dest: 5
+      mute: false
+      sources:
+      - channel: 1
+        gain: 0
+        inverted: false
+        mute: false
+        scale: dB
+    - dest: 6
+      mute: false
+      sources:
+      - channel: 0
+        gain: 0
+        inverted: false
+        mute: false
+        scale: dB
+    - dest: 7
+      mute: false
+      sources:
+      - channel: 1
+        gain: 0
+        inverted: false
+        mute: false
+        scale: dB
+pipeline:
+- bypassed: true
+  description: null
+  name: Automatic Gain Control
+  type: Processor
+- bypassed: false
+  channels: null
+  description: null
+  names:
+  - Gain
+  type: Filter
+- bypassed: null
+  description: null
+  name: Main Distributer
+  type: Mixer
+- bypassed: false
+  channels:
+  - 0
+  - 1
+  - 6
+  - 7
+  description: null
+  names:
+  - 15 Band EQ
+  - Treble
+  - Treble
+  - Bass
+  type: Filter
+processors:
+  Automatic Gain Control:
+    description: null
+    parameters:
+      attack: 0.1
+      channels: 2
+      clip_limit: 0.1
+      factor: 3
+      makeup_gain: 10
+      monitor_channels: null
+      process_channels: null
+      release: 60
+      soft_clip: false
+      threshold: -24
+    type: Compressor
+title: Parametric EQ 10-Band

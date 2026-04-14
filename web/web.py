@@ -36,6 +36,7 @@ class WebExtension(Actor):
         self._db = db
         self._config = config
         self.ws = None
+        self._server_stop = asyncio.Event()
 
     async def on_start(self):
         logger.info("Started")
@@ -103,10 +104,9 @@ class WebExtension(Actor):
                     www_dir / "index.html", headers={"Content-Type": "text/html"}
                 )
 
-        self._app.router.add_get("/{tail:.*}", index_handler)
-
         self._add_static_route("/assets/", www_dir / "assets", ASSET_MIME_MAP)
         self._add_static_route("/images/", images_dir, IMAGE_MIME_MAP)
+        self._app.router.add_get("/{tail:.*}", index_handler)
 
         runner = web.AppRunner(self._app)
         await runner.setup()
@@ -114,15 +114,16 @@ class WebExtension(Actor):
         await site.start()
         logger.info(f"Server running at http://{host}:{port}")
 
-        while self.running:
-            await asyncio.sleep(1)
+        await self._server_stop.wait()
         await runner.cleanup()
 
     async def safe_send_to(self, ws, message: dict):
         """Send to a specific client only."""
         try:
             if ws and not ws.closed:
-                payload = json.dumps(json.loads(handle_json_ws(message)))
+                payload = handle_json_ws(message)
+                if isinstance(payload, bytes):
+                    payload = payload.decode("utf-8")
                 await ws.send_str(payload)
         except Exception as e:
             logger.error(f"Failed to send to client: {e}")
@@ -131,7 +132,9 @@ class WebExtension(Actor):
     async def safe_send(self, message: dict):
         if not self._clients:
             return
-        payload = json.dumps(json.loads(handle_json_ws(message)))
+        payload = handle_json_ws(message)
+        if isinstance(payload, bytes):
+            payload = payload.decode("utf-8")
         for client in list(self._clients):
             try:
                 if not client.closed:
@@ -220,6 +223,8 @@ class WebExtension(Actor):
             self._clients.clear()
 
         self.running = False
+        if hasattr(self, "_server_stop"):
+            self._server_stop.set()
         if hasattr(self, "_server_task"):
             self._server_task.cancel()
             try:

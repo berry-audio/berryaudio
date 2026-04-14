@@ -12,10 +12,11 @@ from core.actor import Actor
 from core.util.system import SystemUtil
 
 
-
 logger = logging.getLogger(__name__)
 
 PLAYBACK_MIXERS_PATH = Path(__file__).parent.parent / "mixer" / "playback_mixers.json"
+VOL_MIN = 0
+VOL_MAX = 100
 
 
 class MixerExtension(Actor):
@@ -26,27 +27,25 @@ class MixerExtension(Actor):
         self._db = db
         self._config = config
         self._system = SystemUtil(core, db)
-        self._output_device = self._config["mixer"]["output_device"]
-        self._volume_default = self._config["mixer"]["volume_default"]
-        self._volume_muted = False
+        self._hw_device = self._config["mixer"]["hw_device"]
+        self._volume = self._config["mixer"]["volume_default"]
+        self._muted = False
         self._volume_event_task = None
-        self._volume_min = 0
-        self._volume_max = 100
         self._mixer = None
         self._loop = asyncio.get_running_loop()
 
     async def on_config_update(self, config):
         updated_config = config[self._name]
-        if "output_device" in updated_config:
-            await self.set_mixer(updated_config.get("output_device"))
+        if "hw_device" in updated_config:
+            await self.set_mixer(updated_config.get("hw_device"))
 
     async def on_start(self):
-        if self._output_device is None:
+        if self._hw_device is None:
             return
 
-        playback_mixer = self.on_get_playback_mixers(self._output_device)
+        playback_mixer = self.on_get_playback_mixers(self._hw_device)
         if playback_mixer is None:
-            logger.error(f"No playback mixer found for device '{self._output_device}'")
+            logger.error(f"No playback mixer found for device '{self._hw_device}'")
             return
 
         volume_control_mixer = playback_mixer.get("volume_control_mixer")
@@ -56,9 +55,9 @@ class MixerExtension(Actor):
             self._mixer = alsaaudio.Mixer(
                 control=volume_control_mixer, cardindex=mixer_index
             )
-            self._loop.create_task(self.on_set_volume(self._volume_default))
+            self._loop.create_task(self.on_set_volume(self._volume))
             logger.info(
-                f"Using mixer control '{volume_control_mixer}', volume set to {self._volume_default}"
+                f"Using mixer control '{volume_control_mixer}', volume set to {self._volume}"
             )
         except Exception as e:
             logger.error(f"Failed to open mixer '{volume_control_mixer}': {e}")
@@ -71,140 +70,165 @@ class MixerExtension(Actor):
     async def on_stop(self):
         logger.info("Stopped")
 
-    def on_set_mute(self, mute: bool | None = None) -> bool:
+    async def on_set_mute(self, mute: bool = False) -> bool:
         """
         Set mixer mute state.
         """
-        if mute is None:
-            mute = not self._volume_muted
+        self._muted = await self._core.request("dsp.set_mute", mute=mute)
+        # if mute is None:
+        #     mute = not self._muted
 
-        if self._mixer is None:
-            logger.warning("Mixer is not available")
-        else:
-            try:
-                self._mixer.setmute(int(mute))
-                self._volume_muted = self.on_get_mute()
-            except alsaaudio.ALSAAudioError as exc:
-                if self._mixer:
-                    if self._volume_muted:
-                        self._mixer.setvolume(0)
-                    else:
-                        self._mixer.setvolume(
-                            self.volume_to_mixer_volume(self._volume_default)
-                        )
-                    logger.warning(f"Mute failed using volume settings: {exc}")
-                else:
-                    logger.error(f"Mute failed: {exc}")
+        # if self._mixer is None:
+        #     logger.warning("Mixer is not available")
+        # else:
+        #     try:
+        #         self._mixer.setmute(int(mute))
+        #         self._muted = self.on_get_mute()
+        #     except alsaaudio.ALSAAudioError as exc:
+        #         if self._mixer:
+        #             if self._muted:
+        #                 self._mixer.setvolume(0)
+        #             else:
+        #                 self._mixer.setvolume(
+        #                     self.volume_to_mixer_volume(self._volume)
+        #                 )
+        #             logger.warning(f"Mute failed using volume settings: {exc}")
+        #         else:
+        #             logger.error(f"Mute failed: {exc}")
 
-            except Exception as exc:
-                logger.error(
-                    f"Unexpected error while setting mute state or no hardware mute available: {exc}"
-                )
+        #     except Exception as exc:
+        #         logger.error(
+        #             f"Unexpected error while setting mute state or no hardware mute available: {exc}"
+        #         )
 
         self._core.send(
             target=["web", "display", "bluetooth", "infrared", "gpio"],
             event="mixer_mute",
-            mute=self._volume_muted,
+            mute=self._muted,
         )
-        logger.info(f"Muted: {self._volume_muted}, Volume: {self._volume_default}")
-        return True
+        logger.info(f"Muted: {self._muted}, Volume: {self._volume}")
+        return self._muted
 
-    def on_get_mute(self) -> Optional[bool]:
+    async def on_get_mute(self) -> Optional[bool]:
         """
         Get mixer mute state.
         """
-        if self._mixer is None:
-            logger.warning("Mixer is not available")
-        else:
-            try:
-                channels_muted = self._mixer.getmute()
+        # if self._mixer is None:
+        #     logger.warning("Mixer is not available")
+        # else:
+        #     try:
+        #         channels_muted = self._mixer.getmute()
 
-                if all(channels_muted):
-                    self._volume_muted = True
-                if not any(channels_muted):
-                    self._volume_muted = False
+        #         if all(channels_muted):
+        #             self._muted = True
+        #         if not any(channels_muted):
+        #             self._muted = False
 
-            except alsaaudio.ALSAAudioError as exc:
-                logger.warning(f"ALSA error while getting mute state: {exc}")
-            except Exception as exc:
-                logger.error(
-                    f"Unexpected error while getting mute state or no hardware mute available: {exc}"
-                )
-        return self._volume_muted
+        #     except alsaaudio.ALSAAudioError as exc:
+        #         logger.warning(f"ALSA error while getting mute state: {exc}")
+        #     except Exception as exc:
+        #         logger.error(
+        #             f"Unexpected error while getting mute state or no hardware mute available: {exc}"
+        #         )
+        self._muted = await self._core.request("dsp.get_mute")
+        return self._muted
 
-    def on_get_volume(self) -> Optional[int]:
+    async def on_toggle_mute(self) -> bool:
+        self._muted = await self._core.request("dsp.toggle_mute")
+        self._core.send(
+            target=["web", "display", "bluetooth", "infrared", "gpio"],
+            event="mixer_mute",
+            mute=self._muted,
+        )
+        logger.info(f"Muted: {self._muted}, Volume: {self._volume}")
+        return self._muted
+
+    async def on_get_volume(self) -> Optional[int]:
         """
         Get mixer volume.
         """
-        if self._mixer is None:
-            logger.warning("Mixer is not available")
-        else:
-            try:
-                channels = self._mixer.getvolume()
-                if len(channels):
-                    if not self._volume_muted:
-                        self._volume_default = self.mixer_volume_to_volume(channels[0])
 
-            except alsaaudio.ALSAAudioError as exc:
-                logger.warning(f"ALSA error while getting volume: {exc}")
-                return None
-            except Exception as exc:
-                logger.error(
-                    f"Unexpected error while getting volume or no hardware volume available: {exc}"
-                )
-        return self._volume_default
+        volume_db = await self._core.request("dsp.get_volume")
+        self._volume = await self._core.request("dsp.db_to_volume", volume_db=volume_db)
+
+        # if self._mixer is None:
+        #     logger.warning("Mixer is not available")
+        # else:
+        #     try:
+        #         channels = self._mixer.getvolume()
+        #         if len(channels):
+        #             if not self._muted:
+        #                 self._volume = self.mixer_volume_to_volume(channels[0])
+
+        #     except alsaaudio.ALSAAudioError as exc:
+        #         logger.warning(f"ALSA error while getting volume: {exc}")
+        #         return None
+        #     except Exception as exc:
+        #         logger.error(
+        #             f"Unexpected error while getting volume or no hardware volume available: {exc}"
+        #         )
+        return self._volume
 
     async def on_set_volume(self, volume: int = 0) -> bool:
         """
         Set Volume
         """
-        self._volume_default = volume
+        self._volume = volume
+        volume_to_db = await self._core.request("dsp.volume_to_db", volume=volume)
+        
         if self._volume_event_task and not self._volume_event_task.done():
             self._volume_event_task.cancel()
 
         async def _set_volume(volume: int):
             try:
-                await asyncio.to_thread(
-                    self._mixer.setvolume,
-                    self.volume_to_mixer_volume(volume),
-                )
+                await self._core.request( "dsp.set_volume", volume_db=volume_to_db)
+                # await asyncio.to_thread(
+                #     self._mixer.setvolume,
+                #     self.volume_to_mixer_volume(volume),
+                # )
             except Exception as exc:
                 logger.error(f"Failed to set volume: {exc}")
 
         async def _delayed_volume_event(volume: int):
             try:
                 await asyncio.sleep(0.2)
-                if self._mixer is None:
-                    logger.warning("Mixer is not available")
+                # if self._mixer is None:
+                #     logger.warning("Mixer is not available")
 
                 self._core.send(
                     target=["web", "display", "bluetooth", "infrared", "gpio"],
                     event="volume_changed",
-                    volume=volume,
+                    volume=self._volume,
                 )
             except asyncio.CancelledError:
                 pass
 
-        if self._mixer is not None:
-            self._core.send(target=["display"], event="volume_changed", volume=volume)
-            asyncio.create_task(_set_volume(self._volume_default))
+        # if self._mixer is not None:
+        #     self._core.send(target=["display"], event="volume_changed", volume=volume)
+        #     asyncio.create_task(_set_volume(self._volume))
+        #     self._db.set_config({"mixer":{"volume_default":self._volume}})
+
+        asyncio.create_task(_set_volume(self._volume))
+        self._db.set_config({"mixer":{"volume_default":self._volume}})
 
         self._volume_event_task = asyncio.create_task(
-            _delayed_volume_event(self._volume_default)
+            _delayed_volume_event(self._volume)
         )
-        return True
+        return self._volume
 
     async def on_volume_up(self):
-        await self.on_set_volume(min(self._volume_default + 1, self._volume_max))
+        volume = await self.on_get_volume()
+        await self.on_set_volume(min(volume + 1, VOL_MAX))
 
     async def on_volume_down(self):
-        await self.on_set_volume(max(self._volume_default - 1, self._volume_min))
+        volume = await self.on_get_volume()
+        await self.on_set_volume(max(volume - 1, VOL_MIN))
 
     def volume_to_mixer_volume(self, volume):
         if volume == 0:
             return 0
         mixer_volume = (
-            self._volume_min + volume * (self._volume_max - self._volume_min) / 100.0
+            VOL_MIN + volume * (VOL_MAX - VOL_MIN) / 100.0
         )
         mixer_volume = 50 * math.log10(mixer_volume)
         return int(mixer_volume)
@@ -213,7 +237,7 @@ class MixerExtension(Actor):
         volume = mixer_volume
         volume = math.pow(10, volume / 50.0)
         volume = (
-            (volume - self._volume_min) * 100.0 / (self._volume_max - self._volume_min)
+            (volume - VOL_MIN) * 100.0 / (VOL_MAX - VOL_MIN)
         )
         return int(volume)
 

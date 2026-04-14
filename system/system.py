@@ -163,8 +163,10 @@ class SystemExtension(Actor):
         machine = platform.machine()
         hostname = socket.gethostname()
 
-        cpu_percent = psutil.cpu_percent(interval=1)
+
         cpu_cores = psutil.cpu_count(logical=True)
+        cpu_per_core = psutil.cpu_percent(interval=0.5, percpu=True)
+        cpu_percent  = round(sum(cpu_per_core) / len(cpu_per_core), 1)
 
         info = platform.uname()
         version = info.version
@@ -189,6 +191,7 @@ class SystemExtension(Actor):
                 "volts": self.get_volts("core"),
                 "usage_percent": cpu_percent,
                 "cores": cpu_cores,
+                "cpu_per_core": cpu_per_core,
                 "temperature": self.get_temperature(),
             },
             "memory": {

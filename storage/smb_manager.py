@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 SMBD_CONF = "/etc/samba/smb.conf"
 
 
-class StorageSMB:
+class StorageSmbManager:
     def __init__(self, name, core, db=None, username=None, password=None):
         self._name = name
         self._core = core

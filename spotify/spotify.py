@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 LIBRESPOT_PATH = "/usr/local/bin/librespot"
 ON_EVENT_PATH = Path(__file__).parent / "events.py"
 
+
 class SpotifyExtension(SourceActor):
     def __init__(self, name, core, db, config):
         super().__init__()
@@ -21,15 +22,19 @@ class SpotifyExtension(SourceActor):
         self._core = core
         self._db = db
         self._config = config
-        self._hostname = self._config["system"]["hostname"]
-        self._bitrate = str(self._config["spotify"]["bitrate"])
-        self._volume_default = str(self._config["spotify"]["volume_default"])
-        self._volume_normalization = self._config["spotify"]["volume_normalization"]
-        self._bit_depth = self._config["spotify"]["bit_depth"]
-        self._output_audio = self._config["mixer"]["output_audio"]
+        self._hostname = self._config.get("system", {}).get("hostname")
+        self._bitrate = str(self._config.get("spotify", {}).get("bitrate", ""))
+        self._volume_default = str(
+            self._config.get("spotify", {}).get("volume_default", "")
+        )
+        self._volume_normalization = self._config.get("spotify", {}).get(
+            "volume_normalization"
+        )
+        self._bit_depth = "S32"
+        self._output_device = self._config.get("mixer", {}).get("output_device")
         self._channels = 2
         self._proc = None
-        self._tl_track = None
+        self._track = None
         self._timer = None
         self._timer_running = True
         self._timer_paused = False
@@ -74,27 +79,29 @@ class SpotifyExtension(SourceActor):
     async def on_start_service(self):
         self._source_active = True
         if os.path.exists(LIBRESPOT_PATH):
+            await self._core.request("dsp.set_capture_device", samplerate=self._sample_rate)
             threading.Thread(target=self._librespot_init, daemon=True).start()
             await self._meta_init()
+            
             logger.info(
-                f"Started Spotify Connect with name {self._hostname} on {self._output_audio}"
+                f"Started Spotify Connect with name {self._hostname} on {self._output_device}"
             )
         else:
             logger.error(f"Librespot service missing")
-        return True
+        return self._source
 
     async def _meta_init(self):
         """Reset metadata handling"""
         track = Track(
-                uri=self._name,
-                name="Spotify Connect",
-                sample_rate=self._sample_rate,
-                bit_depth=self._bit_depth,
-                channels=self._channels,
-                audio_codec=self._audio_codec,
-            )
-        self._tl_track = TlTrack(0, track=track)
-        await self._core.request("playback.set_metadata", tl_track=self._tl_track)
+            uri=self._name,
+            name="Spotify Connect",
+            sample_rate=self._sample_rate,
+            bit_depth=self._bit_depth,
+            channels=self._channels,
+            audio_codec=self._audio_codec,
+        )
+        self._track = track
+        await self._core.request("playback.set_metadata", track=self._track)
 
     async def on_message(self, event):
         """Handle incoming events from librespot"""
@@ -115,7 +122,7 @@ class SpotifyExtension(SourceActor):
                         self._source.state.connected = False
                 await self._stop_timer()
                 await self._meta_init()
-                await self._core.request("playback.stop_playback")
+                await self._core.request("playback.stop")
                 await self._core.request("source.update_source", source=self._source)
                 logger.warning(
                     f"Disconnected from Spotify account: {self._source.state.user_name}"
@@ -137,9 +144,7 @@ class SpotifyExtension(SourceActor):
                 await self._core.request(
                     "playback.set_time_position", position_ms=int(event["POSITION_MS"])
                 )
-                self._elapsed_timer_count = (
-                    int(event["POSITION_MS"]) / 1000
-                )  # milliseconds to seconds
+                self._elapsed_timer_count = int(event["POSITION_MS"]) / 1000  # milliseconds to seconds
 
             if event["PLAYER_EVENT"] in ("seeked", "position_correction"):
                 await self._core.request(
@@ -159,11 +164,12 @@ class SpotifyExtension(SourceActor):
                 self._core.send(
                     target=["web", "display"],
                     event="track_playback_resumed",
-                    tl_track=self._tl_track,
+                    tl_track=TlTrack(0, track=self._track),
                     time_position=int(event["POSITION_MS"]),
                 )
 
             if event["PLAYER_EVENT"] in ("paused"):
+                self._elapsed_timer_count = int(event["POSITION_MS"]) / 1000
                 await self._pause_timer()
                 await self._core.request(
                     "playback.set_state", state=PlaybackState.PAUSED
@@ -174,7 +180,7 @@ class SpotifyExtension(SourceActor):
                 self._core.send(
                     target=["web", "display"],
                     event="track_playback_paused",
-                    tl_track=self._tl_track,
+                    tl_track=TlTrack(0, track=self._track),
                     time_position=int(event["POSITION_MS"]),
                 )
 
@@ -195,7 +201,7 @@ class SpotifyExtension(SourceActor):
                 covers = event["COVERS"]
                 image = covers.split("\n")[0] if covers else "/images/no_cover.jpg"
 
-                if self._tl_track is not None:
+                if self._track is not None:
                     await self._stop_timer()
                     await self._core.request("playback.stop_playback")
 
@@ -216,15 +222,13 @@ class SpotifyExtension(SourceActor):
                     audio_codec=self._audio_codec,
                     images=[Image(uri=image)] or [],
                 )
-                self._tl_track = TlTrack(0, track=track)
+                self._track = track
                 await self._start_timer()
-                await self._core.request(
-                    "playback.set_metadata", tl_track=self._tl_track
-                )
+                await self._core.request("playback.set_metadata", tl_track=self._track)
                 self._core.send(
                     target=["web", "display"],
                     event="track_playback_started",
-                    tl_track=self._tl_track,
+                    tl_track=TlTrack(0, track=self._track),
                 )
 
     def _librespot_init(self):
@@ -249,7 +253,7 @@ class SpotifyExtension(SourceActor):
             "--device-type",
             "avr",
             "--device",
-            self._output_audio,
+            self._output_device,
         ]
         self._proc = subprocess.Popen(
             cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1

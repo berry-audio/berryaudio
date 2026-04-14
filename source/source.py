@@ -50,7 +50,7 @@ class SourceExtension(Actor):
                 target=["web", "display"], event="source_updated", source=self._current
             )
 
-    async def on_set(self, uri: str | None) -> bool:
+    async def on_set(self, uri: str | None = None) -> bool:
         """Set the active source and manage start stop services."""
         directory = self.on_directory()
         current_source = next(
@@ -113,14 +113,8 @@ class SourceExtension(Actor):
         if uri is not None:
             if self._core.is_callable(start_method):
                 logger.info(f"Starting {current} service")
-                await self._core.request(start_method)
-                self._current = Source(
-                    name=current_source.name,
-                    uri=uri,
-                    type=RefType.SOURCE,
-                    controls=[],
-                    state={"connected": False},
-                )
+                source = await self._core.request(start_method)
+                self._current = source
                 self._core.send(
                     target=["web", "display"],
                     event="source_changed",

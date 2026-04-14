@@ -15,20 +15,33 @@ class SystemUtil:
         self._core = core
         self._db = db
 
-    async def service_camilladsp(self, state: str):
-        """Control CamillaDSP service"""
+    def get_board(self) -> str:
         try:
-            subprocess.run(
-                ["sudo", "/bin/systemctl", state, "camilladsp.service"],
-                check=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-            )
-            logger.debug("CamillaDSP -> %s OK", state)
-        except subprocess.CalledProcessError as e:
-            logger.error("CamillaDSP -> %s failed: %s", state, e.stderr)
-            raise
+            with open("/proc/device-tree/model", "r") as f:
+                model = f.read().lower()
+            if "zero 2" in model:
+                return "PI_ZERO_2W"
+            if "zero" in model:
+                return "PI_ZERO_W"
+            if "pi 5" in model:
+                return "PI_5"
+            if "pi 4" in model:
+                return "PI_4"
+            if "pi 3" in model:
+                return "PI_3"
+            if "pi 2" in model:
+                return "PI_2"
+            if "rock" in model:
+                return "ROCKCHIP"
+            if "odroid" in model:
+                return "ODROID"
+            if "orange" in model:
+                return "ORANGE_PI"
+            if "banana" in model:
+                return "BANANA_PI"
+            return "UNKNOWN"
+        except Exception:
+            return "UNKNOWN"
 
     async def service_samba(self, state: str):
         """Control Samba service"""
@@ -48,10 +61,10 @@ class SystemUtil:
     async def write_asoundrc(self, pcm=None, path: str = "/home/pi/.asoundrc"):
         """Switches between PCM device and bluealsa for RX/TX mode"""
         _config = self._db.get_config()
-        _output_device = _config["mixer"]["output_device"]
+        _hw_device = _config["mixer"]["hw_device"]
 
         try:
-            pcm = pcm or _output_device or "null_device"
+            pcm = pcm or _hw_device or "null_device"
 
             with open(path, "r") as f:
                 content = f.read()

@@ -1,0 +1,12 @@
+---
+name: camillagui
+channels:
+  - conda-forge
+dependencies:
+  - pip
+  - aiohttp
+  - jsonschema
+  - pyyaml
+  - pip:
+    - "git+https://github.com/HEnquist/pycamilladsp.git@v4.0.0"
+    - "camilladsp-plot[plot]@git+https://github.com/HEnquist/pycamilladsp-plot.git@v4.1.0"

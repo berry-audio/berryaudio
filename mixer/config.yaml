@@ -1,5 +1,5 @@
-output_device: null
-output_audio: plughw:CARD=Loopback,DEV=0
+output_device: hw:CARD=Loopback,DEV=0
+input_device: hw:CARD=sndrpihifiberry,DEV=0
+hw_device: null
 volume_default: 50
-volume_software_control: false
 volume_device: null

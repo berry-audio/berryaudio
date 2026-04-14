@@ -351,7 +351,6 @@ class LocalExtension(SourceActor):
         return obj
 
     async def on_playback_uri(self, path: str) -> any:
-        self._core._request("source.update_source", source=self._source)
         return f"file://{path}"
 
     async def on_lookup_track(self, path: str) -> Track:
@@ -367,7 +366,7 @@ class LocalExtension(SourceActor):
 
     async def on_start_service(self) -> bool:
         logger.debug("Starting Service")
-        return True
+        return self._source
 
     async def on_clean(self):
         self._db.executescript(

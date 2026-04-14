@@ -55,6 +55,7 @@ async def async_main(verbose=False):
         "tuner",
         "linein",
         "command",
+        "dsp",
     ]
     await core.load_extensions_by_name(extensions)
 

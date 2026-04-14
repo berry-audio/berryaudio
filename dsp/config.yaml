@@ -1,0 +1,4 @@
+default_capture_device: hw:CARD=Loopback,DEV=1
+default_gain: -15
+resample: true
+samplerate: 192000
