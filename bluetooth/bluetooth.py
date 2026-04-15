@@ -37,8 +37,11 @@ BLUEALSA_HW_VOLUME = 100
 # paths
 BLUETOOTH_APLAY_PATH = "/usr/bin/bluealsa-aplay"
 BLUETOOTH_AGENT_PATH = "/usr/bin/bt-agent"
-# PCM_BLUEALSA = "bluealsa"
-PCM_BLUEALSA = "plughw:Loopback,0,3"
+PCM_BLUEALSA = "bluealsa"
+PCM_PRE_BLUEALSA = "hw:Loopback,1,3"
+PCM_BLUEALSA_BUFFER = 1024
+PCM_BLUEALSA_PERIOD = 256
+PCM_BLUEALSA_LATENCY = 5000
 
 # Profiles
 MODE_TX = "AD2P-source"
@@ -64,7 +67,7 @@ class BluetoothExtension(SourceActor):
         self._db = db
         self._config = config
         self._hostname = self._config["system"]["hostname"]
-        self._output_device = self._config["mixer"]["output_device"]
+        self._output_device = self._config.get("mixer", {}).get("output_device")
         self._volume_default = self._config["mixer"]["volume_default"]
         self._mode = MODE_RX
         self._interface_name = None
@@ -77,7 +80,6 @@ class BluetoothExtension(SourceActor):
         self._sample_rate = 44100
         self._source = Source(
             name="Bluetooth",
-            type=RefType.SOURCE,
             uri=self._name,
             controls=[],
             state={"connected": False},
@@ -145,14 +147,13 @@ class BluetoothExtension(SourceActor):
     async def on_stop_service(self):
         if self._mode == MODE_RX:
             await self._core.request("playback.clear")
-            devices = await self.on_devices()
-            for device in devices:
-                if device.connected:
-                    path = self._addr_to_bluez_path(device.address)
-                    device_bus = bus.get(BLUEZ_SERVICE, path)
-                    if hasattr(device_bus, "Disconnect"):
-                        logger.debug(f"Disconnecting bluetooth device {device.name}")
-                        device_bus.Disconnect()
+            device = await self.on_device() #directly remove disconnect instead iterating through devices #todo
+            if device.connected:
+                path = self._addr_to_bluez_path(device.address)
+                device_bus = bus.get(BLUEZ_SERVICE, path)
+                if hasattr(device_bus, "Disconnect"):
+                    logger.debug(f"Disconnecting bluetooth device {device.name}")
+                    device_bus.Disconnect()
         return True
 
     def _init_agent(self):  # todo move this to daemon service
@@ -284,10 +285,14 @@ class BluetoothExtension(SourceActor):
 
         if not connected_device:
             await self._stop_aplay()
-            await self._core.request("dsp.service", state="restart")
+            
 
             if self._mode == MODE_RX:
                 self._clear_source_info()
+                await self._core.request(
+                    "dsp.set_capture_device",
+                )
+                
 
         self._core.send(
             target=["web", "display"],
@@ -315,24 +320,28 @@ class BluetoothExtension(SourceActor):
             if "Connected" in properties and changed_iface == "org.bluez.Device1":
                 if properties.get("Connected"):
                     self._interface_name = interface_name
+
                 else:
                     self._loop.call_soon_threadsafe(
                         asyncio.create_task, self._handle_disconnected(interface_name)
                     )
 
             if "ServicesResolved" in properties:
-                self._loop.call_soon_threadsafe(
-                    asyncio.create_task,
-                    self._handle_connected(self._interface_name),
-                )
+                pass
 
             if "Device" in properties and changed_iface == "org.bluez.MediaEndpoint1":
                 if "sink" in interface_name:
                     self._mode = MODE_RX
+                    logger.info("Bluetooth connection mode - Receiver")
 
                 if "source" in interface_name:
                     self._mode = MODE_TX
+                    logger.info("Bluetooth connection mode - Transmitter")
 
+                self._loop.call_soon_threadsafe(
+                    asyncio.create_task,
+                    self._handle_connected(self._interface_name),
+                )
                 self._interface_name = None
 
             if "Discoverable" in properties:
@@ -728,18 +737,18 @@ class BluetoothExtension(SourceActor):
         cmd = [
             "alsaloop",
             "-C",
-            "hw:Loopback,1,3",
+            PCM_PRE_BLUEALSA,
             "-P",
-            "bluealsa",
+            PCM_BLUEALSA,
             "-r",
             str(samplerate),
             "-f",
             sampleformat,
             "-c",
             str(channels),
-            "--buffer=1024",
-            "--period=256",
-            "--latency=5000",
+            f"--buffer={PCM_BLUEALSA_BUFFER}",
+            f"--period={PCM_BLUEALSA_PERIOD}",
+            f"--latency={PCM_BLUEALSA_LATENCY}",
         ]
 
         self._alsaloop_proc = subprocess.Popen(

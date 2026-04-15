@@ -1,14 +1,11 @@
 import logging
-import pyudev
-import subprocess
-import asyncio
 
+from pathlib import Path
 from core.actor import SourceActor
 from core.types import PlaybackControls
 from core.util.metadata import Metadata
 from core.models import Image, Album, Artist, Track, Source, RefType
 
-from pathlib import Path
 from .smb_manager import StorageSmbManager
 from .storage_manager import StorageManager
 
@@ -27,17 +24,18 @@ class StorageExtension(SourceActor):
         self._album_images_full_path = BASE_DIR / "images" / self._name
         self._album_images_web_path = Path("images") / self._name
         self._metadata = Metadata(cover_dir=self._album_images_full_path)
+        self._username = self._config[self._name].get("username", None)
+        self._password = self._config[self._name].get("password", None)
         self._smb = StorageSmbManager(
             name=self._name,
             core=self._core,
             db=self._db,
-            username=self._config[self._name]["username"],
-            password=self._config[self._name]["password"],
+            username=self._username,
+            password=self._password,
         )
         self._storage = StorageManager(name=self._name, core=self._core, db=self._db)
         self._source = Source(
             name="Storage",
-            type=RefType.SOURCE,
             uri=self._name,
             controls=[
                 PlaybackControls.SEEK,
@@ -49,6 +47,23 @@ class StorageExtension(SourceActor):
                 PlaybackControls.SHUFFLE,
             ],
             state={},
+        )
+
+    async def on_config_update(self, config):
+        updated_config = config[self._name]
+        if not updated_config:
+            return
+
+        if "username" in updated_config:
+            username = updated_config["username"]
+            self._username = None if username == "" else username
+
+        if "password" in updated_config:
+            password = updated_config["password"]
+            self._password = None if password == "" else password
+
+        await self._smb._set_credentials(
+            username=self._username, password=self._password
         )
 
     async def on_start(self):
@@ -68,7 +83,6 @@ class StorageExtension(SourceActor):
                     FileNotFoundError,
                 ) as e:
                     logger.error(e)
-        # threading.Thread(target=self._monitor_usb, daemon=True).start()
         await self._smb.status()
         logger.info("Started")
 

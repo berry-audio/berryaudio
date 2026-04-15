@@ -13,11 +13,11 @@ class LineinExtension(SourceActor):
         self._core = core
         self._db = db
         self._config = config
-        self._input_device = self._config["linein"]["input_device"] or None
-        self._output_device = self._config["mixer"]["output_device"] or None
-        self._sample_rate = self._config["linein"]["sample_rate"] or 44100
-        self._bit_depth = self._config["linein"]["bit_depth"] or "S16_LE"
-        self._gain = self._config["linein"]["gain"] or 0
+        self._input_device = self._config["linein"].get("input_device")
+        self._output_device = self._config["mixer"].get("output_device")
+        self._sample_rate = self._config["linein"].get("sample_rate", 44100)
+        self._bit_depth = self._config["linein"].get("bit_depth", "S16_LE")
+        self._gain = self._config["linein"].get("gain", 0)
         self._channels = 2
         self._audio_codec = "PCM"
         self._track = Track(
@@ -30,11 +30,36 @@ class LineinExtension(SourceActor):
         )
         self._source = Source(
             name="Line In",
-            type=RefType.SOURCE,
             uri=self._name,
             controls=[],
             state={"connected": False},
         )
+
+    async def on_config_update(self, config):
+        updated_config = config[self._name]
+        if not updated_config:
+            return
+
+        if "input_device" in updated_config:
+            self._input_device = updated_config["input_device"]
+
+        if "sample_rate" in updated_config:
+            self._sample_rate = updated_config["sample_rate"]
+
+        if "gain" in updated_config:
+            self._gain = updated_config["gain"]
+
+        if await self.is_active():
+            await self._core.request(
+                "dsp.set_capture_device",
+                device=self._input_device,
+                gain=self._gain,
+                samplerate=self._sample_rate,
+            )
+
+    async def is_active(self):
+        source = await self._core.request("source.get")
+        return bool(source and source.uri == self._name)
 
     async def on_start(self):
         logger.info("Started")
@@ -43,7 +68,6 @@ class LineinExtension(SourceActor):
         pass
 
     async def on_stop(self):
-        await self.on_stop_service()
         logger.info("Stopped")
 
     async def on_start_service(self):

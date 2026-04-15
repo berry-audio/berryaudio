@@ -1,11 +1,15 @@
 import enum
 
+
 class PlaybackState(enum.StrEnum):
     """Enum of playback states."""
 
     PAUSED = "paused"
     PLAYING = "playing"
     STOPPED = "stopped"
+    READY = "ready"
+    BUFFERING = "buffering"
+    UNKNOWN = "unknown"
 
 
 class PlaybackControls(enum.StrEnum):

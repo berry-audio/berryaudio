@@ -20,7 +20,9 @@ devices:
     type: Alsa
   queuelimit: 2
   rate_measure_interval: null
-  samplerate: 48000
+  resampler:
+    type: Synchronous
+  samplerate: 192000
   silence_threshold: null
   silence_timeout: null
   stop_on_rate_change: null
@@ -32,7 +34,7 @@ filters:
   15 Band EQ:
     description: null
     parameters:
-      freq_max: 20000
+      freq_max: 19000
       freq_min: 45
       gains:
       - 5.7
@@ -56,14 +58,14 @@ filters:
     description: null
     parameters:
       freq: 60
-      gain: 11
+      gain: 7.5
       q: 0.5
       type: Peaking
     type: Biquad
   Gain:
     description: null
     parameters:
-      gain: -15
+      gain: -10
       inverted: false
       mute: null
       scale: null
@@ -71,7 +73,7 @@ filters:
   Treble:
     description: null
     parameters:
-      freq: 19366
+      freq: 19000
       gain: 3
       q: 0.4
       type: Peaking
@@ -83,12 +85,12 @@ mixers:
       out: 8
     description: null
     labels:
-    - Output L
-    - Output R
-    - Snapcast L
-    - Snapcast R
-    - Spectrum L
-    - Spectrum R
+    - DAC L
+    - DAC R
+    - ROOM L
+    - ROOM R
+    - CAVA L
+    - CAVA R
     - BT L
     - BT R
     mapping:

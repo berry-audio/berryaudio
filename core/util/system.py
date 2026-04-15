@@ -43,21 +43,6 @@ class SystemUtil:
         except Exception:
             return "UNKNOWN"
 
-    async def service_samba(self, state: str):
-        """Control Samba service"""
-        try:
-            subprocess.run(
-                ["sudo", "/bin/systemctl", state, "smbd"],
-                check=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-            )
-            logger.debug("Samba -> %s OK", state)
-        except subprocess.CalledProcessError as e:
-            logger.error("Samba -> %s failed: %s", state, e.stderr)
-            raise
-
     async def write_asoundrc(self, pcm=None, path: str = "/home/pi/.asoundrc"):
         """Switches between PCM device and bluealsa for RX/TX mode"""
         _config = self._db.get_config()

@@ -171,6 +171,7 @@ class LocalExtension(SourceActor):
         self._scan_progress = None
         self._source = Source(
             name="Library",
+            type=RefType.SOURCE,
             uri=self._name,
             controls=[
                 PlaybackControls.SEEK,

@@ -46,7 +46,6 @@ class TunerExtension(SourceActor):
         )
         self._source = Source(
             name="Tuner",
-            type=RefType.SOURCE,
             uri=self._name,
             controls=[
                 PlaybackControls.NEXT,
@@ -57,6 +56,32 @@ class TunerExtension(SourceActor):
             state={},
         )
 
+    async def on_config_update(self, config):
+        updated_config = config[self._name]
+        if not updated_config:
+            return
+
+        if "input_device" in updated_config:
+            self._input_device = updated_config["input_device"]
+
+        if "sample_rate" in updated_config:
+            self._sample_rate = updated_config["sample_rate"]
+
+        if "gain" in updated_config:
+            self._gain = updated_config["gain"]
+
+        if await self.is_active():
+            await self._core.request(
+                "dsp.set_capture_device",
+                device=self._input_device,
+                gain=self._gain,
+                samplerate=self._sample_rate,
+            )
+
+    async def is_active(self):
+        source = await self._core.request("source.get")
+        return bool(source and source.uri == self._name)
+    
     async def on_start(self):
         self._init_db()
         logger.info("Started")
@@ -65,7 +90,7 @@ class TunerExtension(SourceActor):
         pass
 
     async def on_stop(self):
-        await self.on_stop_service()
+        await self._shutdown_tuner()
         logger.info("Stopped")
 
     async def on_start_service(self):
@@ -323,7 +348,6 @@ class TunerExtension(SourceActor):
         }
 
     async def on_playback_uri(self, path: str) -> bool:
-        await self._core.request("dsp.set_capture_device", device=self._input_device, gain=self._gain, samplerate=self._sample_rate)
         row = self._db.execute("SELECT * FROM tuner WHERE id = ?", (path,)).fetchone()
         if row is None:
             logger.warning(f"Tuner preset not found: {path}")

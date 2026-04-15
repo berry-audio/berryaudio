@@ -8,7 +8,6 @@ import socket
 
 from pathlib import Path
 from core.models import Storage, StorageUsage
-from core.util.system import SystemUtil
 
 
 logger = logging.getLogger(__name__)
@@ -21,13 +20,27 @@ class StorageSmbManager:
         self._name = name
         self._core = core
         self._db = db
-        self._system = SystemUtil(core, db)
         self.username = username
         self.password = password
         self._remote_username = None
         self._remote_password = None
         self._shares = {s.name: s for s in self.list_shares()}
         self._smb_shares = {}
+
+    async def on_service(self, state: str):
+        """Control Samba service"""
+        try:
+            subprocess.run(
+                ["sudo", "/bin/systemctl", state, "smbd"],
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+            logger.info("Samba state triggered %s OK", state)
+        except subprocess.CalledProcessError as e:
+            logger.error("Samba state triggered %s failed: %s", state, e.stderr)
+            raise ValueError(f"Samba state triggered {state} failed: {e.stderr}") from e
 
     async def share(self, uri: str, name: str = None, read_only: bool = False):
         if not uri.startswith(f"{self._name}:"):
@@ -58,8 +71,7 @@ class StorageSmbManager:
         if self.username and self.password:
             self._set_samba_password()
 
-        await self._system.service_samba("restart")
-
+        await self.on_service("restart")
         self._core.send(target=["web", "display"], event="storage_shared", uri=uri)
 
         logger.info(f"Shared '{path}' (read_only={read_only})")
@@ -73,7 +85,7 @@ class StorageSmbManager:
         _, path = uri.split(":", 1)
 
         await self._remove_conf(path)
-        await self._system.service_samba("restart")
+        await self.on_service("restart")
 
         self._core.send(target=["web", "display"], event="storage_unshared", uri=uri)
         logger.info(f"Removed share for {path}")
@@ -204,8 +216,40 @@ class StorageSmbManager:
         )
         logger.debug(f"Configuration written to {SMBD_CONF}")
 
+    async def _set_credentials(self, username=None, password=None):
+        if password and not username:
+            raise ValueError("Username is required when password is provided")
+
+        self.username = username
+        self.password = password
+
+        for name, share in self._shares.items():
+            share.guest_allowed = True if not self.username else False
+
+        await self._write_conf()
+
+        if self.username and self.password:
+            self._set_samba_password()
+
+        await self.on_service("restart")
+        logger.info(f"Samba credentials with username: {self.username}, password: {self.password} saved successfully.")
+
     def _set_samba_password(self):
         """Set Samba password for user non-interactively."""
+        result = subprocess.run(
+            ["id", self.username],
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0:
+            subprocess.run(
+                ["sudo", "useradd", "-M", "-s", "/sbin/nologin", self.username],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            logger.info(f"System user '{self.username}' created")
+
         proc = subprocess.run(
             ["sudo", "smbpasswd", "-a", "-s", self.username],
             input=f"{self.password}\n{self.password}\n",

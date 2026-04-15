@@ -28,24 +28,27 @@ class DspExtension(Actor):
             "default_capture_device"
         )
         self._default_gain = self._config.get("dsp", {}).get("default_gain", 0)
-        self._default_capture_samplerate = (
-            44100  # variable rate controlled by incoming audio data
-        )
-        self._default_samplerate = 192000  # output/resampling rate
-        self._muted = False
-        self._resample = False
+        self._resample_rate = self._config.get("dsp", {}).get("resample_rate", None)
 
     async def on_config_update(self, config):
-        pass
+        updated_config = config[self._name]
+        if not updated_config:
+            return
+
+        if "default_gain" in updated_config:
+            self._default_gain = updated_config["default_gain"]
+
+        if "resample_rate" in updated_config:
+            self._resample_rate = updated_config["resample_rate"]
+        
+        await self.on_set_capture_device()
 
     async def on_start(self):
-        await self.on_set_capture_device(
-            device=None, gain=None, samplerate=self._default_capture_samplerate
-        )
-        logger.info(f"Started CamillaDSP with resample set to {self._resample}")
+        await self.on_set_capture_device()
+        await self.on_service("restart")
+        logger.info(f"Started")
 
     async def on_stop(self):
-        self._client.disconnect()
         logger.info("Stopped")
 
     async def on_event(self, message):
@@ -78,7 +81,6 @@ class DspExtension(Actor):
                 stderr=subprocess.PIPE,
                 text=True,
             )
-            self._core.send(event="dsp_options_changed")
             logger.info("CamillaDSP state triggered %s OK", state)
         except subprocess.CalledProcessError as e:
             logger.error("CamillaDSP state triggered %s failed: %s", state, e.stderr)
@@ -87,66 +89,103 @@ class DspExtension(Actor):
             ) from e
 
     async def on_set_capture_device(
-        self, device=None, gain: float = None, samplerate: int = None, sampleformat=None
+        self,
+        device=None,
+        gain: float = None,
+        samplerate: int = 44100,
+        sampleformat=None,
     ):
         """Update config file directly then restart CamillaDSP."""
         try:
             config = self._read_config()
 
-            current_capture = config["devices"]["capture"]["device"]
-            current_gain = config["filters"]["Gain"]["parameters"]["gain"]
-            current_samplerate = (
-                config["devices"]["capture_samplerate"]
-                if self._resample
-                else config["devices"]["samplerate"]
-            )
-
             gain = gain if gain else self._default_gain
             capture_device = device if device else self._default_capture_device
-            samplerate = samplerate if samplerate else current_samplerate
-
-            if self._resample:
-                config["devices"]["samplerate"] = self._default_samplerate
-                config["devices"]["resampler"]["type"] = "Synchronous"
-                config["devices"]["capture_samplerate"] = samplerate
-            else:
-                config["devices"].pop("resampler", None)
-                config["devices"]["samplerate"] = samplerate
-
             config["filters"]["Gain"]["parameters"]["gain"] = gain
             config["devices"]["capture"]["device"] = capture_device
 
-            if sampleformat:
+            if self._resample_rate is not None:
+                config["devices"]["samplerate"] = self._resample_rate
+                config["devices"].setdefault("resampler", {})["type"] = "Synchronous"
+                config["devices"]["capture_samplerate"] = samplerate
+            else:
+                config["devices"].pop("resampler", None)
+                if samplerate is not None:
+                    config["devices"]["samplerate"] = samplerate
+
+            if sampleformat is not None:
                 config["devices"]["capture"]["format"] = sampleformat
             else:
                 config["devices"]["capture"].pop("format", None)
 
             self._write_config(config)
+            self._core.send(
+                event="dsp_options_before",
+                capture_device=capture_device,
+                sample_rate=config["devices"]["samplerate"],
+            )
 
-            for _ in range(30):
-                await asyncio.sleep(0.08)
+            for _ in range(5):
+                await asyncio.sleep(1)
                 try:
                     self._client.connect()
                     self._client.config.set_active(config)
                     state = self._client.general.state()
 
                     if state == ProcessingState.RUNNING:
-                        self._core.send(event="dsp_options_changed")
-                        logger.info(
-                            f"CamillaDSP capture device '{capture_device}', gain {float(gain)} dB, samplerate {samplerate} Hz, sampleformat {sampleformat}"
+                        self._client.general.reload()
+                        await asyncio.sleep(0.1)
+                        active = self._client.config.active()
+                        new_volume = self._client.volume.main_volume()
+                        new_mute = self._client.volume.main_mute()
+
+                        new_sample_rate = active["devices"]["samplerate"]
+                        new_capture_rate = active["devices"]["capture_samplerate"]
+                        new_capture_format = (
+                            active["devices"]["capture"]["format"] or "Auto"
                         )
-                        self._client.disconnect()
+
+                        self._core.send(
+                            event="dsp_options_changed",
+                            capture_device=capture_device,
+                            sample_rate=new_sample_rate,
+                            sample_format=new_capture_format,
+                        )
+
+                        resample_info = (
+                            f" | Capture Rate {new_capture_rate}Hz"
+                            if self._resample_rate
+                            else ""
+                        )
+                        info = f"DSP: {capture_device} | Gain {float(gain)}dB | {new_sample_rate}Hz | Format {new_capture_format} | Volume {new_volume}dB | Mute {new_mute}{resample_info}"
+                        divider = "-" * len(info)
+                        logger.info(divider)
+                        logger.info(info)
+                        logger.info(divider)
+
                         return True
                 except Exception:
                     logger.debug("Waiting for CamillaDSP to respond...")
             else:
-                logger.warning("CamillaDSP timed out.Please try again")
-                raise ValueError("CamillaDSP timed out.Please try again")
+                logger.warning("DSP timed out.Please try again")
+                self._core.send(
+                    event="dsp_options_changed",
+                    capture_device=capture_device,
+                    sample_rate=new_sample_rate,
+                    sample_format=new_capture_format,
+                )
+                raise ValueError("DSP timed out.Please try again")
 
         except Exception as e:
-            logger.error(f"CamillaDSP failed to update {e}. Restarting.")
-            await self.on_service("restart")
-            raise ValueError("CamillaDSP failed to update capture") from e
+            self._core.send(
+                event="error", message="DSP failed to update capture. Please try again"
+            )
+
+    def on_status(self):
+        self._client.connect()
+        config = self._client.config.active()
+        self._client.disconnect()
+        return config
 
     def on_volume_to_db(self, volume: int) -> float:
         db = VOL_MIN_DB + (int(volume) / 100) * (VOL_MAX_DB - VOL_MIN_DB)
@@ -166,7 +205,7 @@ class DspExtension(Actor):
         self._client.connect()
         self._client.volume.set_main_volume(float(volume_db))
         self._client.disconnect()
-        logger.info(f"CamillaDSP volume set to: {volume_db} dB")
+        logger.info(f"DSP volume set to: {volume_db} dB")
         return volume_db
 
     def on_get_mute(self):
@@ -179,14 +218,12 @@ class DspExtension(Actor):
         self._client.connect()
         self._client.volume.set_main_mute(bool(mute))
         self._client.disconnect()
-        self._muted = bool(mute)
-        logger.info(f"CamillaDSP mute set to: {self._muted}")
+        logger.info(f"DSP mute set to: {self._muted}")
         return mute
 
     def on_toggle_mute(self):
         self._client.connect()
         new_mute = self._client.volume.toggle_mute(fader=0)
         self._client.disconnect()
-        self._muted = new_mute
-        logger.info(f"CamillaDSP mute set to: {new_mute}")
+        logger.info(f"DSP mute set to: {new_mute}")
         return new_mute

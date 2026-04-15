@@ -21,7 +21,6 @@ class RadioExtension(SourceActor):
         self._config = config
         self._source = Source(
             name="Radio",
-            type=RefType.SOURCE,
             uri=self._name,
             controls=[
                 PlaybackControls.SEEK,

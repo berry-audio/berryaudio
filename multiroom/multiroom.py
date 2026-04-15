@@ -11,7 +11,6 @@ import websockets
 
 from zeroconf.asyncio import AsyncZeroconf, AsyncServiceBrowser
 from zeroconf._exceptions import NotRunningException
-
 from core.models import Snapcast, Track, Source, RefType
 from pathlib import Path
 from core.actor import SourceActor
@@ -31,21 +30,21 @@ SNAPCLIENT_PATH = "/usr/local/bin/snapclient"
 SNAPSERVER_CONFIG_PATH = Path(__file__).parent / "snapserver.conf"
 
 
-class SnapcastExtension(SourceActor):
+class MultiroomExtension(SourceActor):
     def __init__(self, name, core, db, config):
         super().__init__()
         self._name = name
         self._core = core
         self._db = db
         self._config = config
-        self._hostname = self._config.get("system", {}).get("hostname")
-        self._bitrate = str(self._config.get("spotify", {}).get("bitrate", ""))
-        self._output_device = self._config.get("mixer", {}).get("output_device")
-        self._server_enabled = self._config.get("snapcast", {}).get("server")
-        self._server_playback_device = self._config.get("snapcast", {}).get("playback_device")
-        self._server_codec = self._config.get("snapcast", {}).get("codec")
-        self._server_chunk = self._config.get("snapcast", {}).get("chunk")
-        self._server_buffer = self._config.get("snapcast", {}).get("buffer")
+        self._hostname = self._config["system"].get("hostname")
+        self._output_device = self._config["mixer"].get("output_device")
+        self._server_enabled = self._config["multiroom"].get("server")
+        self._server_codec = self._config["multiroom"].get("codec")
+        self._server_chunk = self._config["multiroom"].get("chunk")
+        self._server_buffer = self._config["multiroom"].get("buffer")
+        self._server_playback_device = self._config["multiroom"].get("playback_device")
+
         self._proc_snapclient = None
         self._proc_snapserver = None
         self._prev_server = None
@@ -67,11 +66,58 @@ class SnapcastExtension(SourceActor):
                 "icon": "speaker",
             },
         )
-        self._sample_rate = 48000
+        self._sample_rate = None
         self._bit_depth = 32
         self._track = Track()
         self._zc_tasks = set()
         self._loop = asyncio.get_running_loop()
+
+    async def on_config_update(self, config):
+        updated_config = config[self._name]
+        if not updated_config:
+            return
+
+        if "server" in updated_config:
+            self._server_enabled = updated_config["server"]
+
+        if "codec" in updated_config:
+            self._server_codec = updated_config["codec"]
+
+        if "chunk" in updated_config:
+            self._server_chunk = updated_config["chunk"]
+
+        if "buffer" in updated_config:
+            self._server_buffer = updated_config["buffer"]
+
+        await self._stop_snapserver()
+        await self._start_snapserver()
+
+    async def on_event(self, message):
+        event = message.get("event")
+        if event == "dsp_options_before":
+            new_sample_rate = message.get("sample_rate")
+            if self._sample_rate == new_sample_rate:
+                return
+
+            await self._stop_snapserver()
+
+        if event == "dsp_options_changed":
+            new_sample_rate = message.get("sample_rate")
+
+            if self._sample_rate is None:
+                self._sample_rate = new_sample_rate
+                await self._start_snapserver()
+                return
+
+            if self._sample_rate == new_sample_rate:
+                logger.debug(f"Sample rate unchanged {new_sample_rate}Hz")
+                return
+
+            logger.info(
+                f"Sample rate changed {self._sample_rate}Hz → {new_sample_rate}Hz"
+            )
+            self._sample_rate = new_sample_rate
+            await self._start_snapserver()
 
     async def on_start_service(self):
         await self._core.request("playback.set_metadata", track=self._track)
@@ -80,7 +126,7 @@ class SnapcastExtension(SourceActor):
     async def on_stop_service(self):
         await self._core.request("playback.clear")
         await self._stop_snapclient()
-        await self._init_snapserver()
+        await self._start_snapserver()
         return True
 
     """Zeroconf default callbacks"""
@@ -273,18 +319,7 @@ class SnapcastExtension(SourceActor):
                 self.remove_service,
             ],
         )
-
-        # await self._init_snapserver()
         logger.info("Started")
-
-    async def on_event(self, message):
-        event = message.get("event")
-
-        if event == "dsp_options_changed":
-            self._sample_rate = message.get("sample_rate")
-            if self._server is not None:
-                await self._stop_snapserver()
-            await self._init_snapserver()
 
     async def on_stop(self):
         await self.zeroconf.async_close()
@@ -299,22 +334,20 @@ class SnapcastExtension(SourceActor):
             self._proc_snapserver.terminate()
             self._proc_snapserver.kill()
             self._proc_snapserver = None
-
             logger.info(f"Snapcast server stopped")
 
-    async def _init_snapserver(self):
+    async def _start_snapserver(self):
         """Snapcast server initialization"""
-
         if self._server_enabled:
             if self._proc_snapserver is not None:
-                return False  # already running
+                return
 
             cmd = [
                 SNAPSERVER_PATH,
                 "-c",
                 SNAPSERVER_CONFIG_PATH,
                 "--stream.codec",
-                self._server_codec, 
+                self._server_codec,
                 "--stream.chunk_ms",
                 str(self._server_chunk),
                 "--stream.buffer",
@@ -336,8 +369,7 @@ class SnapcastExtension(SourceActor):
 
             self._server = SNAPCAST_LOCAL_IP
 
-            async def _on_connected(): 
-                pass
+            async def _on_connected():
                 await self._start_notification_listener()
                 await self._send_connection_update(self._server)
                 await self._send_state_update()
@@ -345,7 +377,7 @@ class SnapcastExtension(SourceActor):
             def _log(stream, label):
                 for line in iter(stream.readline, ""):
                     logger.debug(line.strip())
-            
+
                     if "successfully established" in line:
                         self._loop.call_soon_threadsafe(
                             asyncio.create_task, _on_connected()
@@ -360,7 +392,6 @@ class SnapcastExtension(SourceActor):
             threading.Thread(
                 target=_log, args=(self._proc_snapserver.stderr, "STDERR"), daemon=True
             ).start()
-
             logger.info(f"Snapcast server started at {self._server}:{AUDIO_PORT}")
 
     async def _stop_snapclient(self):
@@ -375,7 +406,7 @@ class SnapcastExtension(SourceActor):
 
             logger.info(f"Snapcast client stopped")
 
-    async def _init_snapclient(self, ip):
+    async def _start_snapclient(self, ip):
         """Snapcast client initialization"""
 
         await self._stop_snapclient()
@@ -518,7 +549,7 @@ class SnapcastExtension(SourceActor):
 
         self._server = None
         self._prev_server = None
-        await self._init_snapserver()
+        await self._start_snapserver()
         return True
 
     async def on_connect(self, ip):
@@ -526,8 +557,8 @@ class SnapcastExtension(SourceActor):
             raise RuntimeError(f"Invalid or no IP address defined")
 
         await self._core.request("playback.clear")
-        await self._core.request("source.set", uri="snapcast")
-        await self._init_snapclient(ip)
+        await self._core.request("source.set", uri="multiroom")
+        await self._start_snapclient(ip)
         return True
 
     async def on_get_status(self, ip=None):
@@ -562,7 +593,7 @@ class SnapcastExtension(SourceActor):
 
     async def on_set_volume(self, client_id, volume=None, mute=False):
         if not self._server:
-            raise RuntimeError(f"Not connected to Snapcast server")
+            raise ValueError(f"Not connected to Snapcast server")
 
         request = {
             "id": 1,
@@ -605,38 +636,62 @@ class SnapcastExtension(SourceActor):
                 ping_interval=20,
                 ping_timeout=10,
             )
-
             logger.info("Notification websocket connected")
 
             async for message in self._server_ws:
-                msg = json.loads(message)
+                try:
+                    msg = json.loads(message)
+                except json.JSONDecodeError:
+                    continue
+
                 method = msg.get("method")
                 params = msg.get("params")
 
                 if not method or not params:
-                    return
+                    continue
 
                 client = params.get("client", {})
                 host = client.get("host", {})
-                name = host.get("name", self._hostname)
-                ip = host.get("ip", self._server)
-                os = host.get("os", "unknown")
+                client_name = host.get("name", self._hostname)
+                client_ip = host.get("ip", self._server)
+                client_os = host.get("os", "unknown")
 
                 if method == "Client.OnConnect":
-                    logger.info(f"Client {name} ({ip}) [{os}] connected")
+                    self._core.send(
+                        target=["web", "display"],
+                        event="snapcast_client_connected",
+                        name=client_name,
+                        ip=client_ip,
+                        os=client_os,
+                    )
+                    logger.info(
+                        f"Client {client_name} ({client_ip}) [{client_os}] connected"
+                    )
 
                 elif method == "Client.OnDisconnect":
-                    logger.warning(f"Client {name} ({ip}) [{os}] disconnected")
+                    self._core.send(
+                        target=["web", "display"],
+                        event="snapcast_client_disconnected",
+                        name=client_name,
+                        ip=client_ip,
+                        os=client_os,
+                    )
+                    logger.warning(
+                        f"Client {client_name} ({client_ip}) [{client_os}] disconnected"
+                    )
 
                 elif method == "Stream.OnUpdate":
-                    logger.info(f"Client {name} ({ip}) [{os}] stream status changed")
+                    stream = params.get("stream", {})
+                    logger.info(
+                        f"Stream updated: {stream.get('id')} status={stream.get('status')}"
+                    )
 
-                self._core.send(
-                    target=["web", "display"],
-                    event="snapcast_notification",
-                    method=method,
-                    params=params,
-                )
+                    self._core.send(
+                        target=["web", "display"],
+                        event="snapcast_notification",
+                        method=method,
+                        params=params,
+                    )
 
         except asyncio.CancelledError:
             logger.debug("Notification listener cancelled")
@@ -646,10 +701,14 @@ class SnapcastExtension(SourceActor):
             websockets.exceptions.ConnectionClosedError,
             websockets.exceptions.ConnectionClosedOK,
         ) as e:
-            logger.debug(f"WebSocket connection closed: {e}")
+            logger.warning(f"WebSocket closed, reconnecting in 3s: {e}")
+            await asyncio.sleep(3)
+            await self._start_notification_listener()  # reschedule as new task
 
         except Exception as e:
             logger.error(f"Notification listener error: {e}")
+            await asyncio.sleep(3)
+            await self._start_notification_listener()  # reschedule as new task
 
         finally:
             if self._server_ws:

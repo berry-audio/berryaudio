@@ -17,7 +17,7 @@ class PlaybackExtension(Actor):
         self._core = core
         self._db = db
         self._config = config
-        self._output_device = self._config["mixer"]["output_device"]
+        self._output_device = self._config["mixer"].get("output_device")
         self._state = PlaybackState.STOPPED
         self._buffering = False
         self._pipeline: None
@@ -32,26 +32,25 @@ class PlaybackExtension(Actor):
         self._elapsed = 0
         self._time_source_id = None
         self._playback_uri = None
+        self._playback_ready = False
         self._tl_track = TlTrack(tlid=0, track=Track())
         self._loop = asyncio.get_event_loop()
 
-    def _setup_playbin(self):
+    def _setup_playbin(self, uri: str | None = None):
         self._pipeline = Gst.Pipeline.new("audio-player")
-        self._source = Gst.ElementFactory.make("uridecodebin", "source")
-        self._convert = Gst.ElementFactory.make("audioconvert", "convert")
+        self._source   = Gst.ElementFactory.make("uridecodebin", "source")
+        self._convert  = Gst.ElementFactory.make("audioconvert", "convert")
         self._resample = Gst.ElementFactory.make("audioresample", "resample")
-        self._sink = Gst.ElementFactory.make("alsasink", "sink")
+        self._sink     = Gst.ElementFactory.make("alsasink", "sink")
 
+        self._resample.set_property("quality", 0) 
+        
         self._sink.set_property("device", self._output_device)
-        self._sink.set_property("sync", True)
-        self._sink.set_property("buffer-time", 500000)
+        self._sink.set_property("sync", False)
+        self._sink.set_property("buffer-time", 200000)
 
-        self._resample.set_property("quality", 10)
-
-        self._pipeline.add(self._source)
-        self._pipeline.add(self._convert)
-        self._pipeline.add(self._resample)
-        self._pipeline.add(self._sink)
+        for el in [self._source, self._convert, self._resample, self._sink]:
+            self._pipeline.add(el)
 
         self._convert.link(self._resample)
         self._resample.link(self._sink)
@@ -61,6 +60,11 @@ class PlaybackExtension(Actor):
         bus = self._pipeline.get_bus()
         bus.add_signal_watch()
         bus.connect("message", self._on_message)
+
+        if uri:
+            self._source.set_property("uri", uri)
+        elif self._playback_uri:
+            self._source.set_property("uri", self._playback_uri)
 
     def _on_pad_added(self, decodebin, pad):
         caps = pad.query_caps(None)
@@ -83,6 +87,7 @@ class PlaybackExtension(Actor):
             if not caps:
                 return Gst.PadProbeReturn.OK
             structure = caps.get_structure(0)
+
             if structure.has_name("audio/x-raw"):
                 rate = (
                     structure.get_int("rate")[1]
@@ -90,18 +95,12 @@ class PlaybackExtension(Actor):
                     else None
                 )
 
+                self._sample_rate = rate
                 channels = (
                     structure.get_int("channels")[1]
                     if structure.has_field("channels")
                     else None
                 )
-
-                if self._sample_rate is None:
-                    self._sample_rate = rate
-                    asyncio.run_coroutine_threadsafe(
-                        self._core.request("dsp.set_capture_device", samplerate=rate),
-                        self._loop,
-                    )
 
                 bit_depth = None
 
@@ -125,6 +124,7 @@ class PlaybackExtension(Actor):
                     event="track_meta_updated",
                     tl_track=self._tl_track,
                 )
+
             return Gst.PadProbeReturn.REMOVE
 
         pad.add_probe(Gst.PadProbeType.BUFFER, probe)
@@ -193,12 +193,32 @@ class PlaybackExtension(Actor):
                     )
 
         if t == Gst.MessageType.DURATION_CHANGED:
-            self._get_duration()
+            success, duration = self._pipeline.query_duration(Gst.Format.TIME)
+            if success and duration > 0:
+                self._duration = int(duration / Gst.SECOND) * 1000
+                _track = self._tl_track.track.copy(update={"length": self._duration})
+                self._tl_track = TlTrack(tlid=self._tl_track.tlid, track=_track)
 
         elif t == Gst.MessageType.BUFFERING:
-            if not self._buffering:
-                self._buffering = True
-                self._core.send(target=["web", "display"], event="playback_buffering")
+            percent = message.parse_buffering()
+            if percent < 100:
+                self._pipeline.set_state(Gst.State.PAUSED)
+            else:
+                self._pipeline.set_state(Gst.State.PLAYING)
+
+            self._core.send(
+                target=["web", "display"], event="playback_buffering", percent=percent
+            )
+
+        elif t == Gst.MessageType.ASYNC_DONE:
+            if not self._playback_ready:
+                asyncio.run_coroutine_threadsafe(
+                    self._core.request(
+                        "dsp.set_capture_device", samplerate=self._sample_rate
+                    ),
+                    self._loop,
+                )
+                self._playback_ready = True
 
         elif t == Gst.MessageType.EOS:
             self.on_stop()
@@ -256,22 +276,14 @@ class PlaybackExtension(Actor):
             self.on_stop()
 
         elif t == Gst.MessageType.STREAM_START:
-            logger.info(
-                f"Playing Title: {self._tl_track.track.name}, Bitrate: {self._tl_track.track.bitrate}, Codec: {self._tl_track.track.audio_codec}, Channels: {self._tl_track.track.channels}, Sample Rate: {self._tl_track.track.sample_rate}, Bit Depth: {self._tl_track.track.bit_depth}"
-            )
+            self._start_time_tracking()
+
             self._core.send(
                 target=["web", "display"],
                 event="track_playback_started",
                 tl_track=self._tl_track,
                 time_position=self._elapsed,
             )
-
-    def _get_duration(self):
-        success, duration = self._pipeline.query_duration(Gst.Format.TIME)
-        if success and duration > 0:
-            self._duration = int(duration / Gst.SECOND) * 1000
-            _track = self._tl_track.track.copy(update={"length": self._duration})
-            self._tl_track = TlTrack(tlid=self._tl_track.tlid, track=_track)
 
     def _start_time_tracking(self):
         if self._time_source_id:
@@ -281,8 +293,7 @@ class PlaybackExtension(Actor):
             if self._pipeline:
                 success, position = self._pipeline.query_position(Gst.Format.TIME)
                 if success:
-                    _elapsed = int((position / Gst.SECOND) * 1000)
-                    self.on_set_time_position(_elapsed)
+                    self._elapsed = int((position / Gst.SECOND) * 1000)
             return True
 
         self._time_source_id = GLib.timeout_add(500, update_elapsed)
@@ -292,17 +303,21 @@ class PlaybackExtension(Actor):
         logger.info("Started")
 
     async def on_clear(self):
-        self.on_stop()
         self.on_set_metadata()
+        self.on_stop()
 
     async def on_event(self, message):
         event = message.get("event")
 
         if event == "dsp_options_changed":
-            if self._state == PlaybackState.PLAYING:
-                self._pipeline.set_state(Gst.State.NULL)
-                await asyncio.sleep(0.2)
-                self._pipeline.set_state(Gst.State.PLAYING)
+            if self._playback_ready:
+                if self._pipeline is not None:
+                    self._pipeline.set_state(Gst.State.NULL)
+                    await self.on_set_time_position(0)
+                
+                self._setup_playbin(uri=self._playback_uri)
+                self._play()
+                self._now_playing()
 
         if event == "tracklist_changed":
             if not message["tl_tracks"]:
@@ -323,14 +338,13 @@ class PlaybackExtension(Actor):
     def on_get_time_position(self) -> int:
         return self._elapsed
 
-    def on_set_time_position(self, position_ms: int) -> bool:
+    async def on_set_time_position(self, position_ms: int):
         self._elapsed = position_ms
         self._core.send(
             target=["web", "display"],
             event="track_position_updated",
-            time_position=self._elapsed,
+            time_position=position_ms,
         )
-        return True
 
     def on_set_metadata(self, track: Track | None = None) -> bool:
         if track is None:
@@ -371,11 +385,13 @@ class PlaybackExtension(Actor):
                 return True
 
             self._sample_rate = None
-            self._setup_playbin()
-            self._source.set_property("uri", self._playback_uri)
+            self._playback_ready = False
+            self._setup_playbin(uri=self._playback_uri)
 
         if self._state == PlaybackState.STOPPED:
-            return await self._play()
+            self._pipeline.set_state(Gst.State.PAUSED)
+            self._state = PlaybackState.PAUSED
+            return self._state
 
         if self._state == PlaybackState.PAUSED:
             return self._resume()
@@ -492,6 +508,7 @@ class PlaybackExtension(Actor):
             self._time_source_id = None
 
         self._state = PlaybackState.STOPPED
+        self._playback_ready = False
         self._elapsed = 0
 
         self._core.send(
@@ -509,13 +526,20 @@ class PlaybackExtension(Actor):
 
         return self._state
 
-    async def _play(self) -> PlaybackState | bool:
-        self._pipeline.set_state(Gst.State.PAUSED)
+    def _play(self) -> PlaybackState | bool:
+        self._pipeline.set_state(Gst.State.PLAYING)
         self._state = PlaybackState.PLAYING
         self._core.send(
             target=["web", "display"],
             event="playback_state_changed",
             state=self._state,
         )
-
         return self._state
+
+    def _now_playing(self):
+        track = self._tl_track.track
+        info = f"Now Playing: {track.name or 'Unknown Title'} : {track.audio_codec} | {track.bitrate}bps | {track.sample_rate}Hz | {track.bit_depth}"
+        divider = "-" * len(info)
+        logger.info(divider)
+        logger.info(info)
+        logger.info(divider)

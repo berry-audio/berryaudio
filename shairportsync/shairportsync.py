@@ -36,7 +36,6 @@ class ShairportsyncExtension(SourceActor):
         self._proc_meta = None
         self._source = Source(
             name="Airplay",
-            type=RefType.SOURCE,
             uri=self._name,
             controls=[],
             state={"connected": False},
@@ -66,7 +65,14 @@ class ShairportsyncExtension(SourceActor):
         pass
 
     async def on_stop(self):
-        await self.on_stop_service()
+        self._stop_timer()
+        if self._proc is not None:
+            self._proc.terminate()
+            self._proc.kill()
+
+        if self._proc_meta is not None:
+            self._proc_meta.terminate()
+            self._proc_meta.kill()
         logger.info("Stopped")
 
     async def on_stop_service(self):
@@ -237,6 +243,7 @@ class ShairportsyncExtension(SourceActor):
 
                 if meta_code == "conn":  # connected
                     self._source.state.connection_id = val
+                    
 
                 if meta_code == "disc":  # disconnected
                     self._source.state.connection_id = val
@@ -250,6 +257,11 @@ class ShairportsyncExtension(SourceActor):
                         self._core._request("source.update_source", source=self._source)
                     self._stop_timer()
                     self._reset_meta()
+                    self._core.send(
+                        target=["web", "display"],
+                        event="shairportsync_disconnected",
+                        name=self._source.state.name or "Unknown",
+                    )
 
                 if meta_code == "sdsc":  # stream data
                     codec, rate, fmt, ch = val.split("/")
@@ -273,6 +285,12 @@ class ShairportsyncExtension(SourceActor):
                     self._source.state.name = val
                     self._start_timer()
                     self._pause_timer()
+
+                    self._core.send(
+                        target=["web", "display"],
+                        event="shairportsync_connected",
+                        name=self._source.state.name or "Unknown",
+                    )
 
                     if self._source_active:
                         self._core._request(

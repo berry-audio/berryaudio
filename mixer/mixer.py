@@ -3,6 +3,7 @@ import alsaaudio
 import math
 import asyncio
 import json
+import subprocess
 
 from pathlib import Path
 from typing import Optional
@@ -175,13 +176,13 @@ class MixerExtension(Actor):
         """
         self._volume = volume
         volume_to_db = await self._core.request("dsp.volume_to_db", volume=volume)
-        
+
         if self._volume_event_task and not self._volume_event_task.done():
             self._volume_event_task.cancel()
 
         async def _set_volume(volume: int):
             try:
-                await self._core.request( "dsp.set_volume", volume_db=volume_to_db)
+                await self._core.request("dsp.set_volume", volume_db=volume_to_db)
                 # await asyncio.to_thread(
                 #     self._mixer.setvolume,
                 #     self.volume_to_mixer_volume(volume),
@@ -209,7 +210,7 @@ class MixerExtension(Actor):
         #     self._db.set_config({"mixer":{"volume_default":self._volume}})
 
         asyncio.create_task(_set_volume(self._volume))
-        self._db.set_config({"mixer":{"volume_default":self._volume}})
+        self._db.set_config({"mixer": {"volume_default": self._volume}})
 
         self._volume_event_task = asyncio.create_task(
             _delayed_volume_event(self._volume)
@@ -227,18 +228,14 @@ class MixerExtension(Actor):
     def volume_to_mixer_volume(self, volume):
         if volume == 0:
             return 0
-        mixer_volume = (
-            VOL_MIN + volume * (VOL_MAX - VOL_MIN) / 100.0
-        )
+        mixer_volume = VOL_MIN + volume * (VOL_MAX - VOL_MIN) / 100.0
         mixer_volume = 50 * math.log10(mixer_volume)
         return int(mixer_volume)
 
     def mixer_volume_to_volume(self, mixer_volume):
         volume = mixer_volume
         volume = math.pow(10, volume / 50.0)
-        volume = (
-            (volume - VOL_MIN) * 100.0 / (VOL_MAX - VOL_MIN)
-        )
+        volume = (volume - VOL_MIN) * 100.0 / (VOL_MAX - VOL_MIN)
         return int(volume)
 
     def on_get_playback_mixers(
@@ -266,6 +263,50 @@ class MixerExtension(Actor):
                     return mixer
 
         return _mixers
+
+    def on_alsa_devices(self, cmd: str):
+        if cmd not in ("arecord", "aplay"):
+            raise ValueError("cmd must be 'arecord' or 'aplay'")
+
+        result = subprocess.run([cmd, "-L"], capture_output=True, text=True)
+        lines = result.stdout.splitlines()
+
+        devices = [
+            {
+                "name": "None",
+                "device": None,
+                "description": None,
+            }
+        ]
+        current_device = None
+        description_lines = []
+
+        for line in lines:
+            if line and not line.startswith(" "):
+                if current_device and current_device.startswith(("hw:", "plughw:")):
+                    devices.append(
+                        {
+                            "name": current_device,
+                            "device": current_device,
+                            "description": " ".join(description_lines[1:]).strip(),
+                        }
+                    )
+
+                current_device = line.strip()
+                description_lines = []
+            else:
+                description_lines.append(line.strip())
+
+        if current_device and current_device.startswith(("hw:", "plughw:")):
+            devices.append(
+                {
+                    "name": current_device,
+                    "device": current_device,
+                    "description": " ".join(description_lines[1:]).strip(),
+                }
+            )
+
+        return devices
 
     async def set_mixer(self, mixer: str):
         with open(PLAYBACK_MIXERS_PATH, "r", encoding="utf-8") as f:

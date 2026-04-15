@@ -30,7 +30,6 @@ class SpotifyExtension(SourceActor):
         self._volume_normalization = self._config.get("spotify", {}).get(
             "volume_normalization"
         )
-        self._bit_depth = "S32"
         self._output_device = self._config.get("mixer", {}).get("output_device")
         self._channels = 2
         self._proc = None
@@ -40,11 +39,11 @@ class SpotifyExtension(SourceActor):
         self._timer_paused = False
         self._elapsed_timer_count = 0
         self._sample_rate = 44100
+        self._bit_depth = "S32"
         self._audio_codec = "Ogg"
         self._backend = "alsa"
         self._source = Source(
             name="Spotify Connect",
-            type=RefType.SOURCE,
             uri=self._name,
             controls=[],
             state={"connected": False},
@@ -112,6 +111,11 @@ class SpotifyExtension(SourceActor):
                 self._source.state.user_name = event["USER_NAME"]
                 self._source.state.connection_id = event["CONNECTION_ID"]
                 self._source.state.connected = True
+                self._core.send(
+                    target=["web", "display"],
+                    event="spotify_connected",
+                    name=self._source.state.user_name or "Unknown",
+                )
                 logger.info(
                     f"Connected to Spotify account: {self._source.state.user_name}"
                 )
@@ -124,6 +128,11 @@ class SpotifyExtension(SourceActor):
                 await self._meta_init()
                 await self._core.request("playback.stop")
                 await self._core.request("source.update_source", source=self._source)
+                self._core.send(
+                    target=["web", "display"],
+                    event="spotify_disconnected",
+                    name=self._source.state.user_name or "Unknown",
+                )
                 logger.warning(
                     f"Disconnected from Spotify account: {self._source.state.user_name}"
                 )
@@ -236,10 +245,10 @@ class SpotifyExtension(SourceActor):
             LIBRESPOT_PATH,
             "--bitrate",
             self._bitrate,
-            "--format",
-            self._bit_depth,
             "--name",
             self._hostname,
+            "--format",
+            self._bit_depth,
             "--cache",
             "/tmp/spotify_cache",
             "--disable-audio-cache",
@@ -261,7 +270,13 @@ class SpotifyExtension(SourceActor):
 
         def log(stream, label):
             for line in iter(stream.readline, ""):
-                logger.debug(line.strip())
+                if "error" in line.strip().lower():
+                    self._core.send(
+                        event="error", message=line.strip()
+                    )
+                    logger.error(line.strip())
+                else:
+                    logger.debug(line.strip())
             stream.close()
 
         threading.Thread(

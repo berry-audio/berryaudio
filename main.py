@@ -48,7 +48,7 @@ async def async_main(verbose=False):
         "playlist",
         "playback",
         "network",
-        "snapcast",
+        "multiroom",
         "display",
         # "gpio",
         "infrared",

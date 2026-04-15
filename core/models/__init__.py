@@ -34,7 +34,6 @@ class RefType(enum.StrEnum):
     DIRECTORY = "directory"
     CATEGORY = "category"
     PLAYLIST = "playlist"
-    SOURCE = "source"
     STORAGE = "storage"
     BLUETOOTH = "bluetooth"
     REMOVABLE = "removable"
@@ -202,7 +201,6 @@ class Source(BaseModel):
     model_config = ConfigDict(frozen=False)
     model: Literal["Source"] = Field(default="Source", alias="__model__", repr=False)
     name: Optional[str] = None
-    type: Optional[str] = None
     uri: Optional[Uri] = None
     active: bool = False
     controls: list[str] = Field(default_factory=list)

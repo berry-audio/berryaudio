@@ -17,7 +17,7 @@ class SourceExtension(Actor):
         self._db = db
         self._config = config
         self._current = Source(
-            name=None, uri=None, type=None, controls=[], state={"connected": False}
+            name=None, uri=None, controls=[], state={"connected": False}
         )
 
     async def on_start(self):
@@ -69,7 +69,6 @@ class SourceExtension(Actor):
             self._current = Source(
                 name=None,
                 uri=uri,
-                type=RefType.SOURCE,
                 controls=[],
                 state={"connected": False},
             )
