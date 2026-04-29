@@ -8,7 +8,7 @@ import os
 
 from gi.repository import GLib
 from core.actor import SourceActor
-from core.models import Album, Artist, Track, Source, RefType, Bluetooth
+from core.models import Album, Artist, Track, Source, Bluetooth
 from core.types import PlaybackState
 
 logger = logging.getLogger(__name__)
@@ -148,7 +148,7 @@ class BluetoothExtension(SourceActor):
         if self._mode == MODE_RX:
             await self._core.request("playback.clear")
             device = await self.on_device() #directly remove disconnect instead iterating through devices #todo
-            if device.connected:
+            if device and device.connected:
                 path = self._addr_to_bluez_path(device.address)
                 device_bus = bus.get(BLUEZ_SERVICE, path)
                 if hasattr(device_bus, "Disconnect"):
@@ -286,14 +286,12 @@ class BluetoothExtension(SourceActor):
         if not connected_device:
             await self._stop_aplay()
             
-
             if self._mode == MODE_RX:
                 self._clear_source_info()
                 await self._core.request(
                     "dsp.set_capture_device",
                 )
                 
-
         self._core.send(
             target=["web", "display"],
             event="bluetooth_device_disconnected",
@@ -477,7 +475,6 @@ class BluetoothExtension(SourceActor):
             bluetooth_device = Bluetooth(
                 address=device.get("Address"),
                 name=device.get("Name"),
-                type=RefType.BLUETOOTH,
                 profile=pcm_info.get("Transport"),
                 alias=device.get("Alias"),
                 icon=device.get("Icon"),

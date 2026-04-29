@@ -33,18 +33,18 @@ class PlaybackExtension(Actor):
         self._time_source_id = None
         self._playback_uri = None
         self._playback_ready = False
-        self._tl_track = TlTrack(tlid=0, track=Track())
+        self._tl_track = None
         self._loop = asyncio.get_event_loop()
 
     def _setup_playbin(self, uri: str | None = None):
         self._pipeline = Gst.Pipeline.new("audio-player")
-        self._source   = Gst.ElementFactory.make("uridecodebin", "source")
-        self._convert  = Gst.ElementFactory.make("audioconvert", "convert")
+        self._source = Gst.ElementFactory.make("uridecodebin", "source")
+        self._convert = Gst.ElementFactory.make("audioconvert", "convert")
         self._resample = Gst.ElementFactory.make("audioresample", "resample")
-        self._sink     = Gst.ElementFactory.make("alsasink", "sink")
+        self._sink = Gst.ElementFactory.make("alsasink", "sink")
 
-        self._resample.set_property("quality", 0) 
-        
+        self._resample.set_property("quality", 0)
+
         self._sink.set_property("device", self._output_device)
         self._sink.set_property("sync", False)
         self._sink.set_property("buffer-time", 200000)
@@ -168,7 +168,11 @@ class PlaybackExtension(Actor):
                     ):
                         updates["bitrate"] = round(value / 1000) * 1000
                     elif tag_name == "title":
-                        updates["name"] = value
+                        name = value.strip()
+                        if name:
+                            updates["name"] = name
+                        elif self._tl_track.track.name:
+                            updates["name"] = self._tl_track.track.name
                     elif tag_name == "album":
                         updates["albums"] = frozenset([Album(name=value)])
                     elif tag_name == "artist":
@@ -276,14 +280,15 @@ class PlaybackExtension(Actor):
             self.on_stop()
 
         elif t == Gst.MessageType.STREAM_START:
-            self._start_time_tracking()
+            if self._playback_ready:
+                self._start_time_tracking()
 
-            self._core.send(
-                target=["web", "display"],
-                event="track_playback_started",
-                tl_track=self._tl_track,
-                time_position=self._elapsed,
-            )
+                self._core.send(
+                    target=["web", "display"],
+                    event="track_playback_started",
+                    tl_track=self._tl_track,
+                    time_position=self._elapsed,
+                )
 
     def _start_time_tracking(self):
         if self._time_source_id:
@@ -303,18 +308,19 @@ class PlaybackExtension(Actor):
         logger.info("Started")
 
     async def on_clear(self):
+        self._playback_uri = None
         self.on_set_metadata()
         self.on_stop()
 
     async def on_event(self, message):
         event = message.get("event")
 
-        if event == "dsp_options_changed":
+        if event == "dsp_options_changed" or event == "dsp_options_error":
             if self._playback_ready:
                 if self._pipeline is not None:
                     self._pipeline.set_state(Gst.State.NULL)
                     await self.on_set_time_position(0)
-                
+
                 self._setup_playbin(uri=self._playback_uri)
                 self._play()
                 self._now_playing()
@@ -348,10 +354,11 @@ class PlaybackExtension(Actor):
 
     def on_set_metadata(self, track: Track | None = None) -> bool:
         if track is None:
-            self._playback_uri = None
-            self._tl_track = TlTrack(tlid=self._tl_track.tlid, track=Track())
+            self._tl_track = None
         else:
-            self._tl_track = TlTrack(tlid=self._tl_track.tlid, track=track)
+            tlid = self._tl_track.tlid if self._tl_track else 0
+            self._tl_track = TlTrack(tlid=tlid, track=track)
+
         self._core.send(
             target=["web", "display"],
             event="track_meta_updated",
@@ -539,7 +546,4 @@ class PlaybackExtension(Actor):
     def _now_playing(self):
         track = self._tl_track.track
         info = f"Now Playing: {track.name or 'Unknown Title'} : {track.audio_codec} | {track.bitrate}bps | {track.sample_rate}Hz | {track.bit_depth}"
-        divider = "-" * len(info)
-        logger.info(divider)
         logger.info(info)
-        logger.info(divider)

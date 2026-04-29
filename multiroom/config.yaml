@@ -1,6 +1,6 @@
 capture_device: hw:Loopback,0,1
 playback_device: hw:Loopback,1,1
-server: true
+server: false
 codec: flac
 chunk: 50
 buffer: 1024

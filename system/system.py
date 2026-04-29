@@ -31,6 +31,7 @@ class SystemExtension(Actor):
         updated_config = config[self._name]
         if "hostname" in updated_config:
             self.on_set_hostname(updated_config.get("hostname"))
+        self._core.send(event="system", action="restart") 
 
     async def on_start(self):
         self._time_task = asyncio.create_task(self._time_update())
@@ -172,8 +173,8 @@ class SystemExtension(Actor):
         version = info.version
 
         mem = psutil.virtual_memory()
-        mem_used = mem.used / (1024**3)
-        mem_total = mem.total / (1024**3)
+        mem_used = round(mem.used / (1024**2), 1)
+        mem_total = round(mem.total / (1024**2), 1)
         mem_percent = mem.percent
 
         disk = psutil.disk_usage("/")

@@ -1,6 +1,8 @@
+from __future__ import annotations
+
 import enum
 from collections.abc import Iterator
-from typing import Any, ClassVar, Literal, Self, NewType, TypeAlias, Optional
+from typing import Literal, NewType, TypeAlias, Optional
 
 from pydantic import Field, ConfigDict
 from pydantic.fields import Field
@@ -35,27 +37,13 @@ class RefType(enum.StrEnum):
     CATEGORY = "category"
     PLAYLIST = "playlist"
     STORAGE = "storage"
+    INTERNAL = "internal"
     BLUETOOTH = "bluetooth"
     REMOVABLE = "removable"
     NAS = "nas"
 
     def __repr__(self) -> str:
         return self.name
-
-
-class Artist(BaseModel):
-    """Represents a musical artist."""
-
-    model: Literal["Artist"] = Field(
-        default="Artist",
-        repr=False,
-        alias="__model__",
-    )
-    uri: Uri | None = None
-    name: str | None = None
-    sortname: str | None = None
-    musicbrainz_id: UUID | None = None
-    images: tuple | None = None
 
 
 class Album(BaseModel):
@@ -66,7 +54,7 @@ class Album(BaseModel):
         repr=False,
         alias="__model__",
     )
-    uri: Uri | None = None
+    uri: str | None = None
     name: str | None = None
     artists: frozenset[Artist] = frozenset()
     num_tracks: NonNegativeInt | None = None
@@ -74,6 +62,38 @@ class Album(BaseModel):
     date: int | None = None
     musicbrainz_id: UUID | None = None
     images: tuple | None = None
+
+
+class Artist(BaseModel):
+    """Represents a musical artist."""
+
+    model: Literal["Artist"] = Field(
+        default="Artist",
+        repr=False,
+        alias="__model__",
+    )
+    uri: str | None = None
+    name: str | None = None
+    sortname: str | None = None
+    albums: frozenset[Album] = frozenset()
+    musicbrainz_id: UUID | None = None
+    images: tuple | None = None
+
+
+class Category(BaseModel):
+    """Represents a genre."""
+
+    model: Literal["Category"] = Field(
+        default="Category",
+        repr=False,
+        alias="__model__",
+    )
+    uri: str | None = None
+    name: str | None = None
+
+
+Album.model_rebuild()
+Artist.model_rebuild()
 
 
 class Image(BaseModel):
@@ -120,28 +140,27 @@ class Track(BaseModel):
     audio_codec: str | None = None
     channels: NonNegativeInt | None = None
     bit_depth: str | None = None
-    resample: bool | None = None
+    size: Optional[int] = None
+
+
+class Tuner(BaseModel):
+    model_config = ConfigDict(frozen=False)
+    model: Literal["Tuner"] = Field(default="Tuner", alias="__model__", repr=False)
+    uri: str
+    name: Optional[str] = None
+    frequency: int = 0
+    audio_codec: str | None = None
+    channels: NonNegativeInt | None = None
+    sample_rate: NonNegativeInt | None = None
+    bit_depth: str | None = None
 
 
 class TlTrack(BaseModel):
-    """Represents a musical track in queue"""
-
-    model: Literal["TlTrack"] = Field(
-        default="TlTrack",
-        repr=False,
-        alias="__model__",
-    )
-
+    model_config = ConfigDict(frozen=False)
+    model: Literal["TlTrack"] = Field(default="TlTrack", repr=False, alias="__model__")
+    uri: Optional[str] = None
     tlid: str | int
-    track: Track
-
-    def __init__(
-        self,
-        tlid: str | int,
-        track: Track,
-        **_: Any,
-    ) -> None:
-        super().__init__(tlid=tlid, track=track)
+    track: Track | Tuner
 
     def __iter__(self) -> Iterator[TracklistId | Track]:
         return iter((self.tlid, self.track))
@@ -155,36 +174,8 @@ class Playlist(BaseModel):
     )
     uri: str | None = None
     name: str | None = None
-    tracks: tuple[TlTrack, ...] = ()
-    last_modified: NonNegativeInt | None = None
-
-
-class Ref(BaseModel):
-    """Lightweight reference to an object with URI, type, and optional metadata."""
-
-    model: Literal["Item"] = Field(
-        default="Item",
-        repr=False,
-        alias="__model__",
-    )
-    uri: Uri
-    name: str | None = None
-    type: RefType
-    artists: frozenset[Artist] = frozenset()
-    albums: frozenset[Album] = frozenset()
-    composers: frozenset[Artist] = frozenset()
-    performers: frozenset[Artist] = frozenset()
-    genre: str | None = None
-    country: str | None = None
-    track_no: NonNegativeInt | None = None
-    disc_no: NonNegativeInt | None = None
-    date: int | None = None
-    length: DurationMs | None = None
-    bitrate: NonNegativeInt | None = None
-    comment: str | None = None
-    musicbrainz_id: UUID | None = None
+    length: Optional[int] = 0
     last_modified: str | None = None
-    images: tuple | None = None
 
 
 class State(BaseModel):
@@ -216,20 +207,45 @@ class StorageUsage(BaseModel):
 class Storage(BaseModel):
     model_config = ConfigDict(frozen=False)
     model: Literal["Storage"] = Field(default="Storage", alias="__model__", repr=False)
-    type: RefType = RefType.STORAGE
+    icon: RefType = RefType.STORAGE
+    uri: Optional[str] = None
     name: Optional[str] = None
     dev: Optional[str] = None
-    shared: Optional[bool] = False
+    shared: bool = False
     fstype: Optional[str] = None
-    size: Optional[int] = None
+    size: int = 0
     status: Optional[str] = None
-    uri: Optional[str] = None
     usage: Optional[StorageUsage] = None
-    read_only: Optional[bool] = None
-    guest_allowed: Optional[bool] = None
+    read_only: bool = False
+    guest_allowed: bool = True
     user: Optional[str] = None
     create_permissions: Optional[str] = None
     directory_permissions: Optional[str] = None
+
+
+class Directory(BaseModel):
+    model_config = ConfigDict(frozen=False)
+    model: Literal["Directory"] = Field(
+        default="Directory", alias="__model__", repr=False
+    )
+    uri: str
+    name: str
+    shared: bool = False
+    user: Optional[str] = None
+    read_only: bool = False
+    guest_allowed: bool = True
+    user: Optional[str] = None
+    create_permissions: Optional[str] = None
+    directory_permissions: Optional[str] = None
+
+
+class File(BaseModel):
+    model_config = ConfigDict(frozen=False)
+    model: Literal["File"] = Field(default="File", alias="__model__", repr=False)
+    uri: str
+    name: str
+    size: int = 0
+    ext: str
 
 
 class Bluetooth(BaseModel):
@@ -255,12 +271,10 @@ class Bluetooth(BaseModel):
     uuids: Optional[list[str]] = None
 
 
-class Snapcast(BaseModel):
+class Room(BaseModel):
     model_config = ConfigDict(frozen=False)
 
-    model: Literal["Snapcast"] = Field(
-        default="Snapcast", alias="__model__", repr=False
-    )
+    model: Literal["Room"] = Field(default="Room", alias="__model__", repr=False)
     service_name: Optional[str] = None
     name: Optional[str] = None
     ip: Optional[str] = None

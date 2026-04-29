@@ -7,7 +7,7 @@ import time
 
 from pathlib import Path
 from core.actor import SourceActor
-from core.models import Album, Artist, Track, Image, Source, RefType
+from core.models import Album, Artist, Track, Image, Source
 from core.types import PlaybackState
 
 logger = logging.getLogger(__name__)
@@ -148,17 +148,13 @@ class ShairportsyncExtension(SourceActor):
 
         def log(stream, label):
             for line in iter(stream.readline, ""):
+                if "stalled" in line:
+                    logger.error(line.strip())
+                    self._core.send(event="error", message=line.strip())
                 if "warning" in line:
                     logger.warning(line.strip())
                 else:
                     logger.debug(line.strip())
-
-                    if "error" in line.lower():
-                        self._core.send(
-                            target=["web", "display"],
-                            event="error",
-                            message=f"{line.lower().strip()}",
-                        )
             stream.close()
 
         threading.Thread(

@@ -317,6 +317,6 @@ class Metadata:
                         except Exception: pass
 
             if not tags["name"]:
-                tags["name"] = Path(fullpath).stem
+                tags["name"] = (tags["name"] or "").strip() or Path(fullpath).stem
 
             return (cover_path, tags)

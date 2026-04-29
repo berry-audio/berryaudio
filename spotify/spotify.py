@@ -6,7 +6,7 @@ import os
 
 from pathlib import Path
 from core.actor import SourceActor
-from core.models import Album, Artist, Track, Image, TlTrack, Source, RefType
+from core.models import Album, Artist, Track, Image, TlTrack, Source
 from core.types import PlaybackState
 
 logger = logging.getLogger(__name__)
@@ -34,13 +34,14 @@ class SpotifyExtension(SourceActor):
         self._channels = 2
         self._proc = None
         self._track = None
+        self._tl_track = None
         self._timer = None
         self._timer_running = True
         self._timer_paused = False
         self._elapsed_timer_count = 0
         self._sample_rate = 44100
         self._bit_depth = "S32"
-        self._audio_codec = "Ogg"
+        self._audio_codec = "Ogg Vorbis (lossy audio codec)"
         self._backend = "alsa"
         self._source = Source(
             name="Spotify Connect",
@@ -78,10 +79,12 @@ class SpotifyExtension(SourceActor):
     async def on_start_service(self):
         self._source_active = True
         if os.path.exists(LIBRESPOT_PATH):
-            await self._core.request("dsp.set_capture_device", samplerate=self._sample_rate)
+            await self._core.request(
+                "dsp.set_capture_device", samplerate=self._sample_rate
+            )
             threading.Thread(target=self._librespot_init, daemon=True).start()
             await self._meta_init()
-            
+
             logger.info(
                 f"Started Spotify Connect with name {self._hostname} on {self._output_device}"
             )
@@ -153,7 +156,9 @@ class SpotifyExtension(SourceActor):
                 await self._core.request(
                     "playback.set_time_position", position_ms=int(event["POSITION_MS"])
                 )
-                self._elapsed_timer_count = int(event["POSITION_MS"]) / 1000  # milliseconds to seconds
+                self._elapsed_timer_count = (
+                    int(event["POSITION_MS"]) / 1000
+                )  # milliseconds to seconds
 
             if event["PLAYER_EVENT"] in ("seeked", "position_correction"):
                 await self._core.request(
@@ -173,7 +178,7 @@ class SpotifyExtension(SourceActor):
                 self._core.send(
                     target=["web", "display"],
                     event="track_playback_resumed",
-                    tl_track=TlTrack(0, track=self._track),
+                    tl_track=self._tl_track,
                     time_position=int(event["POSITION_MS"]),
                 )
 
@@ -189,7 +194,7 @@ class SpotifyExtension(SourceActor):
                 self._core.send(
                     target=["web", "display"],
                     event="track_playback_paused",
-                    tl_track=TlTrack(0, track=self._track),
+                    tl_track=self._tl_track,
                     time_position=int(event["POSITION_MS"]),
                 )
 
@@ -212,9 +217,9 @@ class SpotifyExtension(SourceActor):
 
                 if self._track is not None:
                     await self._stop_timer()
-                    await self._core.request("playback.stop_playback")
+                    await self._core.request("playback.stop")
 
-                track = Track(
+                self._track = Track(
                     uri=event["URI"] or "",
                     name=event["NAME"] or "Unknown",
                     artists=frozenset([Artist(name=event["ARTISTS"] or "")]),
@@ -231,13 +236,14 @@ class SpotifyExtension(SourceActor):
                     audio_codec=self._audio_codec,
                     images=[Image(uri=image)] or [],
                 )
-                self._track = track
+                self._tl_track = TlTrack(tlid=0, track=self._track)
+
                 await self._start_timer()
-                await self._core.request("playback.set_metadata", tl_track=self._track)
+                await self._core.request("playback.set_metadata", track=self._track)
                 self._core.send(
                     target=["web", "display"],
                     event="track_playback_started",
-                    tl_track=TlTrack(0, track=self._track),
+                    tl_track=self._tl_track,
                 )
 
     def _librespot_init(self):
@@ -271,9 +277,7 @@ class SpotifyExtension(SourceActor):
         def log(stream, label):
             for line in iter(stream.readline, ""):
                 if "error" in line.strip().lower():
-                    self._core.send(
-                        event="error", message=line.strip()
-                    )
+                    # self._core.send(event="error", message=line.strip())
                     logger.error(line.strip())
                 else:
                     logger.debug(line.strip())

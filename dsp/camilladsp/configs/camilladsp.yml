@@ -22,7 +22,7 @@ devices:
   rate_measure_interval: null
   resampler:
     type: Synchronous
-  samplerate: 192000
+  samplerate: 96000
   silence_threshold: null
   silence_timeout: null
   stop_on_rate_change: null
@@ -37,35 +37,35 @@ filters:
       freq_max: 19000
       freq_min: 45
       gains:
-      - 5.7
-      - 2
-      - -0.7
-      - -1.9
-      - -3.6
-      - -3.9
-      - -3.5
-      - -3.7
-      - -3.5
-      - -2.5
-      - -1.7
+      - 3.3
+      - 0.3
+      - -2
       - -1.1
-      - -0.3
-      - 2.7
-      - 6.6
+      - -1.9
+      - -2
+      - -2.4
+      - -2.3
+      - -2.2
+      - -1.8
+      - -1.2
+      - -0.6
+      - 0.7
+      - 1.3
+      - 3.1
       type: GraphicEqualizer
     type: BiquadCombo
   Bass:
     description: null
     parameters:
-      freq: 60
-      gain: 7.5
+      freq: 55
+      gain: 12
       q: 0.5
       type: Peaking
     type: Biquad
   Gain:
     description: null
     parameters:
-      gain: -10
+      gain: -15
       inverted: false
       mute: null
       scale: null
@@ -74,7 +74,7 @@ filters:
     description: null
     parameters:
       freq: 19000
-      gain: 3
+      gain: 6
       q: 0.4
       type: Peaking
     type: Biquad
@@ -177,8 +177,6 @@ pipeline:
   channels:
   - 0
   - 1
-  - 6
-  - 7
   description: null
   names:
   - 15 Band EQ

@@ -4,7 +4,7 @@ from pathlib import Path
 from core.actor import SourceActor
 from core.types import PlaybackControls
 from core.util.metadata import Metadata
-from core.models import Image, Album, Artist, Track, Source, RefType
+from core.models import Image, Album, Artist, Track, Source
 
 from .smb_manager import StorageSmbManager
 from .storage_manager import StorageManager
@@ -12,6 +12,16 @@ from .storage_manager import StorageManager
 logger = logging.getLogger(__name__)
 
 BASE_DIR = Path(__file__).parent.parent / "web" / "www"
+ALLOWED_FILE_EXT = [
+    ".mp3",
+    ".m4a",
+    ".flac",
+    ".wav",
+    ".ogg",
+    ".aac",
+    ".dsf",
+    ".dsf",
+]
 
 
 class StorageExtension(SourceActor):
@@ -62,7 +72,7 @@ class StorageExtension(SourceActor):
             password = updated_config["password"]
             self._password = None if password == "" else password
 
-        await self._smb._set_credentials(
+        await self._smb.set_credentials(
             username=self._username, password=self._password
         )
 
@@ -83,7 +93,7 @@ class StorageExtension(SourceActor):
                     FileNotFoundError,
                 ) as e:
                     logger.error(e)
-        await self._smb.status()
+        await self._smb.samba_status()
         logger.info("Started")
 
     async def on_event(self, message):
@@ -100,8 +110,8 @@ class StorageExtension(SourceActor):
         await self._core.request("playback.clear")
         return True
 
-    def _build_ref(self, uri: str) -> dict:
-        cover_path, tags = self._metadata.extract_cover_and_tags(uri)  # id is full path
+    def _build_track(self, uri: str) -> dict:
+        cover_path, tags = self._metadata.extract_cover_and_tags(uri)
         image_uri = None
 
         if cover_path:
@@ -119,7 +129,6 @@ class StorageExtension(SourceActor):
             "composers": frozenset(),
             "performers": frozenset(),
         }
-
         if tags.get("name"):
             obj["name"] = tags["name"]
         if tags.get("genre"):
@@ -134,13 +143,11 @@ class StorageExtension(SourceActor):
             obj["length"] = int(tags["length"])
         if tags.get("bitrate"):
             obj["bitrate"] = tags["bitrate"]
-
         if tags.get("album"):
             album = Album(
                 uri=None, name=tags["album"], date=tags.get("date"), images=None
             )
             obj["albums"] = frozenset([album])
-
         if tags.get("artist"):
             obj["artists"] = frozenset(
                 [Artist(uri=None, name=tags["artist"], images=None)]
@@ -152,53 +159,23 @@ class StorageExtension(SourceActor):
         return f"{path}" if id else None
 
     async def on_lookup_track(self, path: str) -> Track:
-        return Track(**self._build_ref(path))
+        return Track(**self._build_track(path))
 
     async def on_directory(
         self, uri: str = None, limit: int | None = None, offset: int | None = None
     ):
-        if uri is None:
+        if uri == "storage":
             return self._storage.storages_list()
         else:
             return self._storage.directory(
                 uri,
-                extensions=[
-                    ".mp3",
-                    ".m4a",
-                    ".flac",
-                    ".wav",
-                    ".ogg",
-                    ".aac",
-                    ".dsf",
-                    ".dsf",
-                ],
+                extensions=ALLOWED_FILE_EXT,
                 limit=limit,
                 offset=offset,
             )
 
-    def _handle_library_paths(self, uri: str, *, add: bool) -> bool:
-        if not uri.startswith(f"{self._name}:"):
-            raise ValueError(f"Not a valid {self._name} path: {uri}")
-
-        library_paths = self._config.get("local", {}).get("library_path", [])
-
-        if add:
-            if uri in library_paths:
-                raise ValueError("Path already exists in library")
-            library_paths.append(uri)
-        else:
-            if uri not in library_paths:
-                raise ValueError("Path does not exist in library")
-            library_paths.remove(uri)
-
-        self._db.set_config({"local": {"library_path": library_paths}})
-        return True
-
     def on_add_to_library(self, uri: str) -> bool:
         return self._handle_library_paths(uri, add=True)
-
-    def on_remove_from_library(self, uri: str) -> bool:
-        return self._handle_library_paths(uri, add=False)
 
     async def on_mount(self, dev: str):
         return await self._storage.storage_mount(dev)
@@ -219,10 +196,10 @@ class StorageExtension(SourceActor):
         return self._smb.list_smb_shared()
 
     def on_list_shares(self):
-        return self._smb.list_shares()
+        return self._smb.list_shared_directories()
 
     async def on_unshare(self, uri: str):
-        return await self._smb.unshare(uri)
+        return await self._smb.unshare_directory(uri)
 
     async def on_share(self, uri: str, name: str = None, read_only: bool = False):
-        return await self._smb.share(uri, name, read_only)
+        return await self._smb.share_directory(uri, name, read_only)

@@ -5,7 +5,7 @@ import logging
 from datetime import datetime
 from .si4703 import si4703Radio
 from core.actor import SourceActor
-from core.models import Track, Source, RefType, Artist, Ref
+from core.models import Track, Source, Tuner
 from core.types import PlaybackControls
 
 
@@ -36,13 +36,8 @@ class TunerExtension(SourceActor):
         self._gain = self._config.get("tuner", {}).get("gain", 0)
         self._channels = 2
         self._tuner = None
-        self._track = Track(
+        self._track = Tuner(
             uri=self._name,
-            name="Tuner",
-            sample_rate=self._sample_rate,
-            bit_depth=self._bit_depth,
-            channels=self._channels,
-            audio_codec=self._audio_codec,
         )
         self._source = Source(
             name="Tuner",
@@ -81,7 +76,7 @@ class TunerExtension(SourceActor):
     async def is_active(self):
         source = await self._core.request("source.get")
         return bool(source and source.uri == self._name)
-    
+
     async def on_start(self):
         self._init_db()
         logger.info("Started")
@@ -113,7 +108,7 @@ class TunerExtension(SourceActor):
 
     def _read_stats(self):
         self._default_channel = self._tuner.si4703GetChannel()
-        freq = self._default_channel / 10.0
+        freq = self._default_channel
 
         self._tuner.si4703ReadRegisters()
         is_stereo = (
@@ -135,9 +130,12 @@ class TunerExtension(SourceActor):
         track = self._track.copy(
             update={
                 "uri": f"{self._name}",
-                "name": f"FM {freq:.1f} MHz",
+                "name": f"FM {(freq/10):.1f} MHz",
                 "channels": channels,
-                "artists": frozenset(),
+                "frequency": freq,
+                "sample_rate": self._sample_rate,
+                "bit_depth": self._bit_depth,
+                "audio_codec": self._audio_codec,
             }
         )
         self._track = track
@@ -229,6 +227,17 @@ class TunerExtension(SourceActor):
         if self._tuner:
             self._tuner.si4703ShutDown()
 
+    def _build_tuner(self, row) -> any:
+        return {
+            "uri": f"{self._name}:{row.id}",
+            "name": row.name,
+            "frequency": row.frequency,
+            "channels": self._channels,
+            "sample_rate": self._sample_rate,
+            "bit_depth": self._bit_depth,
+            "audio_codec": self._audio_codec,
+        }
+
     def on_directory(
         self,
         uri: str | None = None,
@@ -264,16 +273,7 @@ class TunerExtension(SourceActor):
                     params.append(offset)
 
             rows = self._db.fetchall(sql, params)
-
-            def _build_ref(row):
-                return {
-                    "uri": f"{self._name}:{row.id}",
-                    "name": row.name,
-                    "artists": frozenset([Artist(name=f"{row.frequency / 10} Mhz")]),
-                    "type": RefType.TRACK,
-                }
-
-        return [Ref(**_build_ref(row)) for row in rows]
+        return [Tuner(**self._build_tuner(row)) for row in rows]
 
     async def on_create(self, frequency, name=None):
         last_modified = datetime.now().isoformat()
@@ -336,17 +336,6 @@ class TunerExtension(SourceActor):
         await self._status()
         return True
 
-    def _build_track(self, row) -> any:
-        return {
-            "uri": f"{self._name}:{row.id}",
-            "name": row.name,
-            "artists": frozenset([Artist(name=f"{row.frequency / 10} Mhz")]),
-            "channels": self._track.channels,
-            "sample_rate": self._track.sample_rate,
-            "bit_depth": self._track.bit_depth,
-            "audio_codec": self._track.audio_codec,
-        }
-
     async def on_playback_uri(self, path: str) -> bool:
         row = self._db.execute("SELECT * FROM tuner WHERE id = ?", (path,)).fetchone()
         if row is None:
@@ -356,7 +345,7 @@ class TunerExtension(SourceActor):
         if self._tuner:
             self._tuner.si4703SetChannel(int(row["frequency"]))
             self._default_channel = self._tuner.si4703GetChannel()
-            self._track = Track(**self._build_track(row))
+            self._track = Tuner(**self._build_tuner(row))
 
             freq, channels, channels_text, rssi = self._read_stats()
             track = self._track.copy(
@@ -371,4 +360,4 @@ class TunerExtension(SourceActor):
 
     async def on_lookup_track(self, path: str) -> Track:
         row = self._db.execute("SELECT * FROM tuner WHERE id = ?", (path,)).fetchone()
-        return Track(**self._build_track(row))
+        return Tuner(**self._build_tuner(row))

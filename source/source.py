@@ -1,10 +1,7 @@
 import logging
 
-from collections import namedtuple
 from core.actor import Actor, SourceActor
 from core.models import Source
-from core.types import PlaybackState
-from core.models import RefType
 
 logger = logging.getLogger(__name__)
 

@@ -2,17 +2,16 @@ import logging
 import threading
 import subprocess
 import asyncio
-import socket
 import os
 import re
 import socket
 import json
 import websockets
 
+from pathlib import Path
 from zeroconf.asyncio import AsyncZeroconf, AsyncServiceBrowser
 from zeroconf._exceptions import NotRunningException
-from core.models import Snapcast, Track, Source, RefType
-from pathlib import Path
+from core.models import Track, Source, Room
 from core.actor import SourceActor
 
 logger = logging.getLogger(__name__)
@@ -30,6 +29,7 @@ SNAPCLIENT_PATH = "/usr/local/bin/snapclient"
 SNAPSERVER_CONFIG_PATH = Path(__file__).parent / "snapserver.conf"
 
 
+
 class MultiroomExtension(SourceActor):
     def __init__(self, name, core, db, config):
         super().__init__()
@@ -44,7 +44,6 @@ class MultiroomExtension(SourceActor):
         self._server_chunk = self._config["multiroom"].get("chunk")
         self._server_buffer = self._config["multiroom"].get("buffer")
         self._server_playback_device = self._config["multiroom"].get("playback_device")
-
         self._proc_snapclient = None
         self._proc_snapserver = None
         self._prev_server = None
@@ -120,7 +119,6 @@ class MultiroomExtension(SourceActor):
             await self._start_snapserver()
 
     async def on_start_service(self):
-        await self._core.request("playback.set_metadata", track=self._track)
         return True
 
     async def on_stop_service(self):
@@ -145,33 +143,33 @@ class MultiroomExtension(SourceActor):
                 await self._handle_service(kwargs)
 
             if service_name in self.servers:
-                if self.servers[service_name]["status"] == "unavailable":
-                    status = await self.on_get_status(self.servers[service_name]["ip"])
+                if self.servers[service_name].status == "unavailable":
+                    status = await self.on_get_status(self.servers[service_name].ip)
                     if status:
                         stream_status = (
                             status.get("server", {})
                             .get("streams", [{}])[0]
                             .get("status")
                         )
-                        self.servers[service_name]["connected"] = (
-                            self.servers[service_name]["ip"] == self._server
+                        self.servers[service_name].connected = (
+                            self.servers[service_name].ip == self._server
                         )
-                        self.servers[service_name]["status"] = stream_status
+                        self.servers[service_name].status = stream_status
                     self._core.send(
                         target=["web", "display"],
-                        event="snapcast_added",
+                        event="multiroom_added",
                         server=self.servers[service_name],
                     )
                     logger.info(f"Snapcast added server '{service_name}'")
 
         if service_state == "ServiceStateChange.Removed":
             if service_name in self.servers:
-                if self.servers[service_name]["status"] != "unavailable":
-                    self.servers[service_name]["status"] = "unavailable"
-                    self.servers[service_name]["connected"] = False
+                if self.servers[service_name].status != "unavailable":
+                    self.servers[service_name].status = "unavailable"
+                    self.servers[service_name].connected = False
                     self._core.send(
                         target=["web", "display"],
-                        event="snapcast_removed",
+                        event="multiroom_removed",
                         server=self.servers[service_name],
                     )
                     logger.warning(f"Snapcast removed server '{service_name}'")
@@ -208,17 +206,14 @@ class MultiroomExtension(SourceActor):
                 info.server.rstrip(".") if info.server else "Unknown"
             ).removesuffix(".local")
 
-            # if self._hostname == hostname:
-            #     return
-
-            self.servers[service_name] = {
-                "service_name": service_name,
-                "name": hostname,
-                "ip": ips[0],
-                "port": info.port,
-                "connected": False,
-                "status": "unavailable",
-            }
+            self.servers[service_name] = Room(
+                service_name=service_name,
+                name=hostname,
+                ip=ips[0],
+                port=info.port,
+                connected=False,
+                status="unavailable",
+            )
 
         except NotRunningException:
             pass
@@ -275,7 +270,7 @@ class MultiroomExtension(SourceActor):
         status = await self.on_get_status()
         self._core.send(
             target=["web", "display"],
-            event="snapcast_state_changed",
+            event="multiroom_state_changed",
             server=status.get("server"),
         )
 
@@ -283,18 +278,18 @@ class MultiroomExtension(SourceActor):
         servers = await self.on_servers(rescan=False)
 
         for server in servers:
-            if server.get("ip") == ip:
+            if server.ip == ip:
                 if self._connected:
                     self._core.send(
                         target=["web", "display"],
-                        event="snapcast_connected",
+                        event="multiroom_connected",
                         server=server,
                     )
                     logger.info(f"Snapcast connected to {self._server}:{AUDIO_PORT}")
                 else:
                     self._core.send(
                         target=["web", "display"],
-                        event="snapcast_disconnected",
+                        event="multiroom_disconnected",
                         server=server,
                     )
                     logger.warning(f"Snapcast disconnected")
@@ -323,8 +318,7 @@ class MultiroomExtension(SourceActor):
 
     async def on_stop(self):
         await self.zeroconf.async_close()
-        await self._stop_snapserver()
-        await self._stop_snapclient()
+        await self.on_stop_service()
         logger.info("Stopped")
 
     async def _stop_snapserver(self):
@@ -511,21 +505,21 @@ class MultiroomExtension(SourceActor):
     async def on_servers(self, rescan: bool = False):
         if rescan:
             logger.info("Discovering Snapcast servers via Avahi (mDNS)...")
-            await asyncio.sleep(DISCOVERY_TIME)
+            await asyncio.sleep(DISCOVERY_TIME) 
 
         self._server_list = list(self.servers.values())
 
         servers = []
         for server in self._server_list:
-            server["connected"] = self._server == server.get("ip")
-            server["status"] = "unavailable"
+            server.connected = self._server == server.ip
+            status = await self.on_get_status(server.ip)
 
-            status = await self.on_get_status(server.get("ip"))
             if status:
                 stream_status = (
                     status.get("server", {}).get("streams", [{}])[0].get("status")
                 )
-                server["status"] = stream_status
+
+            server.status = stream_status or "unavailable"
             servers.append(server)
 
         self._server_list = servers
@@ -554,7 +548,7 @@ class MultiroomExtension(SourceActor):
 
     async def on_connect(self, ip):
         if not ip:
-            raise RuntimeError(f"Invalid or no IP address defined")
+            raise RuntimeError(f"IP address not defined")
 
         await self._core.request("playback.clear")
         await self._core.request("source.set", uri="multiroom")
@@ -659,7 +653,7 @@ class MultiroomExtension(SourceActor):
                 if method == "Client.OnConnect":
                     self._core.send(
                         target=["web", "display"],
-                        event="snapcast_client_connected",
+                        event="multiroom_client_connected",
                         name=client_name,
                         ip=client_ip,
                         os=client_os,
@@ -671,7 +665,7 @@ class MultiroomExtension(SourceActor):
                 elif method == "Client.OnDisconnect":
                     self._core.send(
                         target=["web", "display"],
-                        event="snapcast_client_disconnected",
+                        event="multiroom_client_disconnected",
                         name=client_name,
                         ip=client_ip,
                         os=client_os,
@@ -688,7 +682,7 @@ class MultiroomExtension(SourceActor):
 
                     self._core.send(
                         target=["web", "display"],
-                        event="snapcast_notification",
+                        event="multiroom_notification",
                         method=method,
                         params=params,
                     )

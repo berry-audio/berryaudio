@@ -1,5 +1,5 @@
 output_device: hw:CARD=Loopback,DEV=0
-input_device: hw:CARD=sndrpihifiberry,DEV=0
 hw_device: null
+dtoverlay: null
 volume_default: 50
-volume_device: null
+volume_device: Software

@@ -9,7 +9,7 @@ from urllib.parse import quote
 from core.actor import SourceActor
 from core.types import PlaybackControls
 from core.util.metadata import Metadata
-from core.models import Image, RefType, Album, Artist, Ref, Track, Source
+from core.models import Image, RefType, Album, Artist, Category, Track, Source
 from pathlib import Path
 from typing import Optional
 
@@ -91,42 +91,42 @@ SCHEMA_SQL = """
     );
     """
 QUERIES = {
-    "track": f"""
-            SELECT
-                a.*,
-                ab.id AS album_id,
-                ab.name AS album_name,
-                ab.year AS album_year,
-                ab.image AS album_image,
-                ar.id AS artist_id,
-                ar.name AS artist_name,
-                ar.image AS artist_image,
-                g.id AS genre_id,
-                g.name AS genre_name
-            FROM track a
-            LEFT JOIN album ab ON a.album_id = ab.id
-            LEFT JOIN artist ar ON a.artist_id = ar.id
-            LEFT JOIN genre g ON a.genre_id = g.id
-            WHERE %s
-            ORDER BY a.name ASC
-        """,
-    "album": f"""
-            SELECT 
-                a.id AS id,
-                a.name,
-                a.image as image,
-                a.year as year,
-                a.artist_id,
-                ar.name AS artist_name,
-                ar.image AS artist_image,
-                COUNT(t.id) AS length
-            FROM album a
-            LEFT JOIN artist ar ON a.artist_id = ar.id
-            LEFT JOIN track t ON t.album_id = a.id
-            WHERE %s
-            GROUP BY a.id, ar.name
-            ORDER BY a.name ASC
-        """,
+    "track": """
+        SELECT
+            a.*,
+            ab.id AS album_id,
+            ab.name AS album_name,
+            ab.year AS album_year,
+            ab.image AS album_image,
+            ar.id AS artist_id,
+            ar.name AS artist_name,
+            ar.image AS artist_image,
+            g.id AS genre_id,
+            g.name AS genre_name
+        FROM track a
+        LEFT JOIN album ab ON a.album_id = ab.id
+        LEFT JOIN artist ar ON a.artist_id = ar.id
+        LEFT JOIN genre g ON a.genre_id = g.id
+        WHERE %s
+        ORDER BY a.name ASC
+    """,
+    "album": """
+        SELECT 
+            a.id AS id,
+            a.name,
+            a.image as image,
+            a.year as year,
+            a.artist_id,
+            ar.name AS artist_name,
+            ar.image AS artist_image,
+            COUNT(t.id) AS length
+        FROM album a
+        LEFT JOIN artist ar ON a.artist_id = ar.id
+        LEFT JOIN track t ON t.album_id = a.id
+        WHERE %s
+        GROUP BY a.id, ar.name
+        ORDER BY a.name ASC
+    """,
     "artist": f"""
             SELECT 
                 a.*,
@@ -136,21 +136,14 @@ QUERIES = {
             ORDER BY a.name ASC
             
         """,
-    "genre": f"""
-            SELECT 
-                a.*,
-                (SELECT COUNT(*) FROM track t WHERE t.genre_id = a.id) AS length
-            FROM genre a
-            WHERE %s
-            ORDER BY a.name ASC
-        """,
-    "radio": f"""
-            SELECT 
-                a.*
-            FROM radio a
-            WHERE %s
-            ORDER BY a.name ASC
-        """,
+    "genre": """
+        SELECT 
+            a.*,
+            (SELECT COUNT(*) FROM track t WHERE t.genre_id = a.id) AS length
+        FROM genre a
+        WHERE %s
+        ORDER BY a.name ASC
+    """,
 }
 
 TYPES = {
@@ -159,6 +152,7 @@ TYPES = {
     "artist": RefType.ARTIST,
     "genre": RefType.CATEGORY,
 }
+
 
 class LocalExtension(SourceActor):
     def __init__(self, name, core, db, config):
@@ -188,20 +182,35 @@ class LocalExtension(SourceActor):
         pass
 
     async def on_start(self):
+        self._db.executescript(SCHEMA_SQL)
         logger.info("Started")
 
     async def on_stop(self):
         logger.info("Stopped")
 
     def _directories(self):
-        Item = namedtuple('Item', ['uri', 'name', 'type'])
+        Item = namedtuple("Item", ["uri", "name", "type"])
         _dirs = [
-            Item(uri='artist', name='Artists', type=RefType.CATEGORY),
-            Item(uri='album', name='Albums', type=RefType.CATEGORY),
-            Item(uri='track', name='Tracks', type=RefType.CATEGORY),
-            Item(uri='genre', name='Genre', type=RefType.CATEGORY)
+            Item(uri="artist", name="Artists", type=RefType.CATEGORY),
+            Item(uri="album", name="Albums", type=RefType.CATEGORY),
+            Item(uri="track", name="Tracks", type=RefType.CATEGORY),
+            Item(uri="genre", name="Genre", type=RefType.CATEGORY),
         ]
         return _dirs
+
+    def on_search(self, query: str) -> dict:
+        tables = ["track", "artist", "album"]
+        result = {}
+        for table in tables:
+            sql = QUERIES[table] % "a.name LIKE ? COLLATE NOCASE"
+            rows = self._db.fetchall(sql, (f"%{query}%",))
+            if table == "track":
+                result[table] = [Track(**self.build_track(row)) for row in rows]
+            elif table == "artist":
+                result[table] = [Artist(**self.build_artist(row)) for row in rows]
+            elif table == "album":
+                result[table] = [Album(**self.build_album(row)) for row in rows]
+        return result
 
     def on_directory(
         self,
@@ -215,138 +224,172 @@ class LocalExtension(SourceActor):
         values = uri.split(":")
         values_len = len(values)
 
-        if values_len:
-            if values_len == 3:
-                view, ref_id, ref_type = values
+        builders = {
+            "album":  lambda row: Album(**self.build_album(row)),
+            "artist": lambda row: Artist(**self.build_artist(row)),
+            "track":  lambda row: Track(**self.build_track(row)),
+            "genre":  lambda row: Category(**self.build_category(row, "genre")),
+        }
 
-                if view == RefType.TRACK:
-                    raise ValueError(f"Track does not have listings")
+        if values_len == 3:
+            view, ref_id, ref_type = values
+            if view == RefType.TRACK:
+                raise ValueError("Track does not have listings")
+            if ref_type != "tracks":
+                raise ValueError(f"View type '{ref_type}' not supported")
+            rows = self._db.fetchall(QUERIES["track"] % f"a.{view}_id = {ref_id}")
+            return [Track(**self.build_track(row)) for row in rows]
 
-                if ref_type != "tracks":
-                    raise ValueError(f"View type '{ref_type}' not supported")
+        if values_len == 2:
+            view, ref_id = values
+            rows = self._db.fetchall(QUERIES[view] % "a.id = ?", (ref_id,))
+            return [builders[view](row) for row in rows]
 
-                sql = QUERIES["track"] % (f"a.{view}_id = {ref_id}")
-                rows = self._db.fetchall(sql)
-                view = "track"
+        if values_len == 1:
+            view = values[0]
+            sql = QUERIES[view].rstrip(";") % "1"
+            params = []
+            if limit is not None:
+                sql += " LIMIT ?"
+                params.append(limit)
+            if offset is not None:
+                sql += " OFFSET ?"
+                params.append(offset)
+            rows = self._db.fetchall(sql, params)
+            return [builders[view](row) for row in rows]
 
-            if values_len == 2:
-                view, ref_id = values
+    def _resolve_images(self, images_dir, images_web_path, image_filename):
+        if not image_filename:
+            return []
+        full_path = images_dir / image_filename
+        web_path = images_web_path / image_filename
+        if full_path.is_file():
+            return [Image(uri=str(web_path))]
+        return []
 
-                sql = QUERIES[view] % "a.id = ?"
-                rows = self._db.fetchall(sql, (ref_id,))
-
-            if values_len == 1:
-                view = values[0]
-                base_sql = QUERIES[view] % "1"
-                sql = base_sql.rstrip(";")
-
-                params = []
-                if limit is not None:
-                    sql += " LIMIT ?"
-                    params.append(limit)
-
-                    if offset is not None:
-                        sql += " OFFSET ?"
-                        params.append(offset)
-                rows = self._db.fetchall(sql, params)
-            return [Ref(**self._build_ref(row, view)) for row in rows]
-
-    def _build_ref(self, row, view, is_ref=True):
+    def build_album(self, row):
         obj = {}
+        obj["uri"] = f"album:{row['id']}"
 
-        if view == 'track':
-            obj["uri"] = f"{self._name}:{row.path}"
-        else:
-            obj["uri"] = f"{view}:{row.id}"   
+        if row["name"]:
+            obj["name"] = row["name"]
 
-        if is_ref:
-            obj["type"] = TYPES[view]
-
-        if row.name:
-            obj["name"] = row.name
-
-        if row.album_name:
-            image_uri = None
-
-            if row.album_image:
-                image_full_path = ALBUM_IMAGES_DIR / row.album_image
-                image_web_path = ALBUM_IMAGES_WEB_PATH / row.album_image
-
-                if image_full_path.is_file():
-                    image_uri = str(image_web_path)
-
-            obj["albums"] = frozenset(
-                [
-                    Album(
-                        uri=f"album:{row.album_id}",
-                        name=row.album_name,
-                        date=row.album_year or None,
-                        images=[Image(uri=image_uri)] if image_uri else [],
-                    )
-                ]
-            )
-
-        if row.artist_name:
-            image_uri = None
-
-            if row.artist_image:
-                image_full_path = ARTIST_IMAGES_DIR / row.artist_image
-                image_web_path = ARTIST_IMAGES_WEB_PATH / row.artist_image
-
-                if image_full_path.is_file():
-                    image_uri = str(image_web_path)
-
+        if row["artist_name"]:
             obj["artists"] = frozenset(
                 [
                     Artist(
-                        uri=f"artist:{row.artist_id}",
-                        name=row.artist_name,
-                        images=[Image(uri=image_uri)] if image_uri else [],
+                        uri=f"artist:{row['artist_id']}",
+                        name=row["artist_name"],
+                        images=self._resolve_images(
+                            ARTIST_IMAGES_DIR,
+                            ARTIST_IMAGES_WEB_PATH,
+                            row["artist_image"],
+                        ),
                     )
                 ]
             )
-        if row.genre:
-            obj["genre"] = row.genre
 
-        if row.genre_name:
-            obj["genre"] = row.genre_name
+        if row["year"]:
+            obj["date"] = row["year"]
 
-        if row.country:
-            obj["country"] = row.country
+        obj["images"] = self._resolve_images(
+            ALBUM_IMAGES_DIR, ALBUM_IMAGES_WEB_PATH, row["image"]
+        )
+        return obj
 
-        if row.year:
-            obj["date"] = row.year
+    def build_artist(self, row):
+        obj = {}
+        obj["uri"] = f"artist:{row['id']}"
 
-        if row.track_number:
-            obj["track_no"] = row.track_number
+        if row["name"]:
+            obj["name"] = row["name"]
 
-        if row.disc_number:
-            obj["disc_no"] = row.track_number
+        albums = self._db.fetchall(
+            "SELECT * FROM album WHERE artist_id = ?", (row["id"],)
+        )
+        if albums:
+            obj["albums"] = frozenset(
+                [
+                    Album(
+                        uri=f"album:{album['id']}",
+                        name=album["name"],
+                        date=album["year"] or None,
+                        images=self._resolve_images(
+                            ALBUM_IMAGES_DIR, ALBUM_IMAGES_WEB_PATH, album["image"]
+                        ),
+                    )
+                    for album in albums
+                ]
+            )
 
-        if row.bitrate:
-            obj["bitrate"] = row.bitrate
+        obj["images"] = self._resolve_images(
+            ARTIST_IMAGES_DIR, ARTIST_IMAGES_WEB_PATH, row["image"]
+        )
+        return obj
 
-        if row.length:
-            obj["length"] = int(row.length)
+    def build_category(self, row, category):
+        obj = {}
+        obj["uri"] = f"{category}:{row['id']}"
 
-        if row.comment:
-            obj["comment"] = row.comment
+        if row["name"]:
+            obj["name"] = row["name"]
 
-        image_uri = None
-        if row.image:
-            image_full_path = (
-                ARTIST_IMAGES_DIR if view == "artist" else ALBUM_IMAGES_DIR
-            ) / row.image
+        return obj
 
-            image_web_path = (
-                ARTIST_IMAGES_WEB_PATH if view == "artist" else ALBUM_IMAGES_WEB_PATH
-            ) / row.image
+    def build_track(self, row):
+        obj = {}
+        obj["uri"] = f"{self._name}:{row['path']}"
 
-            if image_full_path.is_file():
-                image_uri = str(image_web_path)
+        if row["name"]:
+            obj["name"] = row["name"]
 
-        obj["images"] = [Image(uri=image_uri)] if image_uri else []
+        if row["album_name"]:
+            obj["albums"] = frozenset(
+                [
+                    Album(
+                        uri=f"album:{row['album_id']}",
+                        name=row["album_name"],
+                        date=row["album_year"] or None,
+                        images=self._resolve_images(
+                            ALBUM_IMAGES_DIR, ALBUM_IMAGES_WEB_PATH, row["album_image"]
+                        ),
+                    )
+                ]
+            )
 
+        if row["artist_name"]:
+            obj["artists"] = frozenset(
+                [
+                    Artist(
+                        uri=f"artist:{row['artist_id']}",
+                        name=row["artist_name"],
+                        images=self._resolve_images(
+                            ARTIST_IMAGES_DIR,
+                            ARTIST_IMAGES_WEB_PATH,
+                            row["artist_image"],
+                        ),
+                    )
+                ]
+            )
+
+        if row["genre_name"]:
+            obj["genre"] = row["genre_name"]
+
+        if row["track_number"]:
+            obj["track_no"] = row["track_number"]
+
+        if row["disc_number"]:
+            obj["disc_no"] = row["disc_number"]
+
+        if row["bitrate"]:
+            obj["bitrate"] = row["bitrate"]
+
+        if row["length"]:
+            obj["length"] = int(row["length"])
+
+        obj["images"] = self._resolve_images(
+            ALBUM_IMAGES_DIR, ALBUM_IMAGES_WEB_PATH, row["image"]
+        )
         return obj
 
     async def on_playback_uri(self, path: str) -> any:
@@ -357,7 +400,7 @@ class LocalExtension(SourceActor):
         row = self._db.fetchall(sql, (path,))
         if not row:
             return None
-        return Track(**self._build_ref(row[0], "track", False))
+        return Track(**self.build_track(row[0]))
 
     async def on_stop_service(self) -> bool:
         await self._core.request("playback.clear")
@@ -400,7 +443,6 @@ class LocalExtension(SourceActor):
         asyncio.create_task(self.scan_and_download_artist_info())
         return True
 
-    # -- Download Artist Info ---
     def normalize_artist_name(self, raw_name):
         """If multiple artists, take only the first one."""
         parts = re.split(
@@ -453,7 +495,7 @@ class LocalExtension(SourceActor):
         }
 
         self._core.send(
-            target=["web","display"],
+            target=["web", "display"],
             event="scan_artist_updated",
             progress=_scan_artist_progress.copy(),
         )
@@ -510,7 +552,7 @@ class LocalExtension(SourceActor):
                 await asyncio.sleep(0.2)
 
             self._core.send(
-                target=["web","display"],
+                target=["web", "display"],
                 event="scan_artist_updated",
                 progress=_scan_artist_progress.copy(),
             )
@@ -518,12 +560,11 @@ class LocalExtension(SourceActor):
 
         _scan_artist_progress["completed"] = True
         self._core.send(
-            target=["web","display"],
+            target=["web", "display"],
             event="scan_artist_updated",
             progress=_scan_artist_progress.copy(),
         )
 
-    # ----- Scan Music --------
 
     def normalize_name(self, value: Optional[str]) -> Optional[str]:
         if not value:
@@ -582,10 +623,13 @@ class LocalExtension(SourceActor):
         return os.path.splitext(filename)[1].lower() in AUDIO_EXTS
 
     async def scan_and_ingest(self):
-        self._db.executescript(SCHEMA_SQL)
+        
         _config = self._db.get_config()
-        _scan_paths = [path.removeprefix("storage:") for path in _config.get("local", {}).get("library_path", [])]
-    
+        _scan_paths = [
+            path.removeprefix("storage:")
+            for path in _config.get("local", {}).get("library_path", [])
+        ]
+
         self._scan_progress = {
             "processed": 0,
             "inserted": 0,
@@ -593,7 +637,9 @@ class LocalExtension(SourceActor):
             "completed": False,
         }
         self._core.send(
-            target=["web","display"], event="scan_update", progress=self._scan_progress.copy()
+            target=["web", "display"],
+            event="scan_update",
+            progress=self._scan_progress.copy(),
         )
         await asyncio.sleep(0.3)
         logger.info(self._scan_progress)
@@ -693,7 +739,7 @@ class LocalExtension(SourceActor):
                         self._scan_progress["processed"] += 1
                         if self._scan_progress["processed"] % BATCH_SIZE == 0:
                             self._core.send(
-                                target=["web","display"],
+                                target=["web", "display"],
                                 event="scan_update",
                                 progress=self._scan_progress.copy(),
                             )
@@ -705,6 +751,8 @@ class LocalExtension(SourceActor):
 
         self._scan_progress["completed"] = True
         self._core.send(
-            target=["web","display"], event="scan_update", progress=self._scan_progress.copy()
+            target=["web", "display"],
+            event="scan_update",
+            progress=self._scan_progress.copy(),
         )
         logger.info(self._scan_progress)

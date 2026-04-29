@@ -5,7 +5,7 @@ import logging
 
 from pathlib import Path
 from gi.repository import GLib
-from core.models import RefType, Storage, StorageUsage
+from core.models import RefType, Storage, StorageUsage, Directory, Track, File
 from core.util.system import SystemUtil
 
 from .smb_manager import StorageSmbManager
@@ -96,7 +96,7 @@ class StorageManager:
 
                     storages.append(
                         Storage(
-                            type=RefType.STORAGE if is_internal else RefType.REMOVABLE,
+                            icon=RefType.INTERNAL if is_internal else RefType.REMOVABLE,
                             name=(
                                 INTERNAL_MUSIC_DIR
                                 if is_internal
@@ -116,7 +116,7 @@ class StorageManager:
 
                     storages.append(
                         Storage(
-                            type=RefType.REMOVABLE,
+                            icon=RefType.REMOVABLE,
                             name=label or "Unknown",
                             dev=devname,
                             fstype=fs_type,
@@ -134,9 +134,9 @@ class StorageManager:
         storages.extend(self._smb.list_smb_shared())
         return storages
 
-    async def storage_mount(self, dev_node: str) -> str | None:
-        device = dev_node.replace("/dev/", "")
-        logger.debug(f"Mounting {dev_node}")
+    async def storage_mount(self, dev: str) -> str | None:
+        device = dev.replace("/dev/", "")
+        logger.debug(f"Mounting {dev}")
 
         loop = asyncio.get_event_loop()
 
@@ -149,7 +149,7 @@ class StorageManager:
             existing = await loop.run_in_executor(None, lambda: obj.MountPoints)
             if existing:
                 mount_point = "".join(chr(b) for b in existing[0] if b != 0)
-                raise ValueError(f"{dev_node} already mounted at {mount_point}")
+                raise ValueError(f"{dev} already mounted at {mount_point}")
 
             # Stop camilladsp before mounting to prevent cpu throttling on pizero 2W
             if self._system.get_board() == "PI_ZERO_2W":
@@ -164,16 +164,16 @@ class StorageManager:
                 timeout=60,
             )
 
-            logger.debug(f"Mounted {dev_node} at {mount_point}")
+            logger.debug(f"Mounted {dev} at {mount_point}")
             storage = await loop.run_in_executor(
-                None, lambda: self.storage_item(dev_node, internal=True)
+                None, lambda: self.storage_item(dev, internal=True)
             )
 
             if self._system.get_board() == "PI_ZERO_2W":
                 await self._core.request("dsp.service", state="start")
 
             logger.info(
-                f"Mounted {dev_node}, Total: {storage.usage.total}, "
+                f"Mounted {dev}, Total: {storage.usage.total}, "
                 f"Used: {storage.usage.used}, Free: {storage.usage.free}"
             )
 
@@ -184,9 +184,9 @@ class StorageManager:
                 return True
 
         except asyncio.TimeoutError:
-            raise ValueError(f"Mount timed out for {dev_node}")
+            raise ValueError(f"Mount timed out for {dev}")
         except Exception as e:
-            raise ValueError(f"Error mounting {dev_node}: {e}")
+            raise ValueError(f"Error mounting {dev}: {e}")
 
     async def storage_unmount(self, dev_node: str) -> bool:
         device = dev_node.replace("/dev/", "")
@@ -238,7 +238,7 @@ class StorageManager:
 
         _, path = uri.split(":", 1)
         p = Path(path)
-        _smb_list_shares = {s.uri for s in self._smb.list_shares()}
+        _smb_list_shares = {s.uri for s in self._smb.list_shared_directories()}
         entries = []
 
         try:
@@ -248,28 +248,25 @@ class StorageManager:
                 item_uri = f"{self._name}:{str(item.resolve())}"
                 if item.is_dir():
                     entries.append(
-                        Storage(
+                        Directory(
+                            uri=item_uri,
                             name=item.name,
                             shared=item_uri in _smb_list_shares,
-                            type=RefType.DIRECTORY,
-                            size=0,
-                            uri=item_uri,
                         )
                     )
                 elif extensions is None or item.suffix.lower() in [
                     ext.lower() for ext in extensions
                 ]:
                     entries.append(
-                        Storage(
-                            name=item.name,
-                            shared=item_uri in _smb_list_shares,
-                            type=RefType.TRACK,
-                            size=item.stat().st_size,
+                        File(
                             uri=item_uri,
+                            name=item.name,
+                            size=item.stat().st_size,
+                            ext=item.suffix.lstrip(".").lower()
                         )
                     )
 
-            entries.sort(key=lambda x: (x.type != RefType.DIRECTORY, x.name.lower()))
+            entries.sort(key=lambda x: (not isinstance(x, Directory), x.name.lower()))
 
             _offset = offset or 0
             paginated = entries[_offset:]
