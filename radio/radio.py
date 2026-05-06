@@ -163,6 +163,19 @@ class RadioExtension(SourceActor):
                     params.append(offset)
 
             rows = self._db.fetchall(sql, params)
+
+        if values_len == 2:
+            view, ref_id = values
+            if str(ref_id).isdigit():
+                raise ValueError("only alphabets allowed")
+            else:
+                rows = self._db.fetchall("""
+                    SELECT a.*
+                    FROM radio a
+                    WHERE a.name LIKE ?
+                    ORDER BY a.name ASC
+                """, (f"{ref_id}%",))
+
         return [Track(**self._build_track(row)) for row in rows]
 
     async def on_playback_uri(self, path: str) -> any:

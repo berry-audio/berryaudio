@@ -46,8 +46,9 @@ SCHEMA_SQL = """
         id INTEGER PRIMARY KEY,
         name TEXT NOT NULL UNIQUE COLLATE NOCASE,
         image TEXT,
-        comment TEXT,
+        biography TEXT,
         country TEXT,
+        year TEXT,
         genre TEXT,
         musicbrainz_id TEXT
     );
@@ -242,7 +243,10 @@ class LocalExtension(SourceActor):
 
         if values_len == 2:
             view, ref_id = values
-            rows = self._db.fetchall(QUERIES[view] % "a.id = ?", (ref_id,))
+            if str(ref_id).isdigit():
+                rows = self._db.fetchall(QUERIES[view] % "a.id = ?", (ref_id,))
+            else:
+                rows = self._db.fetchall(QUERIES[view] % "a.name LIKE ?", (f"{ref_id}%",))
             return [builders[view](row) for row in rows]
 
         if values_len == 1:
@@ -257,6 +261,24 @@ class LocalExtension(SourceActor):
                 params.append(offset)
             rows = self._db.fetchall(sql, params)
             return [builders[view](row) for row in rows]
+
+    def on_directory_offsets(self, uri: str) -> dict[str, int]:
+        view = uri.split(":")[0]
+        
+        if view not in ("album", "artist", "track", "genre"):
+            raise ValueError(f"View type '{view}' not supported")
+
+        sql = f"SELECT * FROM ({QUERIES[view].rstrip(';') % '1'})"
+        rows = self._db.fetchall(sql)
+
+        offsets = {}
+        for index, row in enumerate(rows):
+            name = row["name"] if row["name"] else ""
+            first_letter = name[0].upper() if name else ""
+            if first_letter and first_letter.isalpha() and first_letter not in offsets:
+                offsets[first_letter] = index
+
+        return offsets
 
     def _resolve_images(self, images_dir, images_web_path, image_filename):
         if not image_filename:
@@ -321,6 +343,20 @@ class LocalExtension(SourceActor):
                     for album in albums
                 ]
             )
+        if row["biography"]:
+            obj["biography"] = row["biography"]
+
+        if row["country"]:
+            obj["country"] = row["country"]
+
+        if row["year"]:
+            obj["year"] = row["year"]
+
+        if row["genre"]:
+            obj["genre"] = row["genre"]
+
+        if row["musicbrainz_id"]:
+            obj["musicbrainz_id"] = row["musicbrainz_id"]
 
         obj["images"] = self._resolve_images(
             ARTIST_IMAGES_DIR, ARTIST_IMAGES_WEB_PATH, row["image"]
@@ -462,8 +498,10 @@ class LocalExtension(SourceActor):
                 artist = data["artists"][0]
                 return {
                     "thumb": artist.get("strArtistThumb"),
-                    "biography": artist.get("strBiographyEN"),
+                    "biography": artist.get("strBiography"),
                     "genre": artist.get("strGenre"),
+                    "musicbrainz_id": artist.get("strMusicBrainzID"),
+                    "year": artist.get("intBornYear"),
                     "country": artist.get("strCountry"),
                 }
 
@@ -493,70 +531,57 @@ class LocalExtension(SourceActor):
             "unavailable": 0,
             "completed": False,
         }
-
         self._core.send(
             target=["web", "display"],
             event="scan_artist_updated",
             progress=_scan_artist_progress.copy(),
         )
-        await asyncio.sleep(0.2)
+        await asyncio.sleep(0.1)
 
         for artist in artists:
             filename = ARTIST_IMAGES_DIR / f"{artist.name}.jpg"
             filename_db = f"{artist.name}.jpg"
 
-            if artist.image and (Path(ARTIST_IMAGES_DIR) / artist.image).exists():
-                logger.debug(f"Skipping {artist.name}, already has image.")
-                continue
-
             # pass 1
             result = self.fetch_artist_info(quote(artist.name))
-
             if not result:
                 # pass 2
                 result = self.fetch_artist_info(self.normalize_artist_name(artist.name))
-                if not result:
-                    logger.warning(f"No data found for {artist.name}")
-                    _scan_artist_progress["unavailable"] += 1
-                    continue
 
-            if Path(filename).exists():
-                logger.debug(f"File already exists for {artist.name}, updating DB...")
+            if not result:
+                logger.warning(f"No data found for {artist.name}")
+                _scan_artist_progress["unavailable"] += 1
+            else:
+                if Path(filename).exists():
+                    logger.debug(f"File already exists for {artist.name}")
+                elif artist.image and (Path(ARTIST_IMAGES_DIR) / artist.image).exists():
+                    logger.debug(f"Skipping {artist.name}, already has image.")
+                else:
+                    self.download_artist_image(result["thumb"], filename)
+                    logger.debug(f"Saved {artist.name} image to {filename}")
+                    _scan_artist_progress["downloaded"] += 1
+
                 self._db.execute(
-                    "UPDATE artist SET image = ?, comment = ?, genre = ?, country = ?  WHERE id = ?",
+                    "UPDATE artist SET image = ?, biography = ?, genre = ?, country = ?, year = ?, musicbrainz_id = ? WHERE id = ?",
                     (
                         filename_db,
                         result["biography"],
                         result["genre"],
                         result["country"],
+                        result["year"],
+                        result["musicbrainz_id"],
                         artist.id,
                     ),
                 )
                 _scan_artist_progress["updated"] += 1
-                continue
 
-            if self.download_artist_image(result["thumb"], filename):
-                logger.debug(f"Saved {artist.name} image to {filename}")
-                self._db.execute(
-                    "UPDATE artist SET image = ?, comment = ? , genre = ?, country = ? WHERE id = ?",
-                    (
-                        filename_db,
-                        result["biography"],
-                        result["genre"],
-                        result["country"],
-                        artist.id,
-                    ),
-                )
-                _scan_artist_progress["updated"] += 1
-                _scan_artist_progress["downloaded"] += 1
-                await asyncio.sleep(0.2)
-
+            await asyncio.sleep(0.1)
             self._core.send(
                 target=["web", "display"],
                 event="scan_artist_updated",
                 progress=_scan_artist_progress.copy(),
             )
-            await asyncio.sleep(0.2)
+            await asyncio.sleep(0.1)
 
         _scan_artist_progress["completed"] = True
         self._core.send(

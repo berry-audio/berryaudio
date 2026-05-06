@@ -76,6 +76,10 @@ class Artist(BaseModel):
     name: str | None = None
     sortname: str | None = None
     albums: frozenset[Album] = frozenset()
+    biography: Optional[str] = None
+    country: Optional[str] = None
+    year: Optional[str] = None
+    genre: Optional[str] = None
     musicbrainz_id: UUID | None = None
     images: tuple | None = None
 

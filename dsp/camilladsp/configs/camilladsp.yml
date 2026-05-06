@@ -37,35 +37,35 @@ filters:
       freq_max: 19000
       freq_min: 45
       gains:
-      - 3.3
-      - 0.3
-      - -2
-      - -1.1
-      - -1.9
-      - -2
-      - -2.4
-      - -2.3
-      - -2.2
-      - -1.8
-      - -1.2
-      - -0.6
-      - 0.7
+      - 5
       - 1.3
-      - 3.1
+      - -0.8
+      - -1.8
+      - -1.1
+      - -2.2
+      - -2.6
+      - -2.7
+      - -2.6
+      - -2
+      - -1.6
+      - -1.1
+      - -0.4
+      - 1.7
+      - 2.7
       type: GraphicEqualizer
     type: BiquadCombo
   Bass:
     description: null
     parameters:
       freq: 55
-      gain: 12
+      gain: 9
       q: 0.5
       type: Peaking
     type: Biquad
   Gain:
     description: null
     parameters:
-      gain: -15
+      gain: -10
       inverted: false
       mute: null
       scale: null
@@ -75,7 +75,7 @@ filters:
     parameters:
       freq: 19000
       gain: 6
-      q: 0.4
+      q: 0.3
       type: Peaking
     type: Biquad
 mixers:
@@ -173,13 +173,20 @@ pipeline:
   description: null
   name: Main Distributer
   type: Mixer
-- bypassed: false
+- bypassed: null
   channels:
   - 0
   - 1
   description: null
   names:
   - 15 Band EQ
+  type: Filter
+- bypassed: false
+  channels:
+  - 0
+  - 1
+  description: null
+  names:
   - Treble
   - Treble
   - Bass
