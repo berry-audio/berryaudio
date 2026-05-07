@@ -16,6 +16,7 @@ from core.util.system import SystemUtil
 logger = logging.getLogger(__name__)
 
 DTOVERLAY_DICT = Path(__file__).parent.parent / "mixer" / "dtoverlay.json"
+MIXERS_LIST_PATH = Path(__file__).parent.parent / "mixer" / "mixers.json"
 VOL_MIN = 0
 VOL_MAX = 100
 
@@ -45,6 +46,7 @@ class MixerExtension(Actor):
 
         if "hw_device" in updated_config:
             self._hw_device = updated_config.get("hw_device")
+            await self._system.write_asoundrc(pcm=self._hw_device)
 
         if "volume_device" in updated_config:
             self._volume_device = updated_config.get("volume_device")
@@ -180,7 +182,7 @@ class MixerExtension(Actor):
 
     def alsa_mixer_setup(self):
         """Alsa Mixer initial setup"""
-        card_controls = self.on_alsa_mixer_volume()
+        card_controls = self.on_alsa_mixer_volume(device=self._hw_device)
         for control in card_controls:
             if control["name"] == self._volume_device:
                 if control["name"] == "Software":
@@ -205,8 +207,7 @@ class MixerExtension(Actor):
         """Gets ALSA aplay, arecord device list"""
         if cmd not in ("arecord", "aplay"):
             raise ValueError("cmd must be 'arecord' or 'aplay'")
-        with open(DTOVERLAY_DICT, "r", encoding="utf-8") as f:
-            dtoverlays = json.load(f)
+       
         result = subprocess.run([cmd, "-L"], capture_output=True, text=True)
         lines = result.stdout.splitlines()
         devices = [
@@ -214,7 +215,6 @@ class MixerExtension(Actor):
                 "name": "None",
                 "device": None,
                 "card": None,
-                "dtoverlay": None,
                 "description": None,
             }
         ]
@@ -224,13 +224,11 @@ class MixerExtension(Actor):
         def flush_device():
             if current_device and current_device.startswith(("hw:", "plughw:")):
                 card = self.alsa_device_to_card(current_device)
-                dtoverlay = dtoverlays.get(card, None)
                 devices.append(
                     {
                         "name": current_device,
                         "device": current_device,
                         "card": card,
-                        "dtoverlay": dtoverlay,
                         "description": " ".join(description_lines[1:]).strip(),
                     }
                 )
@@ -331,7 +329,7 @@ class MixerExtension(Actor):
             controls.append(current)
         return controls
 
-    def on_alsa_mixer_volume(self, card: str = None):
+    def on_alsa_mixer_volume(self, device: str = None):
         software_control = {
             "name": "Software",
             "description": "Software volume from DSP",
@@ -342,25 +340,21 @@ class MixerExtension(Actor):
             "muted": False,
         }
 
+        if device is None:
+            return [software_control]
+
+        card = self.alsa_device_to_card(device)
         if card is None:
-            if self._hw_device is not None:
-                card = self.alsa_device_to_card(self._hw_device)
-            else:
-                return [software_control]
+            return [software_control]
 
         cards = self.get_alsa_mixers()
         matched = next(
-            (
-                c
-                for c in cards
-                if card.lower() in c["card"].lower()
-                or card.lower() in c["description"].lower()
-            ),
+            (c for c in cards if card.lower() == c["card"].lower()),
             None,
         )
 
         if not matched:
-            raise ValueError(f"No card matching '{card}' found.")
+            return [software_control]
 
         controls = [
             {
@@ -370,16 +364,10 @@ class MixerExtension(Actor):
                 "type": c["type"],
                 "channels": len(c["channels"]),
                 "range": {**c["range"], "unit": "steps"},
-                **(
-                    {
-                        "muted": any(
-                            ch["muted"]
-                            for ch in c["channels"]
-                            if ch["muted"] is not None
-                        )
-                    }
-                    if any(ch["muted"] is not None for ch in c["channels"])
-                    else {}
+                "muted": any(
+                    ch["muted"]
+                    for ch in c["channels"]
+                    if ch["muted"] is not None
                 ),
             }
             for c in self.get_alsa_volume_controls(matched["index"])
@@ -391,3 +379,9 @@ class MixerExtension(Actor):
 
         controls.insert(0, software_control)
         return controls
+
+    def on_list(self):
+        with open(MIXERS_LIST_PATH, "r", encoding="utf-8") as f:
+            mixers = json.load(f)
+        return mixers 
+

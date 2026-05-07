@@ -1,5 +1,6 @@
 output_device: hw:CARD=Loopback,DEV=0
 hw_device: null
+hw_device_id: null
 dtoverlay: null
 volume_default: 50
 volume_device: Software

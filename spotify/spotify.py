@@ -30,7 +30,7 @@ class SpotifyExtension(SourceActor):
         self._volume_normalization = self._config.get("spotify", {}).get(
             "volume_normalization"
         )
-        self._output_device = self._config.get("mixer", {}).get("output_device")
+        self._output_device = self._config.get("spotify", {}).get("output_device")
         self._channels = 2
         self._proc = None
         self._track = None

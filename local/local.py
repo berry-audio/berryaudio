@@ -262,23 +262,6 @@ class LocalExtension(SourceActor):
             rows = self._db.fetchall(sql, params)
             return [builders[view](row) for row in rows]
 
-    def on_directory_offsets(self, uri: str) -> dict[str, int]:
-        view = uri.split(":")[0]
-        
-        if view not in ("album", "artist", "track", "genre"):
-            raise ValueError(f"View type '{view}' not supported")
-
-        sql = f"SELECT * FROM ({QUERIES[view].rstrip(';') % '1'})"
-        rows = self._db.fetchall(sql)
-
-        offsets = {}
-        for index, row in enumerate(rows):
-            name = row["name"] if row["name"] else ""
-            first_letter = name[0].upper() if name else ""
-            if first_letter and first_letter.isalpha() and first_letter not in offsets:
-                offsets[first_letter] = index
-
-        return offsets
 
     def _resolve_images(self, images_dir, images_web_path, image_filename):
         if not image_filename:

@@ -1,7 +1,0 @@
-{
-  "wm8960soundcard": "wm8960-soundcard",
-  "sndrpihifiberry": "hifiberry-dacplusadc",
-  "Headphones": null,
-  "IQaudIODAC": "iqaudio-dacplus",
-  "DAC": "rpi-dacplus"
-}
