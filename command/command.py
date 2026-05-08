@@ -38,7 +38,7 @@ class CommandExtension(Actor):
                 await self._core.request("playback.previous")
 
             elif action == Command.MUTE:
-                await self._core.request("mixer.set_mute")
+                await self._core.request("mixer.toggle_mute")
 
             elif action == Command.VOLUME_UP:
                 await self._core.request("mixer.volume_up")

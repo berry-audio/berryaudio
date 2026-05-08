@@ -1,0 +1,1 @@
+from .multiroom import MultiroomExtension as Extension

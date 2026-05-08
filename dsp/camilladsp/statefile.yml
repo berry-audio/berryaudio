@@ -1,0 +1,13 @@
+config_path: /home/pi/berryaudio/dsp/camilladsp/configs/camilladsp.yml
+mute:
+- false
+- true
+- true
+- true
+- true
+volume:
+- -8.6
+- 0.0
+- 0.0
+- 0.0
+- 0.0

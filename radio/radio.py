@@ -3,7 +3,7 @@ import json
 
 from pathlib import Path
 from core.actor import SourceActor
-from core.models import Image, RefType, Album, Artist, Ref, Track, Source
+from core.models import Image, Album, Artist, Track, Source
 from core.types import PlaybackControls
 
 logger = logging.getLogger(__name__)
@@ -11,6 +11,45 @@ logger = logging.getLogger(__name__)
 STATIONS_PATH = Path(__file__).parent.parent / "radio" / "stations.json"
 BASE_DIR = Path(__file__).resolve().parent.parent / "web" / "www"
 ALBUM_IMAGES_WEB_PATH = Path("images") / "radio"
+
+SQL_QUERY_SEARCH = {
+    "radio": f"""
+            SELECT 
+                a.*
+            FROM radio a
+            WHERE %s
+            ORDER BY a.name ASC
+        """,
+}
+SQL_QUERY_CREATE = """
+    CREATE TABLE IF NOT EXISTS radio (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        path        TEXT    NOT NULL UNIQUE,
+        name        TEXT    NOT NULL,
+        genre       TEXT,
+        broadcaster TEXT,
+        language    TEXT,
+        country     TEXT,
+        region      TEXT,
+        bitrate     INTEGER,
+        format      TEXT,
+        home_page   TEXT,
+        views       INTEGER NOT NULL DEFAULT 0,
+        image       TEXT
+    );
+    """
+
+SQL_QUERY_INSERT = """
+    INSERT OR IGNORE INTO radio (
+        path, name, genre, broadcaster, language,
+        country, region, bitrate, format, home_page, image
+    )
+    VALUES (
+        :path, :name, :genre, :broadcaster, :language,
+        :country, :region, :bitrate, :format, :home_page, :image
+    )
+    """
+
 
 class RadioExtension(SourceActor):
     def __init__(self, name, core, db, config):
@@ -21,7 +60,6 @@ class RadioExtension(SourceActor):
         self._config = config
         self._source = Source(
             name="Radio",
-            type=RefType.SOURCE,
             uri=self._name,
             controls=[
                 PlaybackControls.SEEK,
@@ -52,50 +90,18 @@ class RadioExtension(SourceActor):
 
     async def on_start_service(self):
         logger.debug("Starting Service")
-        return True
+        return self._source
 
     def _init_table(self):
-        self._db.executescript(
-            """
-            DROP TABLE IF EXISTS radio;
-
-            CREATE TABLE radio (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                path TEXT NOT NULL UNIQUE,
-                name TEXT,
-                genre TEXT,
-                broadcaster TEXT,
-                language TEXT,
-                country TEXT,
-                region TEXT,
-                bitrate INTEGER,
-                format TEXT,
-                home_page TEXT,
-                views INTEGER,
-                image TEXT
-            );
-            """
-        )
+        self._db.executescript(SQL_QUERY_CREATE)
 
     def _init_stations(self):
         with open(STATIONS_PATH, "r", encoding="utf-8") as f:
             radios = json.load(f)
 
-        self._db.executemany(
-            """
-            INSERT OR IGNORE INTO radio (
-                path, name, genre, broadcaster, language,
-                country, region, bitrate, format, home_page, image
-            )
-            VALUES (
-                :path, :name, :genre, :broadcaster, :language,
-                :country, :region, :bitrate, :format, :home_page, :image
-            )
-            """,
-            radios,
-        )
+        self._db.executemany(SQL_QUERY_INSERT, radios)
 
-    def build_track(self, row, is_track: bool = True) -> any:
+    def _build_track(self, row) -> any:
         obj = {
             "uri": f"radio:{row.path}",
             "name": row.name,
@@ -110,15 +116,17 @@ class RadioExtension(SourceActor):
                 [Image(uri=str(image_path))] if image_full_path.is_file() else []
             )
 
-        if is_track:
-            obj["type"] = RefType.TRACK
-
         if row.country:
             obj["albums"] = frozenset([Album(name=row.country)])
 
         if row.broadcaster:
             obj["artists"] = frozenset([Artist(name=f"{row.genre} / {row.country}")])
         return obj
+
+    def on_search(self, query: str) -> dict:
+        sql = SQL_QUERY_SEARCH["radio"] % "a.name LIKE ? COLLATE NOCASE"
+        rows = self._db.fetchall(sql, (f"%{query}%",))
+        return {"radio": [Track(**self._build_track(row)) for row in rows]}
 
     def on_directory(
         self,
@@ -155,12 +163,24 @@ class RadioExtension(SourceActor):
                     params.append(offset)
 
             rows = self._db.fetchall(sql, params)
-        return [Ref(**self.build_track(row)) for row in rows]
+
+        if values_len == 2:
+            view, ref_id = values
+            if str(ref_id).isdigit():
+                raise ValueError("only alphabets allowed")
+            else:
+                rows = self._db.fetchall("""
+                    SELECT a.*
+                    FROM radio a
+                    WHERE a.name LIKE ?
+                    ORDER BY a.name ASC
+                """, (f"{ref_id}%",))
+
+        return [Track(**self._build_track(row)) for row in rows]
 
     async def on_playback_uri(self, path: str) -> any:
-        self._core._request("source.update_source", source=self._source)
         return path
 
     async def on_lookup_track(self, path: str) -> Track:
         row = self._db.fetchall(f"SELECT * FROM radio WHERE path = '{path}'")
-        return Track(**self.build_track(row[0], False))
+        return Track(**self._build_track(row[0]))

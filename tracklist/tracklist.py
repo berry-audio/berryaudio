@@ -1,6 +1,5 @@
 import logging
 import random
-import json
 
 from core.actor import Actor
 from core.util import generate_tlid
@@ -56,71 +55,79 @@ class TracklistExtension(Actor):
         - track_playback_error → increment error counter
         - track_playback_ended → move to next track, unless all failed
         """
-        if message["event"] == "track_playback_error":
-            self._playback_errors += 1
+        event = message.get("event")
 
-        if message["event"] == "track_playback_ended":
-            # if tlid = 0 then dont skip to next track
-            # TODO
-            _next_track = await self.on_next_track()
-            if _next_track is not None:
-                if self._playback_errors >= len(self._tl_tracks):
-                    logger.warning("All tracks failed to play, stopping.")
-                    self._playback_errors = 0
-                    return
+        if event == "track_playback_ended":
+            tl_track = message.get("tl_track")
+            if tl_track.tlid == 0:
+                return
+            next_track = await self.on_next_track()
+            if next_track is not None:
                 await self._core.request("playback.next", from_ui=False)
-            else:
-                self._playback_errors = 0
 
     async def on_stop(self) -> None:
         """Called when the extension is shutting down."""
         logger.info("Stopped")
 
-    async def on_add(self, uris: list = []) -> bool:
+    async def on_add_track(self, uris: list = [], play: bool = False) -> bool:
         """
         Add tracks to the tracklist by URI.
         Requests playback track objects from extensions, wraps them in TlTrack,
         and appends them to the tracklist.
         """
-        if uris:
-            _tracks: list[TlTrack] = []
-            for uri in uris:
-                ext, file_path = uri.split(":", 1)
-                track: Track = await self._core.request(
-                    f"{ext}.lookup_track", path=file_path
-                )
-                next_track_tlid = generate_tlid()
-                tl_track = TlTrack(tlid=next_track_tlid, track=track)
-                self._tl_tracks.append(tl_track)
-                _tracks.append(tl_track)
-            await self._init_shuffle()
-            await self.on_next_track()
-            self._playback_error = False
-            self._core.send(
-                target=["web", "display"],
-                event="tracklist_changed",
-                tl_tracks=self._tl_tracks,
-            )
-            self._store_tl_tracks()
-            return _tracks
-        else:
+        if not len(uris):
             ValueError(f"No uris were provided")
 
-    async def on_remove(self, tlid) -> list[TlTrack]:
+        _tracks: list[TlTrack] = []
+
+        first_tl_track = None
+        for uri in uris:
+            ext, file_path = uri.split(":", 1)
+            track: Track = await self._core.request(
+                f"{ext}.lookup_track", path=file_path
+            )
+            next_track_tlid = generate_tlid()
+            tl_track = TlTrack(tlid=next_track_tlid, track=track)
+
+            if first_tl_track is None:
+                first_tl_track = tl_track
+
+            self._tl_tracks.append(tl_track)
+            _tracks.append(tl_track)
+        await self._init_shuffle()
+        await self.on_next_track()
+        self._playback_error = False
+        self._core.send(
+            target=["web", "display"],
+            event="tracklist_track_added",
+            tl_tracks=_tracks,
+        )
+        self._store_tl_tracks()
+
+        if play:
+            await self._core.request(
+                "playback.play", uri=first_tl_track.track.uri, tlid=first_tl_track.tlid
+            )
+        return True
+
+    async def on_remove_track(self, tlid) -> list[TlTrack]:
         """
         Remove the matching tracks from the tracklist.
 
         """
+        tl_track = next((t for t in self._tl_tracks if t.tlid == tlid), None)
         self._tl_tracks = [t for t in self._tl_tracks if t.tlid != tlid]
         self._core.send(
             target=["web", "display"],
-            event="tracklist_changed",
-            tl_tracks=self._tl_tracks,
+            event="tracklist_track_removed",
+            tl_track=tl_track,
         )
         self._store_tl_tracks()
-        return self._tl_tracks
+        return True
 
-    async def on_move(self, start: int, end: int, to_position: int) -> list[TlTrack]:
+    async def on_move_track(
+        self, start: int, end: int, to_position: int
+    ) -> list[TlTrack]:
         """
         Move a slice of the tracklist (from start to end) to a new position.
         Validates boundaries before applying.
@@ -149,8 +156,7 @@ class TracklistExtension(Actor):
         await self.on_next_track()
         self._core.send(
             target=["web", "display"],
-            event="tracklist_changed",
-            tl_tracks=self._tl_tracks,
+            event="tracklist_updated",
         )
         self._store_tl_tracks()
         return True
@@ -168,10 +174,15 @@ class TracklistExtension(Actor):
         self._tl_tracks_shuffled = []
         await self.on_next_track()
         self._playback_error = False
+
+        current_tl_track = await self._core.request("playback.get_current_tl_track")
+        if current_tl_track and current_tl_track.tlid:
+            await self._core.request("playback.clear")
+            await self._core.request("source.set", uri=None)
+
         self._core.send(
             target=["web", "display"],
-            event="tracklist_changed",
-            tl_tracks=self._tl_tracks,
+            event="tracklist_cleared",
         )
         self._store_tl_tracks()
         return True
@@ -260,6 +271,9 @@ class TracklistExtension(Actor):
             "playback.get_current_tl_track"
         )
 
+        if not self._current_tltrack:
+            return
+
         if not self._tl_tracks:
             return None
 
@@ -293,9 +307,13 @@ class TracklistExtension(Actor):
         Respects single mode and shuffle setting.
         Returns the previous TlTrack or None if unavailable.
         """
+
         self._current_tltrack = await self._core.request(
             "playback.get_current_tl_track"
         )
+
+        if not self._current_tltrack:
+            return
 
         if not self._tl_tracks:
             return None

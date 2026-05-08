@@ -1,8 +1,7 @@
 import logging
 import json
-import uuid
 
-from core.models import RefType, Ref, Playlist, TlTrack
+from core.models import Playlist, TlTrack
 from core.util import generate_tlid
 from core.actor import Actor
 from datetime import datetime
@@ -10,7 +9,15 @@ from datetime import datetime
 from .utils import to_unserialize, to_serialize
 
 logger = logging.getLogger(__name__)
-
+SQL_QUERY_CREATE =  """
+            CREATE TABLE IF NOT EXISTS playlist (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                tracks TEXT NOT NULL,
+                image TEXT,
+                last_modified TEXT NOT NULL
+            );
+            """
 
 class PlaylistExtension(Actor):
     def __init__(self, name, core, db, config):
@@ -31,29 +38,8 @@ class PlaylistExtension(Actor):
         logger.info("Stopped")
 
     def _init_table(self):
-        self._db.executescript(
-            """
-            CREATE TABLE IF NOT EXISTS playlist (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL,
-                tracks TEXT NOT NULL,
-                image TEXT,
-                last_modified TEXT NOT NULL
-            );
-            """
-        )
-
-    def on_item(self, uri: str | None = None) -> Playlist | bool:
-        id = int(uri.split(":")[1])
-        if id:
-            row = self._db.fetchone(f"SELECT * FROM playlist WHERE id = {id}")
-            playlist = Playlist(
-                uri=f"playlist:{row.id}",
-                name=row.name,
-                tracks=[to_unserialize(tlTrack) for tlTrack in json.loads(row.tracks)],
-            )
-            return playlist
-        return False
+        """Create the playlist table if it does not already exist."""
+        self._db.executescript(SQL_QUERY_CREATE)
 
     def on_directory(
         self,
@@ -61,97 +47,173 @@ class PlaylistExtension(Actor):
         limit: int | None = None,
         offset: int | None = None,
     ):
+        """
+        Browse the playlist directory by URI.
+
+        URI formats:
+          - "playlist"              → list all playlists (paginated)
+          - "playlist:{id}"         → fetch a single playlist by id
+          - "playlist:{id}:tracks"  → fetch tracks belonging to a playlist
+        """
         if not uri:
-            raise ValueError(f"No 'uri' was defined.")
+            raise ValueError("No 'uri' was defined.")
 
         values = uri.split(":")
-        values_len = len(values)
 
-        if values_len and values_len == 1:
-            base_sql = (
-                f"""
-                    SELECT 
-                        a.*
-                    FROM playlist a
-                    WHERE %s
-                    ORDER BY a.last_modified ASC
+        match len(values):
+            case 3:
+                view, ref_id, ref_type = values
+                if view != self._name:
+                    raise ValueError(f"View '{view}' not supported")
+                if ref_type != "tracks":
+                    raise ValueError(f"View type '{ref_type}' not supported")
+                row = self._db.fetchone(f"SELECT * FROM playlist WHERE id = {ref_id}")
+                result = []
+                for t in json.loads(row.tracks):
+                    obj = to_unserialize(t)
+                    obj.uri = f"{view}:{ref_id}"
+                    result.append(obj)
+                return result
+
+            case 2:
+                view, ref_id = values
+                row = self._db.fetchone(f"SELECT * FROM playlist WHERE id = {ref_id}")
+                return Playlist(**self._build_playlist(row))
+
+            case 1:
+                sql = """
+                    SELECT * FROM playlist
+                    WHERE 1
+                    ORDER BY last_modified DESC
                 """
-                % "1"
-            )
-            sql = base_sql.rstrip(";")
-
-            params = []
-            if limit is not None:
-                sql += " LIMIT ?"
-                params.append(limit)
-
+                params = []
+                if limit is not None:
+                    sql += " LIMIT ?"
+                    params.append(limit)
                 if offset is not None:
                     sql += " OFFSET ?"
                     params.append(offset)
+                rows = self._db.fetchall(sql, params)
+                return [Playlist(**self._build_playlist(row)) for row in rows]
 
-            rows = self._db.fetchall(sql, params)
-        return [Ref(**self.build_playlist(row)) for row in rows]
+            case _:
+                raise ValueError(f"Invalid URI format: '{uri}'")
 
-    def build_playlist(self, row) -> any:
-        obj = {
+    def _build_playlist(self, row) -> dict:
+        """Build a playlist dict from a database row, including track count."""
+        return {
             "uri": f"playlist:{row.id}",
             "name": row.name,
-            "type": RefType.PLAYLIST,
-            "length": len(
-                [to_unserialize(tlTrack) for tlTrack in json.loads(row.tracks)]
-            ),
+            "length": len([to_unserialize(t) for t in json.loads(row.tracks)]),
             "last_modified": row.last_modified,
         }
 
-        if row.image:
-            pass
-            # obj["images"] = [Image(uri=row.image or "/images/no_cover.jpg")]
-        return obj
+    async def on_edit(self, uri: str, name: str) -> bool:
+        """
+        Rename a playlist by URI.
+        """
+        parts = uri.split(":")
+        if len(parts) < 2:
+            raise ValueError("Invalid URI format")
 
-    async def on_edit(self, uri: str, name: str) -> list[TlTrack]:
-        id = int(uri.split(":")[1])
-        if id and name:
-            self._db.execute("UPDATE playlist SET name = ? WHERE id = ?", (name, id))
-            logger.debug(f"{uri} updated")
-            self._core.send(target="web", event="playlists_updated")
-            return True
-        raise ValueError("id or name not provided")
+        playlist_id = int(parts[1])
+        if not playlist_id:
+            raise ValueError("id not provided")
+        if not name:
+            raise ValueError("name not provided")
 
-    async def on_delete(self, uri: str) -> list[TlTrack]:
-        id = int(uri.split(":")[1])
-        if id:
-            self._db.execute("DELETE FROM playlist WHERE id = ?", (id,))
-            logger.debug(f"{uri} deleted")
-            self._core.send(target="web", event="playlists_updated")
-            return True
+        self._db.execute(
+            "UPDATE playlist SET name = ? WHERE id = ?", (name, playlist_id)
+        )
+        logger.debug(f"{uri} updated")
+
+        row = self._db.fetchone(f"SELECT * FROM playlist WHERE id = {playlist_id}")
+        if not row:
+            raise ValueError(f"Playlist {uri} not found")
+
+        self._core.send(
+            target=["web", "display"],
+            event="playlist_renamed",
+            playlist=Playlist(
+                uri=uri,
+                name=name,
+                length=len(json.loads(row.tracks)),
+                last_modified=row.last_modified,
+            ),
+        )
+        return True
+
+    async def on_delete(self, uri: str) -> bool:
+        """
+        Delete a playlist by URI.
+        """
+        parts = uri.split(":")
+        if len(parts) < 2:
+            raise ValueError("Invalid URI format")
+
+        playlist_id = int(parts[1])
+        if not playlist_id:
+            raise ValueError("id not provided")
+
+        row = self._db.fetchone(f"SELECT * FROM playlist WHERE id = {playlist_id}")
+        if not row:
+            raise ValueError(f"Playlist {uri} not found")
+
+        self._db.execute("DELETE FROM playlist WHERE id = ?", (playlist_id,))
+        logger.debug(f"{uri} removed")
+
+        self._core.send(
+            target=["web", "display"],
+            event="playlist_removed",
+            playlist=Playlist(
+                uri=uri,
+                name=row.name,
+                length=len(json.loads(row.tracks)),
+                last_modified=row.last_modified,
+            ),
+        )
+        return True
 
     async def on_create(
         self, name: str | None = None, tl_tracks: list[TlTrack] | None = None
     ) -> bool:
-        tl_tracks = json.dumps(tl_tracks or [])
-        last_modified = datetime.now().isoformat()
-        playlist_name = name if name is not None else f"Mix #{last_modified}"
+        """
+        Create a new playlist.
+        If no name is given, generates one from the current timestamp.
+        """
+        playlist_tl_tracks = json.dumps(tl_tracks or [])
+        last_modified = str(datetime.now().isoformat())
+        playlist_name = name or f"Mix #{last_modified}"
 
-        self._db.execute(
-            """INSERT INTO playlist (name, tracks, last_modified)
-            VALUES (?, ?, ?)""",
-            (playlist_name, tl_tracks, last_modified),
+        cursor = self._db.execute(
+            "INSERT INTO playlist (name, tracks, last_modified) VALUES (?, ?, ?)",
+            (playlist_name, playlist_tl_tracks, last_modified),
         )
-        logger.debug(f"{playlist_name} created")
-        self._core.send(target="web", event="playlists_updated")
+
+        self._core.send(
+            target=["web", "display"],
+            event="playlist_created",
+            playlist=Playlist(
+                uri=f"playlist:{cursor.lastrowid}",
+                name=playlist_name,
+                length=len(tl_tracks),
+                last_modified=last_modified,
+            ),
+        )
         return True
 
-    async def on_move(
+    async def on_move_track(
         self, uri: str, start: int, end: int, to_position: int
-    ) -> list[TlTrack]:
-        id = int(uri.split(":")[1])
-
-        row = self._db.fetchone(f"SELECT * FROM playlist WHERE id = {id}")
-        tl_tracks = [to_unserialize(tlTrack) for tlTrack in json.loads(row.tracks)]
+    ) -> bool:
+        """
+        Move a slice of tracks within a playlist to a new position.
+        """
+        playlist_id = int(uri.split(":")[1])
+        row = self._db.fetchone(f"SELECT * FROM playlist WHERE id = {playlist_id}")
+        tl_tracks = [to_unserialize(t) for t in json.loads(row.tracks)]
 
         if start == end:
             end += 1
-
         if start >= end:
             raise AssertionError("start must be smaller than end")
         if start < 0:
@@ -170,28 +232,63 @@ class PlaylistExtension(Actor):
 
         self._db.execute(
             "UPDATE playlist SET tracks = ? WHERE id = ?",
-            (json.dumps(to_serialize(new_tl_tracks)), id),
+            (json.dumps(to_serialize(new_tl_tracks)), playlist_id),
         )
-        self._core.send(target="web", event="playlist_updated")
+        self._core.send(
+            target=["web", "display"],
+            event="playlist_updated",
+            playlist=Playlist(
+                uri=uri,
+                name=row.name,
+                length=len(tl_tracks),
+                last_modified=row.last_modified,
+            ),
+        )
         return True
 
-    async def on_remove(self, uri: str, tlid: int) -> list[TlTrack]:
-        id = int(uri.split(":")[1])
-        if id and tlid:
-            row = self._db.fetchone(f"SELECT * FROM playlist WHERE id = {id}")
-            tl_tracks = json.loads(row.tracks)
-            tl_tracks_updated = [t for t in tl_tracks if t["tlid"] != tlid]
-            self._db.execute(
-                "UPDATE playlist SET tracks = ? WHERE id = ?",
-                (json.dumps(tl_tracks_updated), id),
-            )
-            logger.debug(f"Track {tlid} removed from {uri}")
-            self._core.send(target="web", event="playlist_updated")
-            return self.on_item(uri)
+    async def on_remove_track(self, uri: str, tlid: int) -> bool:
+        """
+        Remove a single track from a playlist by tlid.
+        """
+        parts = uri.split(":")
+        if len(parts) < 2:
+            raise ValueError("Invalid URI format")
 
-    async def on_add(self, uris: list[str], track_uris: list[str]) -> bool:
+        playlist_id = int(parts[1])
+        if not playlist_id:
+            raise ValueError("id not provided")
+        if not tlid:
+            raise ValueError("tlid not provided")
+
+        row = self._db.fetchone(f"SELECT * FROM playlist WHERE id = {playlist_id}")
+        if not row:
+            raise ValueError(f"Playlist {uri} not found")
+
+        tl_tracks = json.loads(row.tracks)
+        tl_track = next((t for t in tl_tracks if t["tlid"] == tlid), None)
+        if not tl_track:
+            raise ValueError(f"Track {tlid} not found in playlist")
+
+        tl_track["uri"] = uri
+        tl_tracks_updated = [t for t in tl_tracks if t["tlid"] != tlid]
+
+        self._db.execute(
+            "UPDATE playlist SET tracks = ? WHERE id = ?",
+            (json.dumps(tl_tracks_updated), playlist_id),
+        )
+        logger.debug(f"Track {tlid} removed from {uri}")
+        self._core.send(
+            target=["web", "display"],
+            event="playlist_track_removed",
+            tl_track=tl_track,
+        )
+        return True
+
+    async def on_add_track(self, uris: list[str], track_uris: list[str]) -> bool:
+        """
+        Add one or more tracks to one or more playlists.
+        """
         tracks = []
-
         for uri in track_uris:
             ext, file_path = uri.split(":", 1)
             track = await self._core.request(f"{ext}.lookup_track", path=file_path)
@@ -199,18 +296,22 @@ class PlaylistExtension(Actor):
 
         for uri in uris:
             playlist_id = int(uri.split(":")[1])
-            row = self._db.fetchone(
-                "SELECT * FROM playlist WHERE id = ?", (playlist_id,)
-            )
-            tl_tracks = [to_unserialize(tlTrack) for tlTrack in json.loads(row.tracks)]
+            row = self._db.fetchone("SELECT * FROM playlist WHERE id = ?", (playlist_id,))
+            tl_tracks = [to_unserialize(t) for t in json.loads(row.tracks)]
+            tl_tracks_updated = []
 
             for track in tracks:
-                tl_tracks.append(TlTrack(tlid=generate_tlid(), track=track))
+                tl_track = TlTrack(tlid=generate_tlid(), track=track)
+                tl_tracks_updated.append(tl_track)
+                tl_tracks.append(tl_track)
 
             self._db.execute(
                 "UPDATE playlist SET tracks = ? WHERE id = ?",
                 (json.dumps(to_serialize(tl_tracks)), playlist_id),
             )
-
-        self._core.send(target="web", event="playlists_updated")
+            self._core.send(
+                target=["web", "display"],
+                event="playlist_track_added",
+                tl_tracks=tl_tracks_updated,
+            )
         return True

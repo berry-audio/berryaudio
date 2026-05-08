@@ -7,29 +7,57 @@ import psutil
 import socket
 
 from pathlib import Path
-from core.models import Storage, StorageUsage
-from core.util.system import SystemUtil
-
+from core.models import Storage, Directory, StorageUsage
 
 logger = logging.getLogger(__name__)
 
 SMBD_CONF = "/etc/samba/smb.conf"
 
 
-class StorageSMB:
+class StorageSmbManager:
     def __init__(self, name, core, db=None, username=None, password=None):
         self._name = name
         self._core = core
         self._db = db
-        self._system = SystemUtil(core, db)
         self.username = username
         self.password = password
         self._remote_username = None
         self._remote_password = None
-        self._shares = {s.name: s for s in self.list_shares()}
+        self._shares = {s.name: s for s in self.list_shared_directories()}
         self._smb_shares = {}
 
-    async def share(self, uri: str, name: str = None, read_only: bool = False):
+    async def samba_service(self, state: str):
+        """Control Samba service"""
+
+        try:
+            subprocess.run(
+                ["sudo", "/bin/systemctl", state, "smbd"],
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+            logger.info("Service %s OK", state)
+        except subprocess.CalledProcessError as e:
+            logger.error("Service %s failed: %s", state, e.stderr)
+            raise ValueError(f"Service {state} failed: {e.stderr}") from e
+
+    async def samba_status(self):
+        """Checks samba service status"""
+
+        result = subprocess.run(
+            ["sudo", "systemctl", "is-active", "smbd"], capture_output=True, text=True
+        )
+        status = result.stdout.strip() == "active"
+        if status:
+            logger.info("Active")
+        else:
+            logger.error("Inactive")
+        return status
+
+    async def share_directory(self, uri: str, name: str = None, read_only: bool = False):
+        """Shares a Directory by URI."""
+
         if not uri.startswith(f"{self._name}:"):
             raise ValueError(f"Not a valid {self._name} path: {uri}")
 
@@ -44,48 +72,66 @@ class StorageSMB:
 
         name = re.sub(r"[\[\]\'\"@#$]", "", name or folder.name).strip()
 
-        self._shares[name] = Storage(
-            type="directory",
-            name=name,
+        self._shares[name] = Directory(
             uri=uri,
-            read_only=read_only,
+            name=name,
             shared=True,
+            read_only=read_only,
             guest_allowed=True if not self.username else False,
-            status="mounted",
         )
+        directory = self._shares[name]
 
         await self._write_conf()
         if self.username and self.password:
-            self._set_samba_password()
+            self.samba_set_password()
 
+        await self.samba_service("restart")
         self._core.send(
-            target=["web", "display"],
-            event="storage_shared",
-            uri=uri,
+            target=["web", "display"], event="storage_shared", directory=directory
         )
 
-        await self._system.service_samba("restart")
         logger.info(f"Shared '{path}' (read_only={read_only})")
-        return await self.status()
+        return await self.samba_status()
 
-    async def unshare(self, uri: str):
-        """Remove a share by path."""
+    async def unshare_directory(self, uri: str):
+        """Unshares a Directory by URI."""
+
         if not uri.startswith("storage:"):
             raise ValueError(f"Not a valid storage path: {uri}")
 
         _, path = uri.split(":", 1)
 
+        shared = next((s for s in self._shares.values() if s.uri == uri), None)
+        if not shared:
+            raise ValueError(f"Share not found: {uri}")
+
+        directory = Directory(
+            uri=uri,
+            name=shared.name,
+            shared=False,
+            read_only=shared.read_only,
+            guest_allowed=shared.guest_allowed,
+            create_permissions=shared.create_permissions,
+            directory_permissions=shared.directory_permissions,
+        )
+
         await self._remove_conf(path)
+
         self._core.send(
             target=["web", "display"],
             event="storage_unshared",
-            uri=uri,
+            directory=directory,
         )
-        await self._system.service_samba("restart")
+        await self.samba_service("restart")
+        self._core.send(
+            target=["web", "display"], event="storage_unshared", directory=directory
+        )
         logger.info(f"Removed share for {path}")
-        return await self.status()
+        return await self.samba_status()
 
-    def list_shares(self) -> list[Storage]:
+    def list_shared_directories(self) -> list[Directory]:
+        """Lists all shared directories."""
+
         config = configparser.RawConfigParser(
             delimiters=("=",), comment_prefixes=("#", ";"), strict=False
         )
@@ -96,30 +142,15 @@ class StorageSMB:
             if name.lower() in ("global", "homes", "printers"):
                 continue
             s = config[name]
-            shares[name] = Storage(
-                type="directory",
-                name=name,
+            shares[name] = Directory(
                 uri=f"{self._name}:{s.get('path', '')}",
+                name=name,
                 shared=True,
                 read_only=s.get("read only", "no") == "yes",
                 guest_allowed=s.get("guest ok", "no") == "yes",
                 user=s.get("force user", ""),
-                create_permissions=s.get("create mask", ""),
-                directory_permissions=s.get("directory mask", ""),
-                status="mounted",
             )
         return list(shares.values())
-
-    async def status(self):
-        result = subprocess.run(
-            ["sudo", "systemctl", "is-active", "smbd"], capture_output=True, text=True
-        )
-        status = result.stdout.strip() == "active"
-        if status:
-            logger.info("Samba is active and running.")
-        else:
-            logger.warning("Samba is not active.")
-        return status
 
     async def _remove_conf(self, path: str):
         config = configparser.RawConfigParser(
@@ -143,6 +174,7 @@ class StorageSMB:
         del self._shares[name]
         await self._write_conf()
         logger.debug(f"Removed configuration for path: {name}")
+        return name
 
     async def _write_conf(self):
         lines = []
@@ -209,8 +241,45 @@ class StorageSMB:
         )
         logger.debug(f"Configuration written to {SMBD_CONF}")
 
-    def _set_samba_password(self):
+    async def set_credentials(self, username=None, password=None):
+        """Sets global username password for sharing """
+
+        if password and not username:
+            raise ValueError("Username is required when password is provided")
+
+        self.username = username
+        self.password = password
+
+        for name, share in self._shares.items():
+            share.guest_allowed = True if not self.username else False
+
+        await self._write_conf()
+
+        if self.username and self.password:
+            self.samba_set_password()
+
+        await self.samba_service("restart")
+        logger.info(
+            f"Samba credentials with username: {self.username}, password: {self.password} saved successfully."
+        )
+
+    def samba_set_password(self):
         """Set Samba password for user non-interactively."""
+
+        result = subprocess.run(
+            ["id", self.username],
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0:
+            subprocess.run(
+                ["sudo", "useradd", "-M", "-s", "/sbin/nologin", self.username],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            logger.info(f"System user '{self.username}' created")
+
         proc = subprocess.run(
             ["sudo", "smbpasswd", "-a", "-s", self.username],
             input=f"{self.password}\n{self.password}\n",
@@ -228,6 +297,8 @@ class StorageSMB:
     def add_shared(
         self, ip: str, username: str = None, password: str = None
     ) -> dict | None:
+        """Adds a NAS drive to OS """
+
         self._remote_username = None
         self._remote_password = None
 
@@ -297,14 +368,14 @@ class StorageSMB:
                         if name and not name.endswith("$"):
                             shares.append(
                                 Storage(
-                                    type="nas",
+                                    icon="nas",
                                     name=name,
                                     dev=f"smb://{ip}/{name}",
                                     shared=False,
+                                    status="mounted",
                                     read_only=False,
                                     guest_allowed=username is None,
                                     user=username or "",
-                                    status="mounted",
                                 )
                             )
 
@@ -327,6 +398,8 @@ class StorageSMB:
             return None
 
     def list_smb_shared(self) -> list[Storage]:
+        """Lists all NAS drives from OS """
+
         storages = []
         with open("/proc/mounts", "r") as f:
             for line in f:
@@ -340,12 +413,13 @@ class StorageSMB:
                     smb_uri = f"smb://{clean_device.lstrip('/')}"
                     storages.append(
                         Storage(
-                            type="nas",
+                            icon="nas",
+                            uri=f"{self._name}:{mount_point}",
                             name=clean_name,
                             dev=smb_uri,
+                            shared=False,
                             fstype="cifs",
                             status="mounted",
-                            uri=f"{self._name}:{mount_point}",
                             usage=StorageUsage(
                                 total=u.total,
                                 used=u.used,
@@ -360,6 +434,8 @@ class StorageSMB:
     async def mount_shared(
         self, devs: list[str], username: str = None, password: str = ""
     ) -> bool:
+        """Mounts a NAS drive from OS """
+
         try:
             for dev in devs:
                 is_mounted = False
@@ -428,12 +504,12 @@ class StorageSMB:
                 label = path.split("/")[-1]
 
                 storage = Storage(
-                    type="nas",
+                    icon="nas",
+                    uri=f"{self._name}:{mount_point}",
                     name=label,
                     dev=dev,
                     fstype="cifs",
                     status="mounted",
-                    uri=f"{self._name}:{mount_point}",
                     usage=StorageUsage(
                         total=u.total,
                         used=u.used,
@@ -467,6 +543,8 @@ class StorageSMB:
             return False
 
     async def unmount_shared(self, dev: str) -> bool:
+        """Unmounts a NAS drive from OS """
+
         try:
             is_unmounted = False
             if not dev.startswith("smb://"):

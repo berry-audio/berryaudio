@@ -112,7 +112,7 @@ class DBConnection:
 
     def set_config(self, config):
         if not config:
-            raise ValueError(f"Empty config not allowed")
+            return
 
         _configs = self.get_config()
 

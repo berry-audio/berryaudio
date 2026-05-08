@@ -48,12 +48,14 @@ async def async_main(verbose=False):
         "playlist",
         "playback",
         "network",
-        "snapcast",
+        "multiroom",
         "display",
         # "gpio",
         "infrared",
         "tuner",
+        "linein",
         "command",
+        "dsp",
     ]
     await core.load_extensions_by_name(extensions)
 

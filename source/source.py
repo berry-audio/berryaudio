@@ -1,12 +1,10 @@
 import logging
 
-from collections import namedtuple
 from core.actor import Actor, SourceActor
 from core.models import Source
-from core.types import PlaybackState
-from core.models import RefType
 
 logger = logging.getLogger(__name__)
+
 
 class SourceExtension(Actor):
     def __init__(self, name, core, db, config):
@@ -16,7 +14,7 @@ class SourceExtension(Actor):
         self._db = db
         self._config = config
         self._current = Source(
-            name=None, uri=None, type=None, controls=[], state={"connected": False}
+            name=None, uri=None, controls=[], state={"connected": False}
         )
 
     async def on_start(self):
@@ -31,10 +29,12 @@ class SourceExtension(Actor):
     def on_directory(self):
         _dirs = []
         for ext in self._core.extensions:
-            if (isinstance(ext, SourceActor)
-                    and hasattr(ext, "_source")
-                    and isinstance(ext._source, Source)
-                    and ext._source.uri is not None):
+            if (
+                isinstance(ext, SourceActor)
+                and hasattr(ext, "_source")
+                and isinstance(ext._source, Source)
+                and ext._source.uri is not None
+            ):
                 ext._source.active = self._current.uri == ext._source.uri
                 _dirs.append(ext._source)
         return _dirs
@@ -47,7 +47,7 @@ class SourceExtension(Actor):
                 target=["web", "display"], event="source_updated", source=self._current
             )
 
-    async def on_set(self, uri: str | None) -> bool:
+    async def on_set(self, uri: str | None = None) -> bool:
         """Set the active source and manage start stop services."""
         directory = self.on_directory()
         current_source = next(
@@ -63,6 +63,23 @@ class SourceExtension(Actor):
                 if await self._core.request(stop_method):
                     logger.info(f"Stopping {previous} service")
 
+            self._current = Source(
+                name=None,
+                uri=uri,
+                controls=[],
+                state={"connected": False},
+            )
+            self._core.send(
+                target=["web", "display"], event="source_changed", source=self._current
+            )
+            self._core.send(
+                target=["web", "display"],
+                event="options_changed",
+                single=False,
+                repeat=False,
+                shuffle=False,
+            )
+
         if current_source is None:
             return
 
@@ -71,10 +88,10 @@ class SourceExtension(Actor):
 
         if current == previous:
             return
-        
-        uris = [source.uri for source in directory] 
 
-        if current is not None and current in uris: 
+        uris = [source.uri for source in directory]
+
+        if current is not None and current in uris:
             start_method = f"{current}.start_service"
             stop_method = f"{previous}.stop_service"
 
@@ -92,14 +109,8 @@ class SourceExtension(Actor):
         if uri is not None:
             if self._core.is_callable(start_method):
                 logger.info(f"Starting {current} service")
-                await self._core.request(start_method)
-                self._current = Source(
-                    name=current_source.name,
-                    uri=uri,
-                    type=RefType.SOURCE,
-                    controls=[],
-                    state={"connected": False},
-                )
+                source = await self._core.request(start_method)
+                self._current = source
                 self._core.send(
                     target=["web", "display"],
                     event="source_changed",
@@ -115,24 +126,6 @@ class SourceExtension(Actor):
             else:
                 logger.error(f"Failed to start service for source {current}")
                 raise RuntimeError(f"Failed to start service for source {current}")
-        else:
-            self._current = Source(
-                name=None,
-                uri=uri,
-                type=RefType.SOURCE,
-                controls=[],
-                state={"connected": False},
-            )
-            self._core.send(
-                target=["web", "display"], event="source_changed", source=self._current
-            )
-            self._core.send(
-                    target=["web", "display"],
-                    event="options_changed",
-                    single=False,
-                    repeat=False,
-                    shuffle=False,
-            )
 
         return True
 

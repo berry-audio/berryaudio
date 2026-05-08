@@ -31,6 +31,7 @@ class SystemExtension(Actor):
         updated_config = config[self._name]
         if "hostname" in updated_config:
             self.on_set_hostname(updated_config.get("hostname"))
+        self._core.send(event="system", action="restart") 
 
     async def on_start(self):
         self._time_task = asyncio.create_task(self._time_update())
@@ -163,15 +164,17 @@ class SystemExtension(Actor):
         machine = platform.machine()
         hostname = socket.gethostname()
 
-        cpu_percent = psutil.cpu_percent(interval=1)
+
         cpu_cores = psutil.cpu_count(logical=True)
+        cpu_per_core = psutil.cpu_percent(interval=0.5, percpu=True)
+        cpu_percent  = round(sum(cpu_per_core) / len(cpu_per_core), 1)
 
         info = platform.uname()
         version = info.version
 
         mem = psutil.virtual_memory()
-        mem_used = mem.used / (1024**3)
-        mem_total = mem.total / (1024**3)
+        mem_used = round(mem.used / (1024**2), 1)
+        mem_total = round(mem.total / (1024**2), 1)
         mem_percent = mem.percent
 
         disk = psutil.disk_usage("/")
@@ -189,6 +192,7 @@ class SystemExtension(Actor):
                 "volts": self.get_volts("core"),
                 "usage_percent": cpu_percent,
                 "cores": cpu_cores,
+                "cpu_per_core": cpu_per_core,
                 "temperature": self.get_temperature(),
             },
             "memory": {

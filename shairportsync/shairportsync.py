@@ -2,12 +2,12 @@ import logging
 import threading
 import subprocess
 import os
+import asyncio
 import time
-import binascii
 
 from pathlib import Path
 from core.actor import SourceActor
-from core.models import Album, Artist, Track, Image, TlTrack, Source, RefType
+from core.models import Album, Artist, Track, Image, Source
 from core.types import PlaybackState
 
 logger = logging.getLogger(__name__)
@@ -22,6 +22,7 @@ ALBUM_IMAGES_DIR = (
 )
 ALBUM_IMAGES_WEB_PATH = Path("images") / "shairportsync"
 
+
 class ShairportsyncExtension(SourceActor):
     def __init__(self, name, core, db, config):
         super().__init__()
@@ -30,24 +31,24 @@ class ShairportsyncExtension(SourceActor):
         self._db = db
         self._config = config
         self._hostname = self._config["system"]["hostname"]
-        self._output_audio = self._config["mixer"]["output_audio"]
+        self._output_device = self._config["mixer"]["output_device"]
         self._proc = None
         self._proc_meta = None
         self._source = Source(
             name="Airplay",
-            type=RefType.SOURCE,
             uri=self._name,
             controls=[],
             state={"connected": False},
         )
-        self._tl_track = TlTrack(0, track=Track())
+        self._track = Track()
         self._timer = None
         self._timer_running = True
         self._timer_paused = False
         self._elapsed_timer_count = 0
         self._pend = False
-
         self._source_active = False
+        self._sample_rate = 44100
+        self._loop = asyncio.get_running_loop()
 
     async def on_start(self):
         if not os.path.exists(SHAIRPORT_PATH):
@@ -64,7 +65,14 @@ class ShairportsyncExtension(SourceActor):
         pass
 
     async def on_stop(self):
-        await self.on_stop_service()
+        self._stop_timer()
+        if self._proc is not None:
+            self._proc.terminate()
+            self._proc.kill()
+
+        if self._proc_meta is not None:
+            self._proc_meta.terminate()
+            self._proc_meta.kill()
         logger.info("Stopped")
 
     async def on_stop_service(self):
@@ -86,16 +94,17 @@ class ShairportsyncExtension(SourceActor):
     async def on_start_service(self):
         self._source_active = True
         if os.path.exists(SHAIRPORT_PATH) and os.path.exists(SHAIRPORT_RENDER_PATH):
+            await self._core.request("dsp.set_capture_device", samplerate=self._sample_rate)
             threading.Thread(target=self._shairportsync_init, daemon=True).start()
             threading.Thread(target=self._shairportsync_meta_init, daemon=True).start()
             self._clean_images_dir()
             self._reset_meta()
             logger.info(
-                f"Started Shairport Sync with name {self._hostname} on {self._output_audio}"
+                f"Started Shairport Sync with name {self._hostname} on {self._output_device}"
             )
         else:
             logger.error(f"Shairport servics missing")
-        return True
+        return self._source
 
     def _clean_images_dir(self):
         if ALBUM_IMAGES_DIR.exists() and ALBUM_IMAGES_DIR.is_dir():
@@ -110,9 +119,11 @@ class ShairportsyncExtension(SourceActor):
 
     def _reset_meta(self):
         """Reset metadata handling"""
-        self._tl_track = TlTrack(0, track=Track())
-        if self._source_active:
-            self._core._request("playback.set_metadata", tl_track=self._tl_track)
+        self._track = Track(
+            uri=self._name,
+            name="Airplay",
+        )
+        self._core._request("playback.set_metadata", track=self._track)
 
     def _shairportsync_init(self):
         """Starting shairportsync service"""
@@ -129,8 +140,7 @@ class ShairportsyncExtension(SourceActor):
             "-v",
             "--",
             "-d",
-            self._output_audio
-           
+            self._output_device,
         ]
         self._proc = subprocess.Popen(
             cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1
@@ -138,6 +148,9 @@ class ShairportsyncExtension(SourceActor):
 
         def log(stream, label):
             for line in iter(stream.readline, ""):
+                if "stalled" in line:
+                    logger.error(line.strip())
+                    self._core.send(event="error", message=line.strip())
                 if "warning" in line:
                     logger.warning(line.strip())
                 else:
@@ -184,10 +197,9 @@ class ShairportsyncExtension(SourceActor):
             else:
                 picture_uri = ()
 
-            _tl_track = self._tl_track.track.copy(update={"images": picture_uri})
-            self._tl_track = TlTrack(tlid=0, track=_tl_track)
+            self._track = self._track.copy(update={"images": picture_uri})
             if self._source_active:
-                self._core._request("playback.set_metadata", tl_track=self._tl_track)
+                self._core._request("playback.set_metadata", track=self._track)
 
         def _parse_metadata_line(line: str):
             line = line.strip()
@@ -227,6 +239,7 @@ class ShairportsyncExtension(SourceActor):
 
                 if meta_code == "conn":  # connected
                     self._source.state.connection_id = val
+                    
 
                 if meta_code == "disc":  # disconnected
                     self._source.state.connection_id = val
@@ -240,26 +253,40 @@ class ShairportsyncExtension(SourceActor):
                         self._core._request("source.update_source", source=self._source)
                     self._stop_timer()
                     self._reset_meta()
-                
-                if meta_code == "sdsc": #stream data
-                    codec, rate, fmt, ch = val.split("/")
-                    _tl_track = self._tl_track.track.copy(
-                        update={"sample_rate": int(rate), "bit_depth": fmt, "audio_codec": codec, "channels": int(ch)}
+                    self._core.send(
+                        target=["web", "display"],
+                        event="shairportsync_disconnected",
+                        name=self._source.state.name or "Unknown",
                     )
-                    self._tl_track = TlTrack(tlid=0, track=_tl_track)
 
-                if meta_code == "odsc": #Output audio format
+                if meta_code == "sdsc":  # stream data
+                    codec, rate, fmt, ch = val.split("/")
+                    self._track = self._track.copy(
+                        update={
+                            "sample_rate": int(rate),
+                            "bit_depth": fmt,
+                            "audio_codec": codec,
+                            "channels": int(ch),
+                        }
+                    )
+
+                if meta_code == "odsc":  # Output audio format
                     pass
 
                 if meta_code == "ofmt":  # bit dept
-                    _tl_track = self._tl_track.track.copy(update={"bit_depth": val})
-                    self._tl_track = TlTrack(tlid=0, track=_tl_track)
+                    self._track = self._track.copy(update={"bit_depth": val})
 
                 if meta_code == "snam":  # connecting device name
                     self._source.state.connected = True
                     self._source.state.name = val
                     self._start_timer()
                     self._pause_timer()
+
+                    self._core.send(
+                        target=["web", "display"],
+                        event="shairportsync_connected",
+                        name=self._source.state.name or "Unknown",
+                    )
 
                     if self._source_active:
                         self._core._request(
@@ -275,27 +302,20 @@ class ShairportsyncExtension(SourceActor):
                     pass  # TODO
 
                 if meta_code == "asal":
-                    _tl_track = self._tl_track.track.copy(
-                        update={"album": Album(name=val)}
-                    )
-                    self._tl_track = TlTrack(tlid=0, track=_tl_track)
+                    self._track = self._track.copy(update={"album": Album(name=val)})
 
                 if meta_code == "asar":
-                    _tl_track = self._tl_track.track.copy(
+                    self._track = self._track.copy(
                         update={"artists": frozenset([Artist(name=val)])}
                     )
-                    self._tl_track = TlTrack(tlid=0, track=_tl_track)
 
                 if meta_code == "minm":
-                    _tl_track = self._tl_track.track.copy(update={"name": val})
-                    self._tl_track = TlTrack(tlid=0, track=_tl_track)
+                    self._track = self._track.copy(update={"name": val})
 
                 if meta_code == "mden":  # sequence of metadata has ended
                     # self._clean_images_dir()
                     if self._source_active:
-                        self._core._request(
-                            "playback.set_metadata", tl_track=self._tl_track
-                        )
+                        self._core._request("playback.set_metadata", track=self._track)
 
                 if meta_code == "prsm":  # play stream resume
                     self._resume_timer()
@@ -339,10 +359,9 @@ class ShairportsyncExtension(SourceActor):
                         position_ms = int(((current - start) / 44100) * 1000)
                         track_length_ms = int(((end - start) / 44100) * 1000)
 
-                        _tl_track = self._tl_track.track.copy(
+                        self._track = self._track.copy(
                             update={"length": track_length_ms}
                         )
-                        self._tl_track = TlTrack(tlid=0, track=_tl_track)
                         self._elapsed_timer_count = int(position_ms / 1000)
 
                         if self._source_active:
@@ -355,7 +374,7 @@ class ShairportsyncExtension(SourceActor):
                                 "playback.set_time_position", position_ms=position_ms
                             )
                             self._core._request(
-                                "playback.set_metadata", tl_track=self._tl_track
+                                "playback.set_metadata", track=self._track
                             )
 
             except Exception:
