@@ -59,7 +59,9 @@ class RadioExtension(SourceActor):
         self._core = core
         self._db = db
         self._config = config
-        self._rb = RadioBrowser()
+
+        self._rb_instance = None
+        
         self._source = Source(
             name="Radio",
             uri=self._name,
@@ -74,6 +76,22 @@ class RadioExtension(SourceActor):
             ],
             state={},
         )
+
+    @property
+    def rb(self):
+        """
+        Ein Property-Getter, der die RadioBrowser-Instanz erst erstellt, 
+        wenn im Code über 'self.rb' darauf zugegriffen wird.
+        """
+        if self._rb_instance is None:
+            try:
+                # Versuche die Instanz erst jetzt zu erstellen
+                self._rb_instance = RadioBrowser()
+            except Exception as e:
+                # Falls immer noch offline, loggen wir den Fehler, stürzen aber nicht ab
+                print(f"[RadioPlugin] RadioBrowser konnte nicht initialisiert werden (Offline?): {e}")
+                return None
+        return self._rb_instance
 
     async def on_start(self):
         self._init_table()
@@ -157,7 +175,7 @@ class RadioExtension(SourceActor):
         rows = self._db.fetchall(sql, (f"%{query}%",))
         
         try:
-            rowsBrowser = self._rb.search(name=query)
+            rowsBrowser = self.rb.search(name=query)
         except Exception as e:
             logger.error(f"Error during RadioBrowser query: {e}")
             rowsBrowser = []
@@ -176,7 +194,7 @@ class RadioExtension(SourceActor):
         if path.startswith("rbuuid-"):
             try:
                 uuid = path.split('-', 1)[1]
-                rowsrb = self._rb.station_by_uuid(uuid)
+                rowsrb = self.rb.station_by_uuid(uuid)
                 if rowsrb:
                     return Track(**self._build_track_rb(rowsrb[0], useUuidAsUri=False))
                 else:
@@ -249,7 +267,7 @@ class RadioExtension(SourceActor):
         if path.startswith("rbuuid-"):
             try:
                 uuid = path.split('-', 1)[1]
-                rowsrb = self._rb.station_by_uuid(uuid)
+                rowsrb = self.rb.station_by_uuid(uuid)
                 if rowsrb:
                     return rowsrb[0].get("url_resolved") or rowsrb[0].get("url")
             except Exception as e:
