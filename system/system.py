@@ -12,6 +12,7 @@ import asyncio
 from datetime import datetime
 from zoneinfo import ZoneInfo
 from core.actor import Actor
+from core.util.system import SystemUtil
 from version import __version__
 
 logger = logging.getLogger(__name__)
@@ -24,6 +25,7 @@ class SystemExtension(Actor):
         self._core = core
         self._db = db
         self._config = config
+        self._system = SystemUtil(core, db)
         self._is_standby = True
         self._power_state = "standby"
 
@@ -35,6 +37,7 @@ class SystemExtension(Actor):
 
     async def on_start(self):
         self._time_task = asyncio.create_task(self._time_update())
+        self._db.set_config({"system": {"hardware": self._system.get_board()}})
         logger.info("Started")
 
     async def _time_update(self):
@@ -73,7 +76,7 @@ class SystemExtension(Actor):
             logger.info("System wakeup...")
 
         self._core.send(
-            target=["web", "display"],
+            target=["web", "display", "dsp"],
             event="system_power_state_changed",
             state=self._power_state,
         )

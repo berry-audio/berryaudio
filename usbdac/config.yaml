@@ -1,0 +1,4 @@
+input_device: hw:CARD=UAC2Gadget,DEV=0
+sample_rate: 96000
+bit_depth: S16_LE
+gain: -10

@@ -51,11 +51,12 @@ async def async_main(verbose=False):
         "multiroom",
         "display",
         # "gpio",
-        "infrared",
+        # "infrared",
         "tuner",
         "linein",
         "command",
         "dsp",
+        "usbdac",
     ]
     await core.load_extensions_by_name(extensions)
 

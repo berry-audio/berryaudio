@@ -22,15 +22,15 @@ custom_shortcuts:
       - name: "Treble (dB)"
         config_elements:
           - path: ["filters", "Treble", "parameters", "gain"]
-        range_from: -12
-        range_to: 12
+        range_from: -20
+        range_to: 20
         step: 0.5
       - name: "Bass (dB)"
         config_elements:
           - path: ["filters", "Bass", "parameters", "gain"]
-        range_from: -12
-        range_to: 12
-        step: 0.5
+        range_from: -20
+        range_to: 20
+        step: 1.0
       - name: "Gain (dB)"
         config_elements:
           - path: ["filters", "Gain", "parameters", "gain"]

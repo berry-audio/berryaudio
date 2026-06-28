@@ -1,3 +1,5 @@
+from email import message
+
 import yaml
 import subprocess
 import math
@@ -56,7 +58,14 @@ class DspExtension(Actor):
         logger.info("Stopped")
 
     async def on_event(self, message):
-        pass
+        if (message.get("event") == "system_power_state_changed" and 
+            message.get("state") == "standby"):
+            
+            await self.on_set_capture_device(
+                device=self._default_capture_device,
+                gain=self._default_gain,
+                samplerate=self._resample_rate,
+            )
 
     def _read_config(self):
         try:
