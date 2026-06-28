@@ -30,16 +30,20 @@ Built using **gstreamer**, **python** as server, **reactjs** & **typescript** as
 - Designed for the Raspberry Pi (should also work on other single board computers)
 - Supports MP3, FLAC, WAV, OGG, DSD, DSF, and other formats, with detailed codec info, ID3 tag reading, and cover art extraction.
 - Bluetooth streaming, AirPlay 2, Spotify Connect, and built-in file browser for easy library management.
+- **New:Filter Library & Radio by alphabets dictionary**
 - Bluetooth receiver and transmitter support (Handles automatically based on device connected)
 - Multi-room synchronized audio playback 
 - Curated list of 200+ radio stations, including major providers like BBC and SomaFM.
 - Full ID3 tag support, music scanning, and automatic artist info from TheAudioDB.com.
 - Create and manage playlists with touch-friendly drag-and-drop sorting and playback modes (Repeat, Shuffle).
 - Supports SD cards, USB HDD and SSD drives.
-- **New: Network folder sharing from mounted drives**
+- Network folder sharing from mounted drives
 - Manage Bluetooth, view system stats, and control power options (Shutdown, Reboot, Standby).
 - Manage wireless & ethernet network, Hotspot, IP configurations direclty from the interface
 - No need to install any app can be fully controlled using a responsive web interface.
+- **New: Support for more DAC & dtoverlays preloaded**
+- **New: Support for Line In Audio for DAC with ADC**
+- **New: Toast notifications added in UI for better UX experience**
 
 ## Application
 
@@ -111,7 +115,8 @@ Installation guides, SD card flashing instructions, and hardware compatibility &
 - Automatically download **artist information** from [TheAudioDB](https://www.theaudiodb.com/)  
 - Browse music by **Artist, Album, Genre, and Tracks**  
 - Add **artists or albums directly to playlists or the queue**  
-- **Infinite query-based smooth scrolling** for large music libraries  
+- **Infinite query-based smooth scrolling** for large music libraries
+- Filter by **Alphabet** dictionary
 
 ### Playlists
 
@@ -151,17 +156,20 @@ Installation guides, SD card flashing instructions, and hardware compatibility &
 - **Real-time DSP updates** without restarting playback  
 - Supports **high-resolution audio pipelines** *(up to 32-bit / 384 kHz depending on hardware)*
 
+### Appearance 
+- Supports Dark & Light Mode UI
+- Ability to show or hide Album Art in Now playing background
+
 ### Coming Soon
 
 - DLNA
 - GPIO Buttons
 - Infrared Remote
 - FM Tuner
-- Line In Audio
 
 ## Hardware
 
-Berryaudio has been tested on the following Raspberry Pi (Bookworm OS). While it should work with other versions of Pi aswell feel free to share your tests so it can be added to the list below.
+Berryaudio has been tested on the following Raspberry Pi (Bookworm OS). While it should work with other versions of Pi aswell feel free to share your tests so it can be added to the list below. <a href="https://docs.berryaudio.org/getting-started/supported-hardware.html">Full list of hardware</a>
 
 <table>
     <thead>
@@ -226,7 +234,8 @@ Berryaudio has been tested on the following Raspberry Pi (Bookworm OS). While it
 
 ## Audio Boards
 
-Below are the list of DACs that have been tested and are confirmed to work out of the box. More will be added as testing progresses. If you have a DAC you’d like to see supported, or are able to provide a board for testing, we’d be happy to include it on the platform—your contributions are always welcome!
+Below are the list of DACs that have been tested and are confirmed to work out of the box. More will be added as testing progresses. If you have a DAC you’d like to see supported, or are able to provide a board for testing, we’d be happy to include it on the platform—your contributions are always welcome! 
+<a href="https://docs.berryaudio.org/getting-started/supported-hardware.html">Full list of hardware</a>
 
 <table>
     <thead>
@@ -286,6 +295,7 @@ Below are the list of DACs that have been tested and are confirmed to work out o
 ## Displays
 
 Below are the list of Displays that have been tested and are confirmed to work out of the box. More will be added as testing progresses. If you have a Display you’d like to see supported, or are able to provide a board for testing, we’d be happy to include it on the platform—your contributions are always welcome!
+[Full list of hardware]([http://berryaudio.org/berryaudio_latest.img.zip](https://docs.berryaudio.org/getting-started/supported-hardware.html))
 
 <table>
     <thead>
