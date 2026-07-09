@@ -50,6 +50,7 @@ async def async_main(verbose=False):
         "network",
         "multiroom",
         "display",
+        "collection",
         # "gpio",
         # "infrared",
         "tuner",
