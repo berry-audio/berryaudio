@@ -4,7 +4,7 @@ import random
 from core.actor import Actor
 from core.util import generate_tlid
 from core.models import TlTrack, Track
-from playlist.utils import to_unserialize, to_serialize
+from playlist.utils import build_tltrack, to_serialize
 
 
 logger = logging.getLogger(__name__)
@@ -43,7 +43,7 @@ class TracklistExtension(Actor):
         """Called when the extension starts up."""
         try:
             _tl_tracks = self._config.get(self._name, {}).get("current_queue", []) or []
-            self._tl_tracks = [to_unserialize(tlTrack) for tlTrack in _tl_tracks]
+            self._tl_tracks = [build_tltrack(tlTrack) for tlTrack in _tl_tracks]
         except Exception as e:
             logger.error(f"Failed to restore tracklist queue: {e}")
             self._tl_tracks = []

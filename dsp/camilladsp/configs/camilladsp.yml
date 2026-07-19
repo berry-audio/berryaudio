@@ -3,13 +3,13 @@ devices:
   adjust_period: null
   capture:
     channels: 2
-    device: hw:CARD=UAC2Gadget,DEV=0
+    device: hw:CARD=Loopback,DEV=1
     labels: null
     link_mute_control: null
     link_volume_control: null
     stop_on_inactive: null
     type: Alsa
-  capture_samplerate: 96000
+  capture_samplerate: 44100
   chunksize: 4096
   enable_rate_adjust: null
   multithreaded: true
@@ -58,7 +58,7 @@ filters:
     description: null
     parameters:
       freq: 60
-      gain: 1
+      gain: 7
       slope: 6
       type: Lowshelf
     type: Biquad
@@ -85,10 +85,10 @@ filters:
   Gain:
     description: null
     parameters:
-      gain: -5
-      inverted: false
+      gain: -10
+      inverted: null
       mute: null
-      scale: null
+      scale: dB
     type: Gain
   Pitch:
     description: null
@@ -100,10 +100,10 @@ filters:
   Reverb:
     description: null
     parameters:
-      hf_damping: 1
+      hf_damping: 50
       pre_delay_ms: 5
-      reverberance: 30
-      room_scale: 20
+      reverberance: 40
+      room_scale: 50
       stereo_depth: 50
       wet: 0.2
       wet_gain_db: 20
@@ -112,8 +112,8 @@ filters:
     description: null
     parameters:
       freq: 19000
-      gain: 0
-      q: 0.5
+      gain: 1
+      q: 1.5
       type: Peaking
     type: Biquad
 mixers:

@@ -71,5 +71,5 @@
   { "id": 70, "name": "Raspberry Pi DigiAMP+", "device": "hw:CARD=sndrpihifiberry,DEV=0", "card": "sndrpihifiberry", "dtoverlay": "rpi-digiampplus" },
   { "id": 71, "name": "Soekris DAM", "device": "hw:CARD=sndrpirpidac,DEV=0", "card": "sndrpirpidac", "dtoverlay": "i2s-dac" },
   { "id": 72, "name": "Suptronics x400", "device": "hw:CARD=IQaudIODAC,DEV=0", "card": "IQaudIODAC", "dtoverlay": "iqaudio-dacplus" },
-  { "id": 73, "name": "Cambridge Audio DAC100", "device": "hw:CARD=C2,DEV=0", "card": "C2", "dtoverlay": "" }
+  { "id": 73, "name": "Cambridge Audio DAC100", "device": "plughw:CARD=C2,DEV=0", "card": "C2", "dtoverlay": "" }
 ]

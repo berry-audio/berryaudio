@@ -182,15 +182,14 @@ class RadioExtension(SourceActor):
         
         formattedRows = [Track(**self._build_track(row)) for row in rows]
         formattedRows.extend([Track(**self._build_track_rb(row)) for row in rowsBrowser])
-        return {"radio": formattedRows}
+        return {self._name : formattedRows}        
+
 
     async def on_lookup_track(self, path: str) -> Track:
-        # get data from DB
         rows = self._db.fetchall("SELECT * FROM radio WHERE path = ?", (path,))
         if rows:
             return Track(**self._build_track(rows[0]))
         
-        # resolve radioBrowser UUID
         if path.startswith("rbuuid-"):
             try:
                 uuid = path.split('-', 1)[1]
@@ -202,10 +201,9 @@ class RadioExtension(SourceActor):
             except Exception as e:
                 logger.error(f"Error while resolving {path}: {e}")
         
-        # Fallback for resolved URLs
         if path.startswith("http://") or path.startswith("https://"):
             return Track(
-                uri=f"radio:{path}",
+                uri=f"{self._name}:{path}",
                 name="Internet Radio Stream",
                 genre="Live Stream",
             )

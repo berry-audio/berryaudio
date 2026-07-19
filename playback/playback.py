@@ -380,6 +380,8 @@ class PlaybackExtension(Actor):
             if not track:
                 raise ValueError("Track metadata lookup failed")
 
+            await self._core.request("collection.recently_played", track=track)
+            
             self._tl_track = TlTrack(tlid=tlid, track=track)
 
             self._playback_uri = await self._core.request(
