@@ -3,13 +3,13 @@ devices:
   adjust_period: null
   capture:
     channels: 2
-    device: hw:CARD=Loopback,DEV=1
+    device: hw:CARD=UAC2Gadget,DEV=0
     labels: null
     link_mute_control: null
     link_volume_control: null
     stop_on_inactive: null
     type: Alsa
-  capture_samplerate: 44100
+  capture_samplerate: 96000
   chunksize: 4096
   enable_rate_adjust: null
   multithreaded: true
@@ -49,16 +49,16 @@ filters:
       - -3.2
       - -2.5
       - -1.8
-      - -0.3
-      - 3.2
-      - 6.6
+      - 0.6
+      - 4
+      - 6.1
       type: GraphicEqualizer
     type: BiquadCombo
   Bass:
     description: null
     parameters:
       freq: 60
-      gain: 7
+      gain: 0
       slope: 6
       type: Lowshelf
     type: Biquad
@@ -66,7 +66,7 @@ filters:
     description: null
     parameters:
       freq: 80
-      gain: 10
+      gain: 5
       slope: 5
       type: Lowshelf
     type: Biquad
@@ -85,7 +85,7 @@ filters:
   Gain:
     description: null
     parameters:
-      gain: -10
+      gain: -5
       inverted: null
       mute: null
       scale: dB
@@ -102,7 +102,7 @@ filters:
     parameters:
       hf_damping: 50
       pre_delay_ms: 5
-      reverberance: 40
+      reverberance: 20
       room_scale: 50
       stereo_depth: 50
       wet: 0.2
@@ -112,7 +112,7 @@ filters:
     description: null
     parameters:
       freq: 19000
-      gain: 1
+      gain: 0
       q: 1.5
       type: Peaking
     type: Biquad
@@ -225,7 +225,7 @@ pipeline:
   names:
   - Reverb
   type: Filter
-- bypassed: null
+- bypassed: false
   description: null
   name: Main Distributer
   type: Mixer
@@ -235,6 +235,8 @@ pipeline:
   - 1
   - 2
   - 3
+  - 6
+  - 7
   description: null
   names:
   - 15 Band EQ
@@ -245,6 +247,8 @@ pipeline:
   - 1
   - 2
   - 3
+  - 6
+  - 7
   description: null
   names:
   - Bass

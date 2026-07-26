@@ -41,6 +41,13 @@ class PlaylistExtension(Actor):
         """Create the playlist table if it does not already exist."""
         self._db.executescript(SQL_QUERY_CREATE)
 
+    def _is_favourite(self, uri):
+        row = self._db.fetchone(
+            'SELECT 1 FROM collection_favourite WHERE uri = ? LIMIT 1',
+            (uri,)
+        )
+        return row is not None
+
     def on_directory(
         self,
         uri: str | None = None,

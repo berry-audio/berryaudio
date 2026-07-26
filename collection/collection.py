@@ -25,7 +25,6 @@ SQL_QUERY_CREATE_HISTORY = """
     );
     """
 
-
 class CollectionExtension(Actor):
     def __init__(self, name, core, db, config):
         super().__init__()
@@ -47,6 +46,13 @@ class CollectionExtension(Actor):
         self._db.executescript(SQL_QUERY_CREATE_FAVOURITE)
         self._db.executescript(SQL_QUERY_CREATE_HISTORY)
 
+    def _is_favourite(self, uri):
+        row = self._db.fetchone(
+            'SELECT 1 FROM collection_favourite WHERE uri = ? LIMIT 1',
+            (uri,)
+        )
+        return row is not None
+    
     def on_favourite(self, item) -> bool:
         uri = item.get("uri")
         name = item.get("name")
@@ -63,11 +69,21 @@ class CollectionExtension(Actor):
                 """,
                 (uri, item.get("__model__"), name, str(to_serialize(item)),),
             )
+            self._core.send(
+                target=["web", "display"],
+                event="favourite_added",
+                item=item,
+            )
             return True
         else:
             self._db.execute(
                 "DELETE FROM collection_favourite WHERE uri = ?",
                 (uri,),
+            )
+            self._core.send(
+                target=["web", "display"],
+                event="favourite_removed",
+                item=item,
             )
             return False
 
@@ -127,6 +143,7 @@ class CollectionExtension(Actor):
             for row in rows:
                 model = row["model"]
                 data = ast.literal_eval(row["item"])
+                data.update({"favourite": self._is_favourite(data["uri"])})
 
                 if model == "Track":
                     items.extend(build_track(data))
@@ -137,9 +154,11 @@ class CollectionExtension(Actor):
 
             return items
         
-        return [
-            track
-            for row in rows
-            for track in build_track(ast.literal_eval(row["track"]))
-        ]
+        tracks = []
+        for row in rows:
+            data = ast.literal_eval(row["track"])
+            data.update({"favourite": self._is_favourite(data["uri"])})
+            tracks.extend(build_track(data))
+
+        return tracks
 

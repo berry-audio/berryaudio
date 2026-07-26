@@ -55,6 +55,7 @@ class StorageExtension(SourceActor):
                 PlaybackControls.PREVIOUS,
                 PlaybackControls.REPEAT,
                 PlaybackControls.SHUFFLE,
+                PlaybackControls.FAVOURITE,
             ],
             state={},
         )

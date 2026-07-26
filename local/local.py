@@ -175,6 +175,7 @@ class LocalExtension(SourceActor):
                 PlaybackControls.PREVIOUS,
                 PlaybackControls.REPEAT,
                 PlaybackControls.SHUFFLE,
+                PlaybackControls.FAVOURITE,
             ],
             state={},
         )
@@ -278,6 +279,7 @@ class LocalExtension(SourceActor):
     def build_album(self, row):
         obj = {}
         obj["uri"] = f"{self._name}:album:{row['id']}"
+        obj["favourite"] = self._is_favourite(f"{self._name}:album:{row['id']}")
 
         if row["name"]:
             obj["name"] = row["name"]
@@ -308,6 +310,7 @@ class LocalExtension(SourceActor):
     def build_artist(self, row):
         obj = {}
         obj["uri"] = f"{self._name}:artist:{row['id']}"
+        obj["favourite"] = self._is_favourite(f"{self._name}:artist:{row['id']}")
 
         if row["name"]:
             obj["name"] = row["name"]
@@ -361,6 +364,7 @@ class LocalExtension(SourceActor):
     def build_track(self, row):
         obj = {}
         obj["uri"] = f"{self._name}:{row['path']}"
+        obj["favourite"] = self._is_favourite(f"{self._name}:{row['path']}")
 
         if row["name"]:
             obj["name"] = row["name"]
@@ -413,6 +417,13 @@ class LocalExtension(SourceActor):
             ALBUM_IMAGES_DIR, ALBUM_IMAGES_WEB_PATH, row["image"]
         )
         return obj
+
+    def _is_favourite(self, uri):
+        row = self._db.fetchone(
+            'SELECT 1 FROM collection_favourite WHERE uri = ? LIMIT 1',
+            (uri,)
+        )
+        return row is not None
 
     async def on_playback_uri(self, path: str) -> any:
         return f"file://{path}"

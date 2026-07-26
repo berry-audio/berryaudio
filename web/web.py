@@ -4,6 +4,7 @@ import json
 import logging
 import aiofiles
 
+from fractions import Fraction
 from aiohttp import web, WSMsgType
 from core.actor import Actor
 from main import USE_GBULB
@@ -27,7 +28,6 @@ IMAGE_MIME_MAP = {
     ".jpeg": "image/jpeg",
 }
 
-
 class WebExtension(Actor):
     def __init__(self, name, core, db, config):
         super().__init__()
@@ -42,37 +42,6 @@ class WebExtension(Actor):
         logger.info("Started")
         self._clients = set()
         self._server_task = asyncio.create_task(self.run_server())
-
-    async def stream_audio_handler(self, request):
-        resp = web.StreamResponse(
-            headers={"Content-Type": "audio/flac", "Cache-Control": "no-cache"}
-        )
-        # await resp.prepare(request)
-
-        # proc = await asyncio.create_subprocess_exec(
-        #     "ffmpeg",
-        #     "-f", "alsa", "-acodec", "pcm_s32le", "-ar", "96000", "-ac", "2",
-        #     "-i", "hw:Loopback,1,3",
-        #     "-c:a", "flac", "-compression_level", "0",
-        #     "-f", "flac", "-",
-        #     stdout=asyncio.subprocess.PIPE,
-        #     stderr=asyncio.subprocess.DEVNULL,
-        # )
-
-        # try:
-        #     while True:
-        #         chunk = await proc.stdout.read(4096)
-        #         if not chunk:
-        #             break
-        #         await resp.write(chunk)
-        # except (ConnectionResetError, asyncio.CancelledError):
-        #     pass
-        # finally:
-        #     if proc.returncode is None:
-        #         proc.kill()
-        #         await proc.wait()
-
-        return resp    
 
     async def stream_file(self, request, file_path: pathlib.Path, content_type: str):
         """Stream a file manually to avoid sendfile (compatible with gbulb)."""
@@ -112,7 +81,8 @@ class WebExtension(Actor):
 
             self._app.router.add_get(f"{prefix}{{filename:.*}}", handler)
         else:
-            self._app.router.add_static(prefix, path=directory, name=prefix.strip("/"))
+            self._app.router.add_static(
+                prefix, path=directory, name=prefix.strip("/"))
 
     async def run_server(self):
         host = "0.0.0.0"
@@ -124,7 +94,6 @@ class WebExtension(Actor):
 
         self._app.router.add_get("/ws", self.websocket_handler)
         self._app.router.add_post("/rpc", self.webrpc_handler)
-        self._app.router.add_get("/stream.flac", self.stream_audio_handler)
 
         async def index_handler(request):
             if USE_GBULB:
@@ -202,6 +171,7 @@ class WebExtension(Actor):
             self._clients.discard(ws)
             logger.info(f"Client disconnected: {request.remote}")
         return ws
+    
 
     async def handle_jsonrpc(self, ws, data, send=True):
         try:
@@ -231,7 +201,8 @@ class WebExtension(Actor):
                         "jsonrpc": "2.0",
                         "error": {"code": -32603, "message": str(e)},
                         "id": (
-                            request_obj.get("id") if "request_obj" in locals() else None
+                            request_obj.get(
+                                "id") if "request_obj" in locals() else None
                         ),
                     }
                 )
@@ -264,3 +235,4 @@ class WebExtension(Actor):
             except asyncio.CancelledError:
                 pass
         logger.info("Stopped")
+

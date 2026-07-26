@@ -48,7 +48,7 @@ class RefType(enum.StrEnum):
 
 class Album(BaseModel):
     """Represents a musical album."""
-
+    model_config = ConfigDict(frozen=False)
     model: Literal["Album"] = Field(
         default="Album",
         repr=False,
@@ -62,11 +62,12 @@ class Album(BaseModel):
     date: int | None = None
     musicbrainz_id: UUID | None = None
     images: tuple | None = None
+    favourite: bool = False
 
 
 class Artist(BaseModel):
     """Represents a musical artist."""
-
+    model_config = ConfigDict(frozen=False)
     model: Literal["Artist"] = Field(
         default="Artist",
         repr=False,
@@ -82,6 +83,7 @@ class Artist(BaseModel):
     genre: Optional[str] = None
     musicbrainz_id: UUID | None = None
     images: tuple | None = None
+    favourite: bool = False
 
 
 class Category(BaseModel):
@@ -115,7 +117,7 @@ class Image(BaseModel):
 
 class Track(BaseModel):
     """Represents a musical track."""
-
+    model_config = ConfigDict(frozen=False)
     model: Literal["Track"] = Field(
         default="Track",
         repr=False,
@@ -145,6 +147,7 @@ class Track(BaseModel):
     channels: NonNegativeInt | None = None
     bit_depth: str | None = None
     size: Optional[int] = None
+    favourite: bool = False
 
 
 class Tuner(BaseModel):
@@ -157,6 +160,7 @@ class Tuner(BaseModel):
     channels: NonNegativeInt | None = None
     sample_rate: NonNegativeInt | None = None
     bit_depth: str | None = None
+    favourite: bool = False
 
 
 class TlTrack(BaseModel):

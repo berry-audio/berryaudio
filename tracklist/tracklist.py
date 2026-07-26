@@ -39,6 +39,13 @@ class TracklistExtension(Actor):
             {self._name: {"current_queue": to_serialize(self._tl_tracks)}}
         )
 
+    def _is_favourite(self, uri):
+        row = self._db.fetchone(
+            'SELECT 1 FROM collection_favourite WHERE uri = ? LIMIT 1',
+            (uri,)
+        )
+        return row is not None
+    
     async def on_start(self) -> None:
         """Called when the extension starts up."""
         try:
@@ -163,6 +170,8 @@ class TracklistExtension(Actor):
 
     def on_get_tltracks(self) -> list[TlTrack]:
         """Return the current tracklist (not shuffled)."""
+        for tltrack in self._tl_tracks:
+            tltrack.track.favourite = self._is_favourite(tltrack.track.uri)
         return self._tl_tracks
 
     async def on_clear(self) -> bool:

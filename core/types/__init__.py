@@ -23,6 +23,7 @@ class PlaybackControls(enum.StrEnum):
     REPEAT = "repeat"
     SHUFFLE = "shuffle"
     SEEK = "seek"
+    FAVOURITE = "favourite"
 
 
 class Command(enum.StrEnum):

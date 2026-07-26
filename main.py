@@ -54,6 +54,7 @@ async def async_main(verbose=False):
         # "gpio",
         # "infrared",
         "tuner",
+        "webrtc",
         "linein",
         "command",
         "dsp",

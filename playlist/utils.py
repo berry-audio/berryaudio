@@ -8,6 +8,7 @@ def build_artist(obj):
         sortname=obj.get("sortname"),
         musicbrainz_id=obj.get("musicbrainz_id"),
         images=tuple(build_image(i) for i in obj.get("images", []) or []),
+        favourite=obj.get("favourite", False),
     )
 
 
@@ -25,6 +26,7 @@ def build_album(obj):
         num_discs=obj.get("num_discs"),
         date=obj.get("date"),
         musicbrainz_id=obj.get("musicbrainz_id"),
+        favourite=obj.get("favourite", False),
     )
 
 
@@ -48,6 +50,7 @@ def build_tltrack(tlTrack):
                 if track.get("images") is not None
                 else []
             ),
+            favourite=track.get("favourite", False),
         ),
     )
 
@@ -68,6 +71,7 @@ def build_track(_Track):
                 if _Track.get("images") is not None
                 else []
             ),
+            favourite=_Track.get("favourite", False),
         ),
 
 def to_serialize(obj):
