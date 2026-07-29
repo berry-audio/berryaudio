@@ -88,17 +88,22 @@ class ShairportsyncExtension(SourceActor):
             self._proc_meta.terminate()
             self._proc_meta.kill()
 
-        logger.debug("Stopped service")
+        logger.info("Stopped service")
         return True
 
     async def on_start_service(self):
         self._source_active = True
         if os.path.exists(SHAIRPORT_PATH) and os.path.exists(SHAIRPORT_RENDER_PATH):
             await self._core.request("dsp.set_capture_device", samplerate=self._sample_rate)
-            threading.Thread(target=self._shairportsync_init, daemon=True).start()
-            threading.Thread(target=self._shairportsync_meta_init, daemon=True).start()
+            threading.Thread(target=self._shairportsync_init,
+                             daemon=True).start()
+            threading.Thread(
+                target=self._shairportsync_meta_init, daemon=True).start()
             self._clean_images_dir()
             self._reset_meta()
+            logger.info(
+                f"Starting Service"
+            )
             logger.info(
                 f"Started Shairport Sync with name {self._hostname} on {self._output_device}"
             )
@@ -239,7 +244,6 @@ class ShairportsyncExtension(SourceActor):
 
                 if meta_code == "conn":  # connected
                     self._source.state.connection_id = val
-                    
 
                 if meta_code == "disc":  # disconnected
                     self._source.state.connection_id = val
@@ -249,8 +253,10 @@ class ShairportsyncExtension(SourceActor):
                         self._core._request(
                             "playback.set_state", state=PlaybackState.STOPPED
                         )
-                        self._core._request("playback.set_time_position", position_ms=0)
-                        self._core._request("source.update_source", source=self._source)
+                        self._core._request(
+                            "playback.set_time_position", position_ms=0)
+                        self._core._request(
+                            "source.update_source", source=self._source)
                     self._stop_timer()
                     self._reset_meta()
                     self._core.send(
@@ -292,8 +298,10 @@ class ShairportsyncExtension(SourceActor):
                         self._core._request(
                             "playback.set_state", state=PlaybackState.STOPPED
                         )
-                        self._core._request("playback.set_time_position", position_ms=0)
-                        self._core._request("source.update_source", source=self._source)
+                        self._core._request(
+                            "playback.set_time_position", position_ms=0)
+                        self._core._request(
+                            "source.update_source", source=self._source)
 
                 if meta_code == "cmac":  # connecting device mac
                     self._source.state.address = val
@@ -302,7 +310,8 @@ class ShairportsyncExtension(SourceActor):
                     pass  # TODO
 
                 if meta_code == "asal":
-                    self._track = self._track.copy(update={"album": Album(name=val)})
+                    self._track = self._track.copy(
+                        update={"album": Album(name=val)})
 
                 if meta_code == "asar":
                     self._track = self._track.copy(
@@ -315,7 +324,8 @@ class ShairportsyncExtension(SourceActor):
                 if meta_code == "mden":  # sequence of metadata has ended
                     # self._clean_images_dir()
                     if self._source_active:
-                        self._core._request("playback.set_metadata", track=self._track)
+                        self._core._request(
+                            "playback.set_metadata", track=self._track)
 
                 if meta_code == "prsm":  # play stream resume
                     self._resume_timer()

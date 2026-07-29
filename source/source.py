@@ -49,84 +49,70 @@ class SourceExtension(Actor):
 
     async def on_set(self, uri: str | None = None) -> bool:
         """Set the active source and manage start stop services."""
+        uri_prev = self._current.uri
+
+        if uri == uri_prev:
+            return True
+
         directory = self.on_directory()
-        current_source = next(
-            (source for source in directory if source.uri == uri), None
-        )
+        if uri is not None and uri not in (source.uri for source in directory):
+            logger.error(f"Unknown source type: {uri}")
+            raise ValueError(f"Unknown source type: {uri}")
 
-        previous = self._current.uri
-        current = uri
+        if uri_prev is not None:
+            stop_method = f"{uri_prev}.stop_service"
+            if self._core.is_callable(stop_method):
+                try:
+                    logger.debug(f"Stopping {uri_prev} service")
+                    await self._core.request(stop_method)
+                    self._core.send(
+                        target=["web", "display"], event="source_changed", source=Source(
+                            name=None,
+                            uri=uri,
+                            controls=[],
+                            state={"connected": False},
+                        )
+                    )
+                except Exception as e:
+                    raise
 
-        if current is None:
-            stop_method = f"{previous}.stop_service"
-            if self._core.is_callable(stop_method) and previous is not None:
-                if await self._core.request(stop_method):
-                    logger.info(f"Stopping {previous} service")
-
+        if uri is None:
             self._current = Source(
-                name=None,
-                uri=uri,
-                controls=[],
-                state={"connected": False},
+                name=None, uri=None, controls=[], state={"connected": False}
             )
-            self._core.send(
-                target=["web", "display"], event="source_changed", source=self._current
-            )
-            self._core.send(
-                target=["web", "display"],
-                event="options_changed",
-                single=False,
-                repeat=False,
-                shuffle=False,
-            )
-
-        if current_source is None:
-            return
-
-        if current == "playlist" or current == "multiroom" or current == "settings":
-            return
-
-        if current == previous:
-            return
-
-        uris = [source.uri for source in directory]
-
-        if current is not None and current in uris:
-            start_method = f"{current}.start_service"
-            stop_method = f"{previous}.stop_service"
-
-            if self._core.is_callable(stop_method) and previous is not None:
-                if await self._core.request(stop_method):
-                    logger.info(f"Stopping {previous} service")
-                else:
-                    logger.error(f"Failed to stop service for source {previous}")
-                    raise RuntimeError(f"Failed to stop service for source {previous}")
-        else:
-            if current is not None:
-                logger.error(f"Unknown {current} source type")
-                raise ValueError(f"Unknown {current} source type")
 
         if uri is not None:
+            start_method = f"{uri}.start_service"
             if self._core.is_callable(start_method):
-                logger.info(f"Starting {current} service")
-                source = await self._core.request(start_method)
+                try:
+                    logger.debug(f"Starting {uri} service")
+                    source = await self._core.request(start_method)
+                except Exception as e:
+                    self._core.send(
+                        target=["web", "display"], event="source_changed", source=Source(
+                            name=None,
+                            uri=None,
+                            controls=[],
+                            state={"connected": False},
+                        )
+                    )
+                    raise
                 self._current = source
                 self._core.send(
                     target=["web", "display"],
                     event="source_changed",
                     source=self._current,
                 )
-                self._core.send(
-                    target=["web", "display"],
-                    event="options_changed",
-                    single=False,
-                    repeat=False,
-                    shuffle=False,
-                )
             else:
-                logger.error(f"Failed to start service for source {current}")
-                raise RuntimeError(f"Failed to start service for source {current}")
+                logger.error(f"Start service not found for source {uri}")
 
+        self._core.send(
+            target=["web", "display"],
+            event="options_changed",
+            single=False,
+            repeat=False,
+            shuffle=False,
+        )
         return True
 
     def on_get(self) -> dict:

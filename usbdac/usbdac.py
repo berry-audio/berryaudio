@@ -82,10 +82,10 @@ class UsbdacExtension(SourceActor):
             samplerate=self._sample_rate,
         )
         await self._core.request("playback.set_metadata", track=self._track)
-        logger.info("Started service")
+        logger.info("Starting service")
         return self._source
 
     async def on_stop_service(self):
         await self._core.request("playback.clear")
-        logger.info("Stopped service")
+        logger.info("Stopping service")
         return True

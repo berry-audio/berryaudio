@@ -111,19 +111,20 @@ class PlaybackExtension(Actor):
                 elif structure.has_field("format"):
                     bit_depth = structure.get_string("format")
 
-                track = self._tl_track.track.copy(
-                    update={
-                        "sample_rate": rate,
-                        "channels": channels,
-                        "bit_depth": bit_depth,
-                    }
-                )
-                self._tl_track = TlTrack(tlid=self._tl_track.tlid, track=track)
-                self._core.send(
-                    target=["web", "display"],
-                    event="track_meta_updated",
-                    tl_track=self._tl_track,
-                )
+                if self._tl_track:
+                    track = self._tl_track.track.copy(
+                        update={
+                            "sample_rate": rate,
+                            "channels": channels,
+                            "bit_depth": bit_depth,
+                        }
+                    )
+                    self._tl_track = TlTrack(tlid=self._tl_track.tlid, track=track)
+                    self._core.send(
+                        target=["web", "display"],
+                        event="track_meta_updated",
+                        tl_track=self._tl_track,
+                    )
 
             return Gst.PadProbeReturn.REMOVE
 

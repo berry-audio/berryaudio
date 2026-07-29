@@ -436,11 +436,12 @@ class LocalExtension(SourceActor):
         return Track(**self.build_track(row[0]))
 
     async def on_stop_service(self) -> bool:
+        logger.info("Stopping Service")
         await self._core.request("playback.clear")
         return True
 
     async def on_start_service(self) -> bool:
-        logger.debug("Starting Service")
+        logger.info("Starting Service")
         return self._source
 
     async def on_clean(self):

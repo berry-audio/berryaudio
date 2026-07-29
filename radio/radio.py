@@ -106,11 +106,12 @@ class RadioExtension(SourceActor):
         pass
 
     async def on_stop_service(self) -> bool:
+        logger.info("Stopping Service")
         await self._core.request("playback.clear")
         return True
 
     async def on_start_service(self):
-        logger.debug("Starting Service")
+        logger.info("Starting Service")
         return self._source
 
     def _init_table(self):

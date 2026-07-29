@@ -3,7 +3,7 @@ devices:
   adjust_period: null
   capture:
     channels: 2
-    device: hw:CARD=UAC2Gadget,DEV=0
+    device: hw:CARD=sndrpihifiberry,DEV=0
     labels: null
     link_mute_control: null
     link_volume_control: null
@@ -58,7 +58,7 @@ filters:
     description: null
     parameters:
       freq: 60
-      gain: 0
+      gain: 7
       slope: 6
       type: Lowshelf
     type: Biquad
@@ -85,7 +85,7 @@ filters:
   Gain:
     description: null
     parameters:
-      gain: -5
+      gain: 15
       inverted: null
       mute: null
       scale: dB

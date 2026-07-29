@@ -1,9 +1,9 @@
 import RPi.GPIO as GPIO
-import asyncio
+import json
 import logging
 
+from pathlib import Path
 from datetime import datetime
-from .si4703 import si4703Radio
 from core.actor import SourceActor
 from core.models import Track, Source, Tuner
 from core.types import PlaybackControls
@@ -11,8 +11,7 @@ from core.types import PlaybackControls
 
 logger = logging.getLogger(__name__)
 
-FM_MIN = 875
-FM_MAX = 1080
+TUNERS_LIST_PATH = Path(__file__).parent.parent / "tuner" / "tuners.json"
 PCM1861_MD_GPIO_PIN = 4
 SI4703_RESET_GPIO_PIN = 16
 SI4703_ADDR = 0x10
@@ -25,17 +24,24 @@ class TunerExtension(SourceActor):
         self._name = name
         self._core = core
         self._config = config
-        self._input_device = self._config.get("tuner", {}).get("input_device")
-        self._output_device = self._config.get("mixer", {}).get("output_device")
-        self._sample_rate = self._config.get("tuner", {}).get("sample_rate", 44100)
-        self._bit_depth = self._config.get("tuner", {}).get("bit_depth", "S16_LE")
-        self._default_channel = self._config.get("tuner", {}).get(
-            "default_channel", 875
-        )
+        self._input_device = self._config.get(
+            self._name, {}).get("input_device")
+        self._output_device = self._config.get(
+            "mixer", {}).get("output_device")
+        self._sample_rate = self._config.get(
+            self._name, {}).get("sample_rate", 44100)
+        self._bit_depth = self._config.get(
+            self._name, {}).get("bit_depth", "S16_LE")
+        self._gain = self._config.get(self._name, {}).get("gain", 0)
+        self._hw_device = self._config.get(self._name, {}).get("hw_device")
+        self._hw_device_params = None
         self._audio_codec = "PCM"
-        self._gain = self._config.get("tuner", {}).get("gain", 0)
         self._channels = 2
         self._tuner = None
+        self._channel_min = None
+        self._channel_max = None
+        self._channel_step = None
+        self._channel_current = None
         self._track = Tuner(
             uri=self._name,
         )
@@ -56,6 +62,13 @@ class TunerExtension(SourceActor):
         if not updated_config:
             return
 
+        if "hw_device" in updated_config:
+            if self._tuner:
+                self._tuner.shutdown()
+                self._tuner = None
+            self._hw_device = updated_config["hw_device"]
+            await self._core.request("source.set", uri=None)
+
         if "input_device" in updated_config:
             self._input_device = updated_config["input_device"]
 
@@ -68,8 +81,8 @@ class TunerExtension(SourceActor):
         if await self.is_active():
             await self._core.request(
                 "dsp.set_capture_device",
-                device=self._input_device,
                 gain=self._gain,
+                device=self._input_device,
                 samplerate=self._sample_rate,
             )
 
@@ -85,7 +98,7 @@ class TunerExtension(SourceActor):
         pass
 
     async def on_stop(self):
-        await self._shutdown_tuner()
+        await self.on_stop_service()
         logger.info("Stopped")
 
     async def on_start_service(self):
@@ -96,21 +109,34 @@ class TunerExtension(SourceActor):
             samplerate=self._sample_rate,
         )
         await self._init_tuner()
-
-        logger.info("Started service")
+        logger.info("Starting service")
         return self._source
 
     async def on_stop_service(self):
-        await self._shutdown_tuner()
+        if self._tuner:
+            self._tuner.shutdown()
+            self._tuner = None
+        self._disable_mux()
         await self._core.request("playback.clear")
-        logger.debug("Stopped service")
+        logger.info("Stopping service")
         return True
 
-    def _read_stats(self):
-        self._default_channel = self._tuner.si4703GetChannel()
-        freq = self._default_channel
+    def _init_db(self):
+        self._db.executescript(
+            """
+            CREATE TABLE IF NOT EXISTS tuner (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                channel     INTEGER NOT NULL,
+                name        TEXT    NOT NULL,
+                last_modified TEXT  NOT NULL
+            );
+            """
+        )
 
+    def _read_stats(self):
+        self._channel_current = self._tuner.getChannel()
         self._tuner.si4703ReadRegisters()
+
         is_stereo = (
             self._tuner.si4703_registers[self._tuner.SI4703_STATUSRSSI]
             & (1 << self._tuner.SI4703_STEREO)
@@ -119,20 +145,20 @@ class TunerExtension(SourceActor):
 
         channels = 2 if is_stereo else 1
         channels_text = "Stereo" if is_stereo else "Mono"
-        logger.info(f"{freq:.1f} MHz | {channels_text} | Signal: {rssi:3d}/127")
+        logger.info(
+            f"{self._channel_current:.1f} MHz | {channels_text} | Signal: {rssi:3d}/127")
 
-        return freq, channels, channels_text, rssi
+        return self._channel_current, channels, channels_text, rssi
 
     async def _status(self):
         """Display current tuner status"""
         freq, channels, channels_text, rssi = self._read_stats()
-
         track = self._track.copy(
             update={
                 "uri": f"{self._name}",
                 "name": f"FM {(freq/10):.1f} MHz",
                 "channels": channels,
-                "frequency": freq,
+                "channel": freq,
                 "sample_rate": self._sample_rate,
                 "bit_depth": self._bit_depth,
                 "audio_codec": self._audio_codec,
@@ -140,44 +166,55 @@ class TunerExtension(SourceActor):
         )
         self._track = track
         await self._core.request("playback.set_metadata", track=self._track)
-
-    def _init_db(self):
-        self._db.executescript(
-            """
-            CREATE TABLE IF NOT EXISTS tuner (
-                id          INTEGER PRIMARY KEY AUTOINCREMENT,
-                frequency   INTEGER NOT NULL,
-                name        TEXT    NOT NULL,
-                views       INTEGER NOT NULL DEFAULT 0,
-                last_modified TEXT  NOT NULL
-            );
-            """
+        self._core.send(
+            target=["web", "display"], event="channel_updated", channel=freq
         )
 
-    async def _init_tuner(self):
-        """Initialize PCM1861 audio mux and Si4703 FM tuner."""
-        # --- Si4703 Reset & Init ---
+    def _enable_mux(self):
+        "Enable PCM1861 Audio Mux for berry audio hat"
         try:
-            self._tuner = si4703Radio(SI4703_ADDR, resetPin=SI4703_RESET_GPIO_PIN)
-            self._tuner.si4703Init()
-            await asyncio.sleep(0.1)
-            logger.debug("SI4703 tuner enabled")
-        except OSError as e:
-            logger.error(
-                f"Si4703 I2C init failed (check wiring/address 0x{SI4703_ADDR:02X}): {e}"
-            )
-            self._tuner = None
-            raise ValueError(
-                f"Si4703 I2C init failed (check wiring/address 0x{SI4703_ADDR:02X}): {e}"
+            GPIO.setmode(GPIO.BCM)
+            GPIO.setup(PCM1861_MD_GPIO_PIN, GPIO.OUT)
+            GPIO.output(PCM1861_MD_GPIO_PIN, GPIO.LOW)
+            logger.debug(
+                "Audio mux enabled: GPIO taken LOW PCM1861 specific command"
             )
         except Exception as e:
-            logger.error(f"Si4703 init unexpected error: {e}")
-            self._tuner = None
-            raise ValueError(f"Si4703 init unexpected error: {e}")
+            logger.error(e)
+            raise ValueError(e)
 
-        if self._tuner:
-            # --- Register Configuration ---
+    def _disable_mux(self):
+        "Disable PCM1861 Audio Mux for berry audio board hat"
+        try:
+            GPIO.setmode(GPIO.BCM)
+            GPIO.setup(PCM1861_MD_GPIO_PIN, GPIO.IN)
+            logger.debug(
+                "Audio mux disabled: GPIO taken HIGH PCM1861 specific command"
+            )
+        except Exception as e:
+            logger.error(e)
+            raise ValueError(e)
+
+    async def _init_tuner(self):
+        """Detect tuner configurations"""
+        self._tuner = None
+
+        if self._hw_device in ('si4703-ba', 'si4703'):
             try:
+                from .si4703 import si4703Radio
+
+                self._tuner = si4703Radio(
+                    SI4703_ADDR, resetPin=SI4703_RESET_GPIO_PIN)
+                self._tuner.init()
+
+                self._hw_device_params = self.on_devices(self._hw_device)
+                self._channel_min = self._hw_device_params.get(
+                    'channel_min', 875)
+                self._channel_max = self._hw_device_params.get(
+                    'channel_max', 1080)
+                self._channel_step = self._hw_device_params.get(
+                    'channel_step', 1)
+                
                 self._tuner.si4703ReadRegisters()
                 self._tuner.si4703_registers[self._tuner.SI4703_POWERCFG] |= (
                     1 << self._tuner.SI4703_DMUTE
@@ -188,50 +225,29 @@ class TunerExtension(SourceActor):
                 self._tuner.si4703WriteRegisters()
                 self._tuner.si4703SetVolume(15)
                 logger.debug("SI4703 registers written")
-            except OSError as e:
-                logger.error(f"Si4703 register read/write failed: {e}")
-            except (AttributeError, IndexError) as e:
-                logger.error(f"Si4703 register mapping error — check constants: {e}")
-            except Exception as e:
-                logger.error(f"Si4703 configuration unexpected error: {e}")
 
-            # --- Tune to Default Channel ---
-            try:
-                if self._tuner:
-                    self._tuner.si4703SetChannel(self._default_channel)
-                    await self._status()
-                    logger.debug(
-                        f"SI4703 tuned to default channel: {self._default_channel}"
-                    )
-            except OSError as e:
-                logger.error(
-                    f"Si4703 failed to tune to channel {self._default_channel}: {e}"
-                )
-            except Exception as e:
-                logger.error(f"Unexpected error tuning to default channel: {e}")
+                if self._hw_device == 'si4703-ba':
+                    self._enable_mux()
 
-            # --- PCM1861 Audio Mux ---
-            try:
-                GPIO.setmode(GPIO.BCM)
-                GPIO.setup(PCM1861_MD_GPIO_PIN, GPIO.OUT)
-                GPIO.output(PCM1861_MD_GPIO_PIN, GPIO.LOW)
-                logger.debug(
-                    "Audio mux enabled: GPIO taken LOW PCM1861 specific command"
-                )
+                logger.info(self._hw_device)
             except Exception as e:
-                logger.error(f"PCM1861 GPIO setup failed: {e}")
+                self._tuner = None
+                logger.error(e)
+                raise ValueError(e)
+        else:
+            self._tuner = None
+            logger.error(f"Tuner not found")
+            raise ValueError(f"Tuner not found")
 
-    async def _shutdown_tuner(self):
-        GPIO.setmode(GPIO.BCM)
-        GPIO.setup(PCM1861_MD_GPIO_PIN, GPIO.IN)
-        if self._tuner:
-            self._tuner.si4703ShutDown()
+        await self.on_set_channel(
+            self._channel_current if self._channel_current is not None else self._channel_min
+        )
 
     def _build_tuner(self, row) -> any:
         return {
             "uri": f"{self._name}:{row.id}",
             "name": row.name,
-            "frequency": row.frequency,
+            "channel": row.channel,
             "channels": self._channels,
             "sample_rate": self._sample_rate,
             "bit_depth": self._bit_depth,
@@ -257,12 +273,11 @@ class TunerExtension(SourceActor):
                         a.*
                     FROM tuner a
                     WHERE %s
-                    ORDER BY a.frequency ASC
+                    ORDER BY a.channel ASC
                 """
                 % "1"
             )
             sql = base_sql.rstrip(";")
-
             params = []
             if limit is not None:
                 sql += " LIMIT ?"
@@ -275,89 +290,92 @@ class TunerExtension(SourceActor):
             rows = self._db.fetchall(sql, params)
         return [Tuner(**self._build_tuner(row)) for row in rows]
 
-    async def on_create(self, frequency, name=None):
-        last_modified = datetime.now().isoformat()
-        preset_name = name if name not in (None, "") else f"FM #{frequency}"
+    async def on_preset_add(self, channel, name=None):
+        preset_name = name if name not in (None, "") else f"FM #{channel}"
         cursor = self._db.execute(
-            """INSERT INTO tuner (name, frequency, views, last_modified)
-            VALUES (?, ?, ?, ?)""",
-            (preset_name, frequency, 0, last_modified),
+            """INSERT INTO tuner (name, channel, last_modified)
+            VALUES (?, ?, ?)""",
+            (preset_name, channel, datetime.now().isoformat()),
         )
         row = self._db.execute(
             "SELECT * FROM tuner WHERE id = ?", (cursor.lastrowid,)
         ).fetchone()
-        logger.info(f"Tuner preset {preset_name} {frequency} created")
+        logger.info(f"Tuner preset {preset_name} {channel} saved")
         self._core.send(
-            target=["web", "display"], event="tuner_preset_created", row=dict(row)
+            target=["web", "display"], event="preset_saved", item=self._build_tuner(row)
         )
-        return dict(row) if row else None
+        return True if row else False
 
-    async def on_edit(self, id):
+    async def on_preset_edit(self, id):
         pass
 
-    async def on_delete(self, id):
+    async def on_preset_delete(self, id):
         pass
 
     async def on_get_channel(self):
         if self._tuner:
-            return self._tuner.si4703GetChannel()
+            return self._tuner.getChannel()
+        return False
 
     async def on_set_channel(self, channel):
-        if self._tuner and channel:
-            self._tuner.si4703SetChannel(channel)
+        if self._tuner:
+            self._tuner.setChannel(channel)
             await self._status()
-        return self._tuner.si4703GetChannel()
+            return True
+        return False
 
     async def on_seek_up(self, auto=False):
         if not self._tuner:
-            raise ValueError("No hardware tuner found")
+            raise ValueError("No tuner hardware found")
         if auto:
-            self._tuner.si4703SeekUp()
+            self._tuner.seekUp()
         else:
-            new_channel = self._default_channel + 1
-            if new_channel > FM_MAX:
-                new_channel = FM_MIN
-            self._tuner.si4703SetChannel(new_channel)
-        self._default_channel = new_channel
-        await self._status()
+            new_channel = self._channel_current + self._channel_step
+            if new_channel > self._channel_max:
+                new_channel = self._channel_min
+            await self.on_set_channel(new_channel)
         return True
 
     async def on_seek_down(self, auto=False):
         if not self._tuner:
-            raise ValueError("No hardware tuner found")
+            raise ValueError("No tuner hardware found")
         if auto:
-            self._tuner.si4703SeekDown()
+            self._tuner.seekDown()
         else:
-            new_channel = self._default_channel - 1
-            if new_channel < FM_MIN:
-                new_channel = FM_MAX
-            self._tuner.si4703SetChannel(new_channel)
-        self._default_channel = new_channel
-        await self._status()
+            new_channel = self._channel_current - self._channel_step
+            if new_channel < self._channel_min:
+                new_channel = self._channel_max
+            await self.on_set_channel(new_channel)
         return True
 
     async def on_playback_uri(self, path: str) -> bool:
-        row = self._db.execute("SELECT * FROM tuner WHERE id = ?", (path,)).fetchone()
+        row = self._db.execute(
+            "SELECT * FROM tuner WHERE id = ?", (path,)
+        ).fetchone()
+
         if row is None:
             logger.warning(f"Tuner preset not found: {path}")
             return False
 
-        if self._tuner:
-            self._tuner.si4703SetChannel(int(row["frequency"]))
-            self._default_channel = self._tuner.si4703GetChannel()
-            self._track = Tuner(**self._build_tuner(row))
+        if self._tuner is None:
+            logger.warning("Tuner is not initialized")
+            return False
 
-            freq, channels, channels_text, rssi = self._read_stats()
-            track = self._track.copy(
-                update={
-                    "channels": int(channels),
-                }
-            )
-            self._track = track
-            await self._core.request("playback.set_metadata", track=self._track)
-
+        self._track = Tuner(**self._build_tuner(row))
+        await self.on_set_channel(int(row["channel"]))
         return self._name
 
     async def on_lookup_track(self, path: str) -> Track:
-        row = self._db.execute("SELECT * FROM tuner WHERE id = ?", (path,)).fetchone()
+        row = self._db.execute(
+            "SELECT * FROM tuner WHERE id = ?", (path,)).fetchone()
         return Tuner(**self._build_tuner(row))
+
+    def on_devices(self, device=None):
+        with open(TUNERS_LIST_PATH, "r", encoding="utf-8") as f:
+            tuners = json.load(f)
+        if device is None:
+            return tuners
+        return next(
+            (tuner for tuner in tuners if tuner.get("device") == device),
+            None,
+        )

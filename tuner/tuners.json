@@ -1,0 +1,38 @@
+[
+  {
+    "name": "None",
+    "device": null,
+    "type": null,
+    "reset_pin": null,
+    "address": null,
+    "channel_min": null,
+    "channel_max": null,
+    "channel_step": null,
+    "channel_auto": false,
+    "description": null
+  },
+  {
+    "name": "SI4703",
+    "device": "si4703",
+    "type": "i2c",
+    "reset_pin": 16,
+    "address": "0x10",
+    "channel_min": 875,
+    "channel_max": 1080,
+    "channel_step": 1,
+    "channel_auto": true,
+    "description": "FM Tuner with RDS/RBDS"
+  },
+  {
+    "name": "SI4703 Berryaudio",
+    "device": "si4703-ba",
+    "type": "i2c",
+    "reset_pin": 16,
+    "address": "0x10",
+    "channel_min": 875,
+    "channel_max": 1080,
+    "channel_step": 1,
+    "channel_auto": true,
+    "description": "DAC + ADC with FM Tuner"
+  }
+]

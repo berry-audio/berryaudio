@@ -118,10 +118,11 @@ class si4703Radio:
         else:
             self.si4703UseIRQ = True
 
-    def si4703SeekUp(self):
+
+    def seekUp(self):
         self.si4703Seek(self.SI4703_SEEK_UP)
 
-    def si4703SeekDown(self):
+    def seekDown(self):
         self.si4703Seek(self.SI4703_SEEK_DOWN)
 
     def si4703Seek(self, seekDirection):
@@ -145,7 +146,8 @@ class si4703Radio:
 
         if self.si4703UseIRQ == True:
             self.GPIO.wait_for_edge(self.irqPIN, GPIO.FALLING, timeout=5000)
-            self.si4703_registers[self.SI4703_POWERCFG] &= ~(1 << self.SI4703_SEEK)
+            self.si4703_registers[self.SI4703_POWERCFG] &= ~(
+                1 << self.SI4703_SEEK)
             self.si4703WriteRegisters()
         else:
             # Poll to see if STC is set
@@ -162,10 +164,11 @@ class si4703Radio:
             )  # Clear the tune after a tune has completed
             self.si4703WriteRegisters()
 
-    def si4703SetChannel(self, channel):
+    def setChannel(self, channel):
         newChannel = channel * 10  # e.g. 973 * 10 = 9730
         newChannel -= 8750  # e.g. 9730 - 8750 = 980
-        newChannel = int(newChannel / 10)  # e.g. 980 / 10 = 98 - FIXED: Convert to int
+        # e.g. 980 / 10 = 98 - FIXED: Convert to int
+        newChannel = int(newChannel / 10)
 
         # These steps come from AN230 page 20 rev 0.9
         self.si4703ReadRegisters()
@@ -182,7 +185,8 @@ class si4703Radio:
             # loop waiting for STC bit to set
             self.GPIO.wait_for_edge(self.irqPIN, GPIO.FALLING, timeout=5000)
             # clear the tune flag
-            self.si4703_registers[self.SI4703_CHANNEL] &= ~(1 << self.SI4703_TUNE)
+            self.si4703_registers[self.SI4703_CHANNEL] &= ~(
+                1 << self.SI4703_TUNE)
             self.si4703WriteRegisters()
         else:
             # Poll to see if STC is set
@@ -199,7 +203,8 @@ class si4703Radio:
                     break
                 time.sleep(0.05)
             self.si4703ReadRegisters()
-            self.si4703_registers[self.SI4703_CHANNEL] &= ~(1 << self.SI4703_TUNE)
+            self.si4703_registers[self.SI4703_CHANNEL] &= ~(
+                1 << self.SI4703_TUNE)
             self.si4703WriteRegisters()
             # self.si4703ReadRegisters()
             # self.si4703_registers[self.SI4703_CHANNEL] &= ~(1<<self.SI4703_TUNE) #Clear the tune after a tune has completed
@@ -211,15 +216,17 @@ class si4703Radio:
             volume = 0
         if volume > 15:
             volume = 15
-        self.si4703_registers[self.SI4703_SYSCONFIG2] &= 0xFFF0  # Clear volume bits
-        self.si4703_registers[self.SI4703_SYSCONFIG2] |= volume  # Set new volume
+        # Clear volume bits
+        self.si4703_registers[self.SI4703_SYSCONFIG2] &= 0xFFF0
+        # Set new volume
+        self.si4703_registers[self.SI4703_SYSCONFIG2] |= volume
         self.si4703WriteRegisters()
 
     def si4703GetVolume(self):
         self.si4703ReadRegisters()
         return self.si4703_registers[self.SI4703_SYSCONFIG2] & self.SI4703_VOLUME_MASK
 
-    def si4703GetChannel(self):
+    def getChannel(self):
         self.si4703ReadRegisters()
         return (
             self.si4703_registers[self.SI4703_READCHAN] & self.SI4703_READCHAN_MASK
@@ -275,7 +282,7 @@ class si4703Radio:
         self.si4703_rds_ps[:] = []
         self.si4703_rds_rt[:] = []
 
-    def si4703Init(self):
+    def init(self):
         # To get the Si4703 inito 2-wire mode, SEN needs to be high and SDIO needs to be low after a reset
         # The breakout board has SEN pulled high, but also has SDIO pulled high. Therefore, after a normal power up
         # The Si4703 will be in an unknown state. RST must be controlled
@@ -325,8 +332,10 @@ class si4703Radio:
         self.si4703_registers[self.SI4703_SYSCONFIG2] |= (
             1 << self.SI4703_SPACE0
         )  # 100kHz channel spacing for *Europe!!*
-        self.si4703_registers[self.SI4703_SYSCONFIG2] &= 0xFFF0  # Clear volume bits
-        self.si4703_registers[self.SI4703_SYSCONFIG2] |= 0x0001  # Set volume to lowest
+        # Clear volume bits
+        self.si4703_registers[self.SI4703_SYSCONFIG2] &= 0xFFF0
+        # Set volume to lowest
+        self.si4703_registers[self.SI4703_SYSCONFIG2] |= 0x0001
 
         self.si4703_registers[self.SI4703_SYSCONFIG3] |= (
             0x04 << self.SI4703_SKSNR
@@ -339,12 +348,14 @@ class si4703Radio:
 
         time.sleep(0.11)  # Max powerup time, from datasheet page 13
 
-    def si4703ShutDown(self):
+    def shutdown(self):
         self.si4703ReadRegisters()  # Read the current register set
         # Powerdown as defined in AN230 page 13 rev 0.9
         self.si4703_registers[self.SI4703_TEST1] = 0x7C04  # Power down the IC
-        self.si4703_registers[self.SI4703_POWERCFG] = 0x002A  # Power down the IC
-        self.si4703_registers[self.SI4703_SYSCONFIG1] = 0x0041  # Power down the IC
+        # Power down the IC
+        self.si4703_registers[self.SI4703_POWERCFG] = 0x002A
+        # Power down the IC
+        self.si4703_registers[self.SI4703_SYSCONFIG1] = 0x0041
         self.si4703WriteRegisters()  # Update
 
     def si4703WriteRegisters(self):

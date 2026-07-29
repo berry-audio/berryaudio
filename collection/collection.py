@@ -72,7 +72,7 @@ class CollectionExtension(Actor):
             self._core.send(
                 target=["web", "display"],
                 event="favourite_added",
-                item=item,
+                item={**item, "favourite": True},
             )
             return True
         else:
@@ -83,7 +83,7 @@ class CollectionExtension(Actor):
             self._core.send(
                 target=["web", "display"],
                 event="favourite_removed",
-                item=item,
+                item={**item, "favourite": False},
             )
             return False
 

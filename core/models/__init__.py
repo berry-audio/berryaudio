@@ -155,7 +155,7 @@ class Tuner(BaseModel):
     model: Literal["Tuner"] = Field(default="Tuner", alias="__model__", repr=False)
     uri: str
     name: Optional[str] = None
-    frequency: int = 0
+    channel: int = 0
     audio_codec: str | None = None
     channels: NonNegativeInt | None = None
     sample_rate: NonNegativeInt | None = None
