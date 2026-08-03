@@ -17,6 +17,7 @@
   { "id": 16, "name": "Audiophonics PCM5102 DAC", "device": "hw:CARD=sndrpihifiberry,DEV=0", "card": "sndrpihifiberry", "dtoverlay": "hifiberry-dac" },
   { "id": 17, "name": "Audiophonics PCM5122 DAC", "device": "hw:CARD=sndrpihifiberry,DEV=0", "card": "sndrpihifiberry", "dtoverlay": "hifiberry-dacplus" },
   { "id": 18, "name": "Audiophonics TDA1387 DAC", "device": "hw:CARD=sndrpirpidac,DEV=0", "card": "sndrpirpidac", "dtoverlay": "i2s-dac" },
+  { "id": 74, "name": "Berryaudio DAC/ADC/FM Tuner", "device": "hw:CARD=sndrpihifiberry,DEV=0", "card": "sndrpihifiberry", "dtoverlay": "hifiberry-dacplusadc" },
   { "id": 19, "name": "DDDAC1794 NOS", "device": "hw:CARD=sndrpirpidac,DEV=0", "card": "sndrpirpidac", "dtoverlay": "i2s-dac" },
   { "id": 20, "name": "Generic-I2S (hifiberry-dac)", "device": "hw:CARD=sndrpihifiberry,DEV=0", "card": "sndrpihifiberry", "dtoverlay": "hifiberry-dac" },
   { "id": 21, "name": "Generic-I2S (i2s-dac)", "device": "hw:CARD=sndrpirpidac,DEV=0", "card": "sndrpirpidac", "dtoverlay": "i2s-dac" },

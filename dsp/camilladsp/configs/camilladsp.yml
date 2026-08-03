@@ -3,7 +3,8 @@ devices:
   adjust_period: null
   capture:
     channels: 2
-    device: hw:CARD=sndrpihifiberry,DEV=0
+    device: hw:CARD=Loopback,DEV=1
+    format: null
     labels: null
     link_mute_control: null
     link_volume_control: null
@@ -70,18 +71,6 @@ filters:
       slope: 5
       type: Lowshelf
     type: Biquad
-  Flanger:
-    description: null
-    parameters:
-      delay_ms: 0
-      depth_ms: 2
-      phase_deg: 0
-      regen: 10
-      shape: sine
-      speed_hz: 0.8
-      wet: 0.5
-      width: 90
-    type: Flanger
   Gain:
     description: null
     parameters:
@@ -90,24 +79,6 @@ filters:
       mute: null
       scale: dB
     type: Gain
-  Pitch:
-    description: null
-    parameters:
-      semitones: 5
-      tempo: 1
-      wet: 1
-    type: Pitch
-  Reverb:
-    description: null
-    parameters:
-      hf_damping: 50
-      pre_delay_ms: 5
-      reverberance: 20
-      room_scale: 50
-      stereo_depth: 50
-      wet: 0.2
-      wet_gain_db: 20
-    type: Reverb
   Treble:
     description: null
     parameters:
@@ -203,28 +174,6 @@ pipeline:
   names:
   - Gain
   type: Filter
-- bypassed: true
-  description: null
-  name: spatial
-  type: Processor
-- bypassed: true
-  channels: null
-  description: null
-  names:
-  - Pitch
-  type: Filter
-- bypassed: true
-  channels: null
-  description: null
-  names:
-  - Flanger
-  type: Filter
-- bypassed: true
-  channels: null
-  description: null
-  names:
-  - Reverb
-  type: Filter
 - bypassed: false
   description: null
   name: Main Distributer
@@ -255,13 +204,5 @@ pipeline:
   - Bass 80
   - Treble
   type: Filter
-processors:
-  spatial:
-    description: null
-    parameters:
-      channels: 2
-      mid_gain_db: 1
-      side_gain_db: 1
-      width: 2
-    type: MidSide
+processors: {}
 title: Parametric EQ 10-Band

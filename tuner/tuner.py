@@ -29,9 +29,9 @@ class TunerExtension(SourceActor):
         self._output_device = self._config.get(
             "mixer", {}).get("output_device")
         self._sample_rate = self._config.get(
-            self._name, {}).get("sample_rate", 44100)
+            self._name, {}).get("sample_rate")
         self._bit_depth = self._config.get(
-            self._name, {}).get("bit_depth", "S16_LE")
+            self._name, {}).get("bit_depth")
         self._gain = self._config.get(self._name, {}).get("gain", 0)
         self._hw_device = self._config.get(self._name, {}).get("hw_device")
         self._hw_device_params = None
@@ -74,6 +74,8 @@ class TunerExtension(SourceActor):
 
         if "sample_rate" in updated_config:
             self._sample_rate = updated_config["sample_rate"]
+            self._track.sample_rate = self._sample_rate
+            await self._core.request("playback.set_metadata", track=self._track)
 
         if "gain" in updated_config:
             self._gain = updated_config["gain"]
@@ -214,7 +216,7 @@ class TunerExtension(SourceActor):
                     'channel_max', 1080)
                 self._channel_step = self._hw_device_params.get(
                     'channel_step', 1)
-                
+
                 self._tuner.si4703ReadRegisters()
                 self._tuner.si4703_registers[self._tuner.SI4703_POWERCFG] |= (
                     1 << self._tuner.SI4703_DMUTE
@@ -236,8 +238,9 @@ class TunerExtension(SourceActor):
                 raise ValueError(e)
         else:
             self._tuner = None
-            logger.error(f"Tuner not found")
-            raise ValueError(f"Tuner not found")
+
+            logger.error(f"No tuner detected or selected")
+            raise ValueError(f"No tuner detected or selected")
 
         await self.on_set_channel(
             self._channel_current if self._channel_current is not None else self._channel_min

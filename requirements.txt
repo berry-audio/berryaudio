@@ -23,3 +23,7 @@ rpi-lgpio==0.6
 aiohttp_cors==0.8.1
 aiortc==1.15.0
 camilladsp @ git+https://github.com/varungujjar/pycamilladsp.git@fdc0d163e02dd73206a493402b43c83502ad83d7
+camilladsp_plot @ git+https://github.com/varungujjar/pycamilladsp-plot@e865ea2db6c9d1bac050a0d1c1144b8cc27c555a
+netifaces=0.11.0
+pyalsaaudio==0.11.0
+spidev==3.8

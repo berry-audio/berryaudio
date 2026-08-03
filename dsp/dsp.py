@@ -1,11 +1,12 @@
-from email import message
-
 import yaml
 import subprocess
 import math
+import re
+import time
 import logging
 import asyncio
 
+from pathlib import Path
 from camilladsp import CamillaClient, ProcessingState
 from core.actor import Actor
 
@@ -13,7 +14,8 @@ logger = logging.getLogger(__name__)
 
 HOST = "127.0.0.1"
 PORT = 1234
-CONFIG_PATH = "/home/pi/berryaudio/dsp/camilladsp/configs/camilladsp.yml"
+
+CONFIG_PATH = Path(__file__).parent / "camilladsp" / "configs" / "camilladsp.yml"
 
 VOL_MIN_DB = -100.0
 VOL_MAX_DB = 0.0
@@ -34,7 +36,6 @@ class DspExtension(Actor):
         self._default_gain = self._config.get("dsp", {}).get("default_gain", 0)
         self._resample_rate = self._config.get("dsp", {}).get("resample_rate", None)
         self._disconnect_task = None
-        self._dsp_connected = False
 
     async def on_config_update(self, config):
         updated_config = config[self._name]
@@ -138,9 +139,10 @@ class DspExtension(Actor):
                 event="dsp_options_before",
                 capture_device=capture_device,
                 sample_rate=config["devices"]["samplerate"],
+                resample=self._resample_rate is not None
             )
 
-            new_sample_rate = config["devices"]["samplerate"]
+            new_sample_rate = config["devices"]["samplerate"] or samplerate
 
             try:
                 self._client.connect()
@@ -165,21 +167,30 @@ class DspExtension(Actor):
                         capture_device=capture_device,
                         sample_rate=new_sample_rate,
                         sample_format=new_capture_format,
+                        resample=self._resample_rate is not None
+                    )
+
+                    capture_info = (
+                        f"{new_capture_rate}Hz"
+                        if self._resample_rate
+                        else f"{new_sample_rate}Hz"
                     )
 
                     resample_info = (
-                        f" | Capture Rate {new_capture_rate}Hz"
+                        f"{self._resample_rate}Hz"
                         if self._resample_rate
-                        else ""
+                        else False
                     )
-                    info = f"DSP: {capture_device} | Gain {float(gain)}dB | {new_sample_rate}Hz | Format {new_capture_format} | Volume {new_volume}dB | Mute {new_mute}{resample_info}"
+
+                    info = f"DSP: {capture_device} | Gain {float(gain)}dB | Actual Rate {capture_info} | Resample {resample_info} | Format {new_capture_format} | Volume {new_volume}dB | Mute {new_mute}"
                     divider = "-" * len(info)
                     logger.info(divider)
                     logger.info(info)
                     logger.info(divider)
 
                     return True
-            except Exception:
+            except Exception as e:
+                logger.warning(e)
                 logger.warning("DSP failed to update capture. Trying again...")
                 self._core.send(
                     event="dsp_options_error",
@@ -189,6 +200,7 @@ class DspExtension(Actor):
                 )
 
         except Exception as e:
+            logger.warning(e)
             logger.warning("DSP failed to update capture. Please try again")
             self._core.send(
                 event="dsp_options_error",
@@ -233,10 +245,7 @@ class DspExtension(Actor):
         return volume_db
 
     def on_set_volume(self, volume_db: float = None):
-        if not self._dsp_connected:
-            self._dsp_connected = True
-            self._client.connect()
-
+        self._client.connect()
         self._client.volume.set_main_volume(float(volume_db))
 
         if self._disconnect_task and not self._disconnect_task.done():
@@ -247,7 +256,6 @@ class DspExtension(Actor):
                 await asyncio.sleep(0.3)
                 logger.info(f"DSP volume set to: {volume_db} dB")
                 self._client.disconnect()
-                self._dsp_connected = False
                 logger.debug("DSP client disconnected")
             except asyncio.CancelledError:
                 pass

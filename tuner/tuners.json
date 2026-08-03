@@ -24,7 +24,7 @@
     "description": "FM Tuner with RDS/RBDS"
   },
   {
-    "name": "SI4703 Berryaudio",
+    "name": "Berryaudio DAC/ADC/FM Tuner",
     "device": "si4703-ba",
     "type": "i2c",
     "reset_pin": 16,
@@ -33,6 +33,6 @@
     "channel_max": 1080,
     "channel_step": 1,
     "channel_auto": true,
-    "description": "DAC + ADC with FM Tuner"
+    "description": "SI4703 RDS/RBDS Tuner"
   }
 ]

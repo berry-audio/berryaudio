@@ -17,8 +17,8 @@ class UsbdacExtension(SourceActor):
         self._system = SystemUtil(core, db)
         self._input_device = self._config["usbdac"].get("input_device")
         self._output_device = self._config["mixer"].get("output_device")
-        self._sample_rate = self._config["usbdac"].get("sample_rate", 44100)
-        self._bit_depth = self._config["usbdac"].get("bit_depth", "S16_LE")
+        self._sample_rate = self._config["usbdac"].get("sample_rate")
+        self._bit_depth = self._config["usbdac"].get("bit_depth")
         self._gain = self._config["usbdac"].get("gain", 0)
         self._channels = 2
         self._audio_codec = "PCM"
@@ -48,6 +48,8 @@ class UsbdacExtension(SourceActor):
         if "sample_rate" in updated_config:
             self._sample_rate = updated_config["sample_rate"]
             await self._system.write_g_audio_config(samplerate=self._sample_rate)
+            self._track.sample_rate = self._sample_rate
+            await self._core.request("playback.set_metadata", track=self._track)
             self._core.send(event="system", action="restart")
 
         if "gain" in updated_config:

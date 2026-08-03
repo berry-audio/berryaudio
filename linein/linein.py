@@ -15,8 +15,8 @@ class LineinExtension(SourceActor):
         self._config = config
         self._input_device = self._config["linein"].get("input_device")
         self._output_device = self._config["mixer"].get("output_device")
-        self._sample_rate = self._config["linein"].get("sample_rate", 44100)
-        self._bit_depth = self._config["linein"].get("bit_depth", "S16_LE")
+        self._sample_rate = self._config["linein"].get("sample_rate")
+        self._bit_depth = self._config["linein"].get("bit_depth")
         self._gain = self._config["linein"].get("gain", 0)
         self._channels = 2
         self._audio_codec = "PCM"
@@ -45,6 +45,8 @@ class LineinExtension(SourceActor):
 
         if "sample_rate" in updated_config:
             self._sample_rate = updated_config["sample_rate"]
+            self._track.sample_rate = self._sample_rate
+            await self._core.request("playback.set_metadata", track=self._track)
 
         if "gain" in updated_config:
             self._gain = updated_config["gain"]
