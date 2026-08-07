@@ -175,12 +175,9 @@ class SystemUtil:
                 f"Updated g_audio.conf: p_srate={samplerate}, c_srate={samplerate}, "
                 f"iManufacturer={manufacturer}, iProduct={product}"
             )
-        except subprocess.CalledProcessError as e:
-            logger.error(
-                f"g_audio config update failed: {e.stderr.decode().strip()}")
-            raise
         except Exception as e:
-            logger.error(f"Unexpected error updating g_audio: {e}")
+            detail = e.stderr.decode().strip() if isinstance(e, subprocess.CalledProcessError) else str(e)
+            logger.error(f"g_audio config update failed: {detail}")
             raise
 
 

@@ -15,11 +15,11 @@ class UsbdacExtension(SourceActor):
         self._db = db
         self._config = config
         self._system = SystemUtil(core, db)
-        self._input_device = self._config["usbdac"].get("input_device")
+        self._input_device = self._config[self._name].get("input_device")
         self._output_device = self._config["mixer"].get("output_device")
-        self._sample_rate = self._config["usbdac"].get("sample_rate")
-        self._bit_depth = self._config["usbdac"].get("bit_depth")
-        self._gain = self._config["usbdac"].get("gain", 0)
+        self._sample_rate = self._config[self._name].get("sample_rate")
+        self._bit_depth = self._config[self._name].get("bit_depth")
+        self._gain = self._config[self._name].get("gain")
         self._channels = 2
         self._audio_codec = "PCM"
         self._track = Track(
@@ -37,13 +37,18 @@ class UsbdacExtension(SourceActor):
             state={"connected": False},
         )
 
+    async def on_init(self, enable=False):
+        await self._system.write_dtoverlay("#usb_mode", "dwc2,dr_mode=peripheral" if enable else "dwc2,dr_mode=host")
+        logger.info(f'Enabled in {"peripheral" if enable else "host"} mode')
+
     async def on_config_update(self, config):
         updated_config = config[self._name]
         if not updated_config:
             return
 
-        if "input_device" in updated_config:
-            self._input_device = updated_config["input_device"]
+        if "enable" in updated_config:
+            await self.on_init(updated_config["enable"])
+            self._core.send(event="system", action="restart")
 
         if "sample_rate" in updated_config:
             self._sample_rate = updated_config["sample_rate"]
@@ -68,6 +73,7 @@ class UsbdacExtension(SourceActor):
         return bool(source and source.uri == self._name)
 
     async def on_start(self):
+        await self.on_init(self._config[self._name].get("enable"))
         logger.info("Started")
 
     async def on_event(self, message):
