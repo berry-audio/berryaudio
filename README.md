@@ -1,4 +1,4 @@
-![Description](https://github.com/berry-audio/ba-frontend/blob/main/public/assets/berryaudio_logo_dark.png)
+![Description](https://www.berryaudio.org/assets/berryaudio_logo_dark.png)
 
 > ⭐ If this project helps you, consider 
 > [Buy me a Coffee](https://www.buymeacoffee.com/varungujjar)
@@ -11,7 +11,7 @@ Berryaudio is a diy open source audiophile audio player / streamer for **[Raspbe
 
 Built using **gstreamer**, **python** as server, **reactjs** & **typescript** as client, designed for smooth performance across touch displays, Building your own custom music system headless or with an attached display.
 
-![Description](https://github.com/berry-audio/berryaudio/blob/master/web/www/assets/screenshot.png)
+![Description](https://www.berryaudio.org/assets/screenshot.png)
 
 > "As an audiophile, a software engineer, and someone who loves building own products, I’ve always wanted an audio system/streamer built with my own preferred tech stack—something modern, intuitive, and truly customizable. With modern hardware,computing power and with a vision to preserve offline experiences & privacy, I’m convinced you can build almost anything without relying on the cloud services.
 > After years of missing the simplicity of Winamp and the smart features of old MusicMatch (some of you might not even remember those days), along with the charm of classic audio systems, I finally decided to create something for myself. So today, I’m starting that journey: building a DAC setup that blends the best of modern features with the soul of legacy audio systems." - Varun Gujjar
@@ -28,9 +28,10 @@ Built using **gstreamer**, **python** as server, **reactjs** & **typescript** as
 ## Overview
 
 - Designed for the Raspberry Pi (should also work on other single board computers)
-- Supports MP3, FLAC, WAV, OGG, DSD, DSF, and other formats, with detailed codec info, ID3 tag reading, and cover art extraction.
+- Plays MP3, FLAC, WAV, OGG, DSD, DSF, and other formats, with detailed codec info, ID3 tag reading, and cover art extraction.
 - Bluetooth streaming, AirPlay 2, Spotify Connect, and built-in file browser for easy library management.
-- **New:Filter Library & Radio by alphabets dictionary**
+- Filter Music Library & Radio by alphabets dictionary
+- **Collection - Recently Played, Top 100, Favourites**
 - Bluetooth receiver and transmitter support (Handles automatically based on device connected)
 - Multi-room synchronized audio playback 
 - Curated list of 200+ radio stations, including major providers like BBC and SomaFM.
@@ -40,20 +41,19 @@ Built using **gstreamer**, **python** as server, **reactjs** & **typescript** as
 - Network folder sharing from mounted drives
 - Manage Bluetooth, view system stats, and control power options (Shutdown, Reboot, Standby).
 - Manage wireless & ethernet network, Hotspot, IP configurations direclty from the interface
-- No need to install any app can be fully controlled using a responsive web interface.
-- **New: Support for more DAC & dtoverlays preloaded**
-- **New: Support for Line In Audio for DAC with ADC**
-- **New: Toast notifications added in UI for better UX experience**
+- Fully accessible using a responsive web interface.
+- Support for Line In Audio for DAC with ADC 
+- **Search and play radio stations from the Radio Browser directory** by [@FloTec508](https://github.com/FloTec508)
+- **Support for Si4703 Tuner Boards**
+- **Stream audio directly to browser making it a Music Server (Beta)**
+- **Works as Hi-Res Soundcard DAC when connected to computer or phone(Pi Zero 2W)**
+- **Lots of UI improvements & fixes**
 
-## Application
-
-- Turn your old Amp or Bluetooth speaker(with AUX input) into a Jukebox/Multiroom/Wifi Streaming device
-- Using it as an independent DAC Setup with touch screen
 
 ## Download
 
 You can download the ready image based on Bookworm OS from the following link
-[berryaudio_v3.0.0.img.zip](http://berryaudio.org/berryaudio_latest.img.zip)\
+[berryaudio_latest.img.zip](http://berryaudio.org/berryaudio_latest.img.zip)\
 Scroll below to see a list of supported hardware
 
 ## Getting Started
@@ -75,7 +75,7 @@ Installation guides, SD card flashing instructions, and hardware compatibility &
 
 ### Playback
 
-- Supports **MP3, M4A, MP4, AAC, FLAC, OGG, OPUS, WMA, WAV, and DSF** audio formats *(DSF requires a supported DAC)*  
+- Plays **MP3, M4A, MP4, AAC, FLAC, OGG, OPUS, WMA, WAV, and DSF** audio formats *(DSF requires a supported DAC)*  
 - Reads **ID3 tags** and extracts **embedded cover art** from various file types  
 - Displays detailed **audio codec, sample rate, and bit-depth information**  
 - Fast search by **artist, album, and track**
@@ -86,7 +86,9 @@ Installation guides, SD card flashing instructions, and hardware compatibility &
 - Can be used as a **Bluetooth receiver or transmitter**  
 - **AirPlay 2 receiver** *(PCM 44/48 kHz / 32-bit)* with cover art & metadata display — powered by [Shairport Sync v5.0](https://github.com/mikebrady/shairport-sync)  
 - **Spotify Connect** with cover art & metadata display — powered by [Librespot](https://github.com/librespot-org/librespot)  
-- Built-in **File Browser** for easy navigation and library management  
+- Built-in **File Browser** for easy navigation and library management 
+- **Si4703** based FM Tuner breakout boards (Docs coming soon..)
+- Use it as a **USB DAC sound card** by connecting it to a Mac or Windows computer (Pi Zero 2W only)
 
 ### Display
 
@@ -107,6 +109,7 @@ Installation guides, SD card flashing instructions, and hardware compatibility &
 - **Curated list of 200+ radio stations**  
 - Includes **Pop, Rock, 80s, News, and more**  
 - Features major stations such as **BBC, FluxFM, and SomaFM**
+- Search and play radio stations from the Radio Browser directory
 
 ### Library
 
@@ -116,6 +119,7 @@ Installation guides, SD card flashing instructions, and hardware compatibility &
 - Browse music by **Artist, Album, Genre, and Tracks**  
 - Add **artists or albums directly to playlists or the queue**  
 - **Infinite query-based smooth scrolling** for large music libraries
+- **Collection** - Recently Played, Top 100, Favourites
 - Filter by **Alphabet** dictionary
 
 ### Playlists
@@ -165,7 +169,6 @@ Installation guides, SD card flashing instructions, and hardware compatibility &
 - DLNA
 - GPIO Buttons
 - Infrared Remote
-- FM Tuner
 
 ## Hardware
 
@@ -234,7 +237,7 @@ Berryaudio has been tested on the following Raspberry Pi (Bookworm OS). While it
 
 ## Audio Boards
 
-Below are the list of DACs that have been tested and are confirmed to work out of the box. More will be added as testing progresses. If you have a DAC you’d like to see supported, or are able to provide a board for testing, we’d be happy to include it on the platform—your contributions are always welcome! 
+Below are the list of Hardware that have been tested and are confirmed to work out of the box. More will be added as testing progresses. If you have a devices you’d like to see supported, or are able to provide a board for testing, we’d be happy to include it on the platform—your contributions are always welcome! 
 <a href="https://docs.berryaudio.org/getting-started/supported-hardware.html">Full list of hardware</a>
 
 <table>
@@ -294,8 +297,6 @@ Below are the list of DACs that have been tested and are confirmed to work out o
 
 ## Displays
 
-Below are the list of Displays that have been tested and are confirmed to work out of the box. More will be added as testing progresses. If you have a Display you’d like to see supported, or are able to provide a board for testing, we’d be happy to include it on the platform—your contributions are always welcome!
-[Full list of hardware]([http://berryaudio.org/berryaudio_latest.img.zip](https://docs.berryaudio.org/getting-started/supported-hardware.html))
 
 <table>
     <thead>
@@ -335,6 +336,29 @@ Below are the list of Displays that have been tested and are confirmed to work o
         <td>DSI</td>
         <td><a href="https://docs.berryaudio.org/display/waveshare-28-dsi-lcd.html">Setup</a></td>
         <td><a href="https://www.waveshare.com/2.8inch-dsi-lcd.htm">Link</a></td>
+        <td>Tested</td>
+    </tr>
+    </tbody>
+</table>
+
+## Tuners
+
+<table>
+    <thead>
+        <tr>
+        <th width="30%">Tuner</th>
+        <th width="10%">Protocol</th>
+        <th width="10%">Setup</th>
+        <th width="5%">Link</th>
+        <th width="5%">Status</th>
+        </tr>
+    </thead>
+    <tbody>
+     <tr>
+        <td>Si4703</td>
+        <td>I2C</td>
+        <td>Setup</td>
+        <td><a href="https://www.sparkfun.com/sparkfun-fm-tuner-evaluation-board-si4703.html?srsltid=AfmBOoqxW4qqgxRSrSJ1PSsdIw9Lnq-uU46ZogghHRpmZkbw7grG4Qy9">Link</a></td>
         <td>Tested</td>
     </tr>
     </tbody>
