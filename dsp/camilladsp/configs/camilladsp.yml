@@ -10,7 +10,7 @@ devices:
     link_volume_control: null
     stop_on_inactive: null
     type: Alsa
-  capture_samplerate: 96000
+  capture_samplerate: 44100
   chunksize: 4096
   enable_rate_adjust: null
   multithreaded: true
@@ -23,7 +23,7 @@ devices:
   rate_measure_interval: null
   resampler:
     type: Synchronous
-  samplerate: 96000
+  samplerate: 48000
   silence_threshold: null
   silence_timeout: null
   stop_on_rate_change: null
@@ -59,7 +59,7 @@ filters:
     description: null
     parameters:
       freq: 60
-      gain: 7
+      gain: 0
       slope: 6
       type: Lowshelf
     type: Biquad
@@ -74,7 +74,7 @@ filters:
   Gain:
     description: null
     parameters:
-      gain: 15
+      gain: 0
       inverted: null
       mute: null
       scale: dB

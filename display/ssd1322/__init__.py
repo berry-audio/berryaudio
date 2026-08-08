@@ -349,7 +349,7 @@ class DisplaySSD1322:
                                     text=next(iter(self._current_track.artists)).name,
                                 )
                             else:
-                                if self._source and self._source.type:
+                                if self._source and self._source.uri:
                                     self._widget_artist.draw(
                                         draw,
                                         width=190,
