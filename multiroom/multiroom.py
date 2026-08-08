@@ -6,6 +6,7 @@ import os
 import re
 import socket
 import json
+import time
 import websockets
 
 from pathlib import Path
@@ -27,7 +28,6 @@ AUDIO_PORT = 1704
 SNAPSERVER_PATH = "/usr/local/bin/snapserver"
 SNAPCLIENT_PATH = "/usr/local/bin/snapclient"
 SNAPSERVER_CONFIG_PATH = Path(__file__).parent / "snapserver.conf"
-
 
 
 class MultiroomExtension(SourceActor):
@@ -66,7 +66,7 @@ class MultiroomExtension(SourceActor):
             },
         )
         self._sample_rate = None
-        self._bit_depth = 32
+        self._bit_depth = self._config["multiroom"].get("bit_depth", 16)
         self._track = Track()
         self._zc_tasks = set()
         self._loop = asyncio.get_running_loop()
@@ -94,28 +94,11 @@ class MultiroomExtension(SourceActor):
     async def on_event(self, message):
         event = message.get("event")
         if event == "dsp_options_before":
-            new_sample_rate = message.get("sample_rate")
-            if self._sample_rate == new_sample_rate:
-                return
-
-            await self._stop_snapserver()
+            resample = message.get("resample")
+            if not resample:
+                await self._stop_snapserver()
 
         if event == "dsp_options_changed":
-            new_sample_rate = message.get("sample_rate")
-
-            if self._sample_rate is None:
-                self._sample_rate = new_sample_rate
-                await self._start_snapserver()
-                return
-
-            if self._sample_rate == new_sample_rate:
-                logger.debug(f"Sample rate unchanged {new_sample_rate}Hz")
-                return
-
-            logger.info(
-                f"Sample rate changed {self._sample_rate}Hz → {new_sample_rate}Hz"
-            )
-            self._sample_rate = new_sample_rate
             await self._start_snapserver()
 
     async def on_start_service(self):
@@ -335,6 +318,23 @@ class MultiroomExtension(SourceActor):
         if self._server_enabled:
             if self._proc_snapserver is not None:
                 return
+            
+            hw_params = await self._get_hw_params()
+            if hw_params is None:
+                logger.error('HW Params not initialized')
+                return
+
+            logger.info(hw_params)
+            self._sample_rate = hw_params['rate']
+            sample_format = hw_params['format']
+
+            bit_depth_map = {
+                "S32_LE": 32,
+                "S16_LE": 16,
+            }
+            new_bit_depth = bit_depth_map.get(sample_format)
+            if new_bit_depth is not None:
+                self._bit_depth = new_bit_depth
 
             cmd = [
                 SNAPSERVER_PATH,
@@ -375,6 +375,13 @@ class MultiroomExtension(SourceActor):
                     if "successfully established" in line:
                         self._loop.call_soon_threadsafe(
                             asyncio.create_task, _on_connected()
+                        )
+
+                    if "Invalid argument" in line:
+                        self._core.send(
+                            target=["web", "display"],
+                            event="error",
+                            message=line,
                         )
 
                 stream.close()
@@ -708,3 +715,40 @@ class MultiroomExtension(SourceActor):
             if self._server_ws:
                 await self._server_ws.close()
                 self._server_ws = None
+
+
+
+    async def _get_hw_params(self, timeout=5):
+        path = "/proc/asound/card0/pcm0p/sub1/hw_params"
+        start = time.monotonic()
+        patterns = {
+            "format": r"format:\s+(\S+)",
+            "channels": r"channels:\s+(\d+)",
+            "rate": r"rate:\s+(\d+)",
+            "period_size": r"period_size:\s+(\d+)",
+            "buffer_size": r"buffer_size:\s+(\d+)",
+        }
+        while True:
+            try:
+                with open(path, "r") as f:
+                    data = f.read()
+
+                if data and "closed" not in data:
+                    params = {}
+                    for key, pattern in patterns.items():
+                        match = re.search(pattern, data)
+                        if match:
+                            value = match.group(1)
+                            params[key] = int(value) if key != "format" else value
+
+                    if len(params) == len(patterns):
+                        return params
+
+            except FileNotFoundError:
+                pass
+
+            if time.monotonic() - start >= timeout:
+                logger.warning("Timeout waiting for hw_params")
+                return None
+
+            await asyncio.sleep(0.1)

@@ -50,12 +50,15 @@ async def async_main(verbose=False):
         "network",
         "multiroom",
         "display",
+        "collection",
         # "gpio",
-        "infrared",
+        # "infrared",
         "tuner",
+        "webrtc",
         "linein",
         "command",
         "dsp",
+        "usbdac",
     ]
     await core.load_extensions_by_name(extensions)
 

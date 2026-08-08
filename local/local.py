@@ -175,6 +175,7 @@ class LocalExtension(SourceActor):
                 PlaybackControls.PREVIOUS,
                 PlaybackControls.REPEAT,
                 PlaybackControls.SHUFFLE,
+                PlaybackControls.FAVOURITE,
             ],
             state={},
         )
@@ -231,26 +232,29 @@ class LocalExtension(SourceActor):
             "track":  lambda row: Track(**self.build_track(row)),
             "genre":  lambda row: Category(**self.build_category(row, "genre")),
         }
+        if values_len == 4:
+            ext, view, ref_id, ref_type = values
 
-        if values_len == 3:
-            view, ref_id, ref_type = values
             if view == RefType.TRACK:
                 raise ValueError("Track does not have listings")
+
             if ref_type != "tracks":
                 raise ValueError(f"View type '{ref_type}' not supported")
+            
             rows = self._db.fetchall(QUERIES["track"] % f"a.{view}_id = {ref_id}")
             return [Track(**self.build_track(row)) for row in rows]
 
-        if values_len == 2:
-            view, ref_id = values
-            if str(ref_id).isdigit():
-                rows = self._db.fetchall(QUERIES[view] % "a.id = ?", (ref_id,))
-            else:
-                rows = self._db.fetchall(QUERIES[view] % "a.name LIKE ?", (f"{ref_id}%",))
-            return [builders[view](row) for row in rows]
+        if values_len == 3:
+            ext, view, ref_id = values
+            if ext == self._name:
+                if str(ref_id).isdigit():
+                    rows = self._db.fetchall(QUERIES[view] % "a.id = ?", (ref_id,))
+                else:
+                    rows = self._db.fetchall(QUERIES[view] % "a.name LIKE ?", (f"{ref_id}%",))
+                return [builders[view](row) for row in rows]
 
-        if values_len == 1:
-            view = values[0]
+        if values_len == 2:
+            ext, view = values
             sql = QUERIES[view].rstrip(";") % "1"
             params = []
             if limit is not None:
@@ -274,7 +278,8 @@ class LocalExtension(SourceActor):
 
     def build_album(self, row):
         obj = {}
-        obj["uri"] = f"album:{row['id']}"
+        obj["uri"] = f"{self._name}:album:{row['id']}"
+        obj["favourite"] = self._is_favourite(f"{self._name}:album:{row['id']}")
 
         if row["name"]:
             obj["name"] = row["name"]
@@ -283,7 +288,7 @@ class LocalExtension(SourceActor):
             obj["artists"] = frozenset(
                 [
                     Artist(
-                        uri=f"artist:{row['artist_id']}",
+                        uri=f"{self._name}:artist:{row['artist_id']}",
                         name=row["artist_name"],
                         images=self._resolve_images(
                             ARTIST_IMAGES_DIR,
@@ -304,7 +309,8 @@ class LocalExtension(SourceActor):
 
     def build_artist(self, row):
         obj = {}
-        obj["uri"] = f"artist:{row['id']}"
+        obj["uri"] = f"{self._name}:artist:{row['id']}"
+        obj["favourite"] = self._is_favourite(f"{self._name}:artist:{row['id']}")
 
         if row["name"]:
             obj["name"] = row["name"]
@@ -316,7 +322,7 @@ class LocalExtension(SourceActor):
             obj["albums"] = frozenset(
                 [
                     Album(
-                        uri=f"album:{album['id']}",
+                        uri=f"{self._name}:album:{album['id']}",
                         name=album["name"],
                         date=album["year"] or None,
                         images=self._resolve_images(
@@ -348,7 +354,7 @@ class LocalExtension(SourceActor):
 
     def build_category(self, row, category):
         obj = {}
-        obj["uri"] = f"{category}:{row['id']}"
+        obj["uri"] = f"{self._name}:{category}:{row['id']}"
 
         if row["name"]:
             obj["name"] = row["name"]
@@ -358,6 +364,7 @@ class LocalExtension(SourceActor):
     def build_track(self, row):
         obj = {}
         obj["uri"] = f"{self._name}:{row['path']}"
+        obj["favourite"] = self._is_favourite(f"{self._name}:{row['path']}")
 
         if row["name"]:
             obj["name"] = row["name"]
@@ -366,7 +373,7 @@ class LocalExtension(SourceActor):
             obj["albums"] = frozenset(
                 [
                     Album(
-                        uri=f"album:{row['album_id']}",
+                        uri=f"{self._name}:album:{row['album_id']}",
                         name=row["album_name"],
                         date=row["album_year"] or None,
                         images=self._resolve_images(
@@ -380,7 +387,7 @@ class LocalExtension(SourceActor):
             obj["artists"] = frozenset(
                 [
                     Artist(
-                        uri=f"artist:{row['artist_id']}",
+                        uri=f"{self._name}:artist:{row['artist_id']}",
                         name=row["artist_name"],
                         images=self._resolve_images(
                             ARTIST_IMAGES_DIR,
@@ -411,6 +418,13 @@ class LocalExtension(SourceActor):
         )
         return obj
 
+    def _is_favourite(self, uri):
+        row = self._db.fetchone(
+            'SELECT 1 FROM collection_favourite WHERE uri = ? LIMIT 1',
+            (uri,)
+        )
+        return row is not None
+
     async def on_playback_uri(self, path: str) -> any:
         return f"file://{path}"
 
@@ -422,11 +436,12 @@ class LocalExtension(SourceActor):
         return Track(**self.build_track(row[0]))
 
     async def on_stop_service(self) -> bool:
+        logger.info("Stopping Service")
         await self._core.request("playback.clear")
         return True
 
     async def on_start_service(self) -> bool:
-        logger.debug("Starting Service")
+        logger.info("Starting Service")
         return self._source
 
     async def on_clean(self):

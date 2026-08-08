@@ -4,6 +4,7 @@ import json
 import logging
 import aiofiles
 
+from fractions import Fraction
 from aiohttp import web, WSMsgType
 from core.actor import Actor
 from main import USE_GBULB
@@ -26,7 +27,6 @@ IMAGE_MIME_MAP = {
     ".jpg": "image/jpeg",
     ".jpeg": "image/jpeg",
 }
-
 
 class WebExtension(Actor):
     def __init__(self, name, core, db, config):
@@ -81,7 +81,8 @@ class WebExtension(Actor):
 
             self._app.router.add_get(f"{prefix}{{filename:.*}}", handler)
         else:
-            self._app.router.add_static(prefix, path=directory, name=prefix.strip("/"))
+            self._app.router.add_static(
+                prefix, path=directory, name=prefix.strip("/"))
 
     async def run_server(self):
         host = "0.0.0.0"
@@ -170,6 +171,7 @@ class WebExtension(Actor):
             self._clients.discard(ws)
             logger.info(f"Client disconnected: {request.remote}")
         return ws
+    
 
     async def handle_jsonrpc(self, ws, data, send=True):
         try:
@@ -199,7 +201,8 @@ class WebExtension(Actor):
                         "jsonrpc": "2.0",
                         "error": {"code": -32603, "message": str(e)},
                         "id": (
-                            request_obj.get("id") if "request_obj" in locals() else None
+                            request_obj.get(
+                                "id") if "request_obj" in locals() else None
                         ),
                     }
                 )
@@ -232,3 +235,4 @@ class WebExtension(Actor):
             except asyncio.CancelledError:
                 pass
         logger.info("Stopped")
+

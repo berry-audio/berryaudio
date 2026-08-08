@@ -6,7 +6,7 @@ from core.util import generate_tlid
 from core.actor import Actor
 from datetime import datetime
 
-from .utils import to_unserialize, to_serialize
+from .utils import build_tltrack, to_serialize
 
 logger = logging.getLogger(__name__)
 SQL_QUERY_CREATE =  """
@@ -41,6 +41,13 @@ class PlaylistExtension(Actor):
         """Create the playlist table if it does not already exist."""
         self._db.executescript(SQL_QUERY_CREATE)
 
+    def _is_favourite(self, uri):
+        row = self._db.fetchone(
+            'SELECT 1 FROM collection_favourite WHERE uri = ? LIMIT 1',
+            (uri,)
+        )
+        return row is not None
+
     def on_directory(
         self,
         uri: str | None = None,
@@ -70,7 +77,7 @@ class PlaylistExtension(Actor):
                 row = self._db.fetchone(f"SELECT * FROM playlist WHERE id = {ref_id}")
                 result = []
                 for t in json.loads(row.tracks):
-                    obj = to_unserialize(t)
+                    obj = build_tltrack(t)
                     obj.uri = f"{view}:{ref_id}"
                     result.append(obj)
                 return result
@@ -104,7 +111,7 @@ class PlaylistExtension(Actor):
         return {
             "uri": f"playlist:{row.id}",
             "name": row.name,
-            "length": len([to_unserialize(t) for t in json.loads(row.tracks)]),
+            "length": len([build_tltrack(t) for t in json.loads(row.tracks)]),
             "last_modified": row.last_modified,
         }
 
@@ -210,7 +217,7 @@ class PlaylistExtension(Actor):
         """
         playlist_id = int(uri.split(":")[1])
         row = self._db.fetchone(f"SELECT * FROM playlist WHERE id = {playlist_id}")
-        tl_tracks = [to_unserialize(t) for t in json.loads(row.tracks)]
+        tl_tracks = [build_tltrack(t) for t in json.loads(row.tracks)]
 
         if start == end:
             end += 1
@@ -297,7 +304,7 @@ class PlaylistExtension(Actor):
         for uri in uris:
             playlist_id = int(uri.split(":")[1])
             row = self._db.fetchone("SELECT * FROM playlist WHERE id = ?", (playlist_id,))
-            tl_tracks = [to_unserialize(t) for t in json.loads(row.tracks)]
+            tl_tracks = [build_tltrack(t) for t in json.loads(row.tracks)]
             tl_tracks_updated = []
 
             for track in tracks:

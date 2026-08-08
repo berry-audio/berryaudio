@@ -5,6 +5,7 @@ from pathlib import Path
 from core.actor import SourceActor
 from core.models import Image, Album, Artist, Track, Source
 from core.types import PlaybackControls
+from pyradios import RadioBrowser
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +59,9 @@ class RadioExtension(SourceActor):
         self._core = core
         self._db = db
         self._config = config
+
+        self._rb_instance = None
+        
         self._source = Source(
             name="Radio",
             uri=self._name,
@@ -69,9 +73,26 @@ class RadioExtension(SourceActor):
                 PlaybackControls.PREVIOUS,
                 PlaybackControls.REPEAT,
                 PlaybackControls.SHUFFLE,
+                PlaybackControls.FAVOURITE,
             ],
             state={},
         )
+
+    @property
+    def rb(self):
+        """
+        Ein Property-Getter, der die RadioBrowser-Instanz erst erstellt, 
+        wenn im Code über 'self.rb' darauf zugegriffen wird.
+        """
+        if self._rb_instance is None:
+            try:
+                # Versuche die Instanz erst jetzt zu erstellen
+                self._rb_instance = RadioBrowser()
+            except Exception as e:
+                # Falls immer noch offline, loggen wir den Fehler, stürzen aber nicht ab
+                print(f"[RadioPlugin] RadioBrowser konnte nicht initialisiert werden (Offline?): {e}")
+                return None
+        return self._rb_instance
 
     async def on_start(self):
         self._init_table()
@@ -85,11 +106,12 @@ class RadioExtension(SourceActor):
         pass
 
     async def on_stop_service(self) -> bool:
+        logger.info("Stopping Service")
         await self._core.request("playback.clear")
         return True
 
     async def on_start_service(self):
-        logger.debug("Starting Service")
+        logger.info("Starting Service")
         return self._source
 
     def _init_table(self):
@@ -100,12 +122,14 @@ class RadioExtension(SourceActor):
             radios = json.load(f)
 
         self._db.executemany(SQL_QUERY_INSERT, radios)
+    
 
     def _build_track(self, row) -> any:
         obj = {
             "uri": f"radio:{row.path}",
             "name": row.name,
             "genre": row.genre or None,
+            "favourite": self._is_favourite(f"radio:{row.path}")
         }
 
         if row.image:
@@ -123,10 +147,70 @@ class RadioExtension(SourceActor):
             obj["artists"] = frozenset([Artist(name=f"{row.genre} / {row.country}")])
         return obj
 
+    def _build_track_rb(self, row) -> dict:
+        uri = row.get("url_resolved") or row.get("url") or ""
+        uuid = row.get("stationuuid")
+        tags_str = row.get("tags", "")
+        tag = tags_str.split(",")[0].strip() if tags_str else None
+
+        obj = {
+            "uri": f"radio:{uuid}",
+            "name": row.get("name", "Radio Browser"),
+            "genre": tag or "Radio",
+        }
+
+        if row.get("country"):
+            obj["albums"] = frozenset([Album(name=row["country"])])
+        
+        if row.get("favicon"):
+            obj["images"] = [Image(uri=str(row["favicon"]))]
+        
+        country_info = row.get("country", "Unknown")
+        obj["artists"] = frozenset([Artist(name=f"{tag or 'Radio'} / {country_info}")])
+        return obj
+
+    def _is_favourite(self, uri):
+        row = self._db.fetchone(
+            'SELECT 1 FROM collection_favourite WHERE uri = ? LIMIT 1',
+            (uri,)
+        )
+        return row is not None
+
     def on_search(self, query: str) -> dict:
         sql = SQL_QUERY_SEARCH["radio"] % "a.name LIKE ? COLLATE NOCASE"
         rows = self._db.fetchall(sql, (f"%{query}%",))
-        return {"radio": [Track(**self._build_track(row)) for row in rows]}
+        
+        try:
+            rowsBrowser = self.rb.search(name=query)
+        except Exception as e:
+            logger.error(f"Error during RadioBrowser query: {e}")
+            rowsBrowser = []
+        
+        formattedRows = [Track(**self._build_track(row)) for row in rows]
+        formattedRows.extend([Track(**self._build_track_rb(row)) for row in rowsBrowser])
+        return {self._name : formattedRows}        
+
+
+    async def on_lookup_track(self, path: str) -> Track:
+        if path.startswith("http://") or path.startswith("https://"):
+            try:
+                rows = self._db.fetchall("SELECT * FROM radio WHERE path = ?", (path,))
+                if rows:
+                    return Track(**self._build_track(rows[0]))
+                else:
+                    logger.warning(f"URI {path} not found in radio db.")
+            except Exception as e:
+                logger.error(f"Error while resolving {path}: {e}")
+        else:
+            try:
+                row = self.rb.station_by_uuid(path)
+                if row:
+                    return Track(**self._build_track_rb(row[0]))
+                else:
+                    logger.warning(f"UUID {path} not found by RadioBrowser.")
+            except Exception as e:
+                logger.error(f"Error while resolving {path}: {e}")            
+        return None
 
     def on_directory(
         self,
@@ -178,9 +262,18 @@ class RadioExtension(SourceActor):
 
         return [Track(**self._build_track(row)) for row in rows]
 
-    async def on_playback_uri(self, path: str) -> any:
-        return path
 
-    async def on_lookup_track(self, path: str) -> Track:
-        row = self._db.fetchall(f"SELECT * FROM radio WHERE path = '{path}'")
-        return Track(**self._build_track(row[0]))
+    async def on_playback_uri(self, path: str) -> any:
+        if path.startswith("http://") or path.startswith("https://"):
+            return path
+        else:
+            try:
+                row = self.rb.station_by_uuid(path)
+                if row:
+                    return row[0].get("url_resolved") or row[0].get("url")
+            except Exception as e:
+                logger.error(f"Error while getting playback URI for radio {path}: {e}")
+                return None
+        
+        
+        

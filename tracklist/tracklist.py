@@ -4,7 +4,7 @@ import random
 from core.actor import Actor
 from core.util import generate_tlid
 from core.models import TlTrack, Track
-from playlist.utils import to_unserialize, to_serialize
+from playlist.utils import build_tltrack, to_serialize
 
 
 logger = logging.getLogger(__name__)
@@ -39,11 +39,18 @@ class TracklistExtension(Actor):
             {self._name: {"current_queue": to_serialize(self._tl_tracks)}}
         )
 
+    def _is_favourite(self, uri):
+        row = self._db.fetchone(
+            'SELECT 1 FROM collection_favourite WHERE uri = ? LIMIT 1',
+            (uri,)
+        )
+        return row is not None
+    
     async def on_start(self) -> None:
         """Called when the extension starts up."""
         try:
             _tl_tracks = self._config.get(self._name, {}).get("current_queue", []) or []
-            self._tl_tracks = [to_unserialize(tlTrack) for tlTrack in _tl_tracks]
+            self._tl_tracks = [build_tltrack(tlTrack) for tlTrack in _tl_tracks]
         except Exception as e:
             logger.error(f"Failed to restore tracklist queue: {e}")
             self._tl_tracks = []
@@ -163,6 +170,8 @@ class TracklistExtension(Actor):
 
     def on_get_tltracks(self) -> list[TlTrack]:
         """Return the current tracklist (not shuffled)."""
+        for tltrack in self._tl_tracks:
+            tltrack.track.favourite = self._is_favourite(tltrack.track.uri)
         return self._tl_tracks
 
     async def on_clear(self) -> bool:

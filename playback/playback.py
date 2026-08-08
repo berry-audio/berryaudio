@@ -111,19 +111,20 @@ class PlaybackExtension(Actor):
                 elif structure.has_field("format"):
                     bit_depth = structure.get_string("format")
 
-                track = self._tl_track.track.copy(
-                    update={
-                        "sample_rate": rate,
-                        "channels": channels,
-                        "bit_depth": bit_depth,
-                    }
-                )
-                self._tl_track = TlTrack(tlid=self._tl_track.tlid, track=track)
-                self._core.send(
-                    target=["web", "display"],
-                    event="track_meta_updated",
-                    tl_track=self._tl_track,
-                )
+                if self._tl_track:
+                    track = self._tl_track.track.copy(
+                        update={
+                            "sample_rate": rate,
+                            "channels": channels,
+                            "bit_depth": bit_depth,
+                        }
+                    )
+                    self._tl_track = TlTrack(tlid=self._tl_track.tlid, track=track)
+                    self._core.send(
+                        target=["web", "display"],
+                        event="track_meta_updated",
+                        tl_track=self._tl_track,
+                    )
 
             return Gst.PadProbeReturn.REMOVE
 
@@ -330,7 +331,13 @@ class PlaybackExtension(Actor):
                 self._tl_track = TlTrack(tlid=0, track=self._tl_track.track.copy())
 
     async def on_get_current_tl_track(self):
-        return self._tl_track
+        if self._tl_track:
+            row = self._db.fetchone(
+                'SELECT 1 FROM collection_favourite WHERE uri = ? LIMIT 1',
+                (self._tl_track.track.uri,)
+            )
+            self._tl_track.track.favourite = row is not None
+            return self._tl_track
 
     def on_get_state(self):
         return self._state
@@ -379,6 +386,8 @@ class PlaybackExtension(Actor):
             track = await self._core.request(f"{ext}.lookup_track", path=path)
             if not track:
                 raise ValueError("Track metadata lookup failed")
+
+            await self._core.request("collection.recently_played", track=track)
 
             self._tl_track = TlTrack(tlid=tlid, track=track)
 

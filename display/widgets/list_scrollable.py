@@ -67,7 +67,7 @@ class WidgetListScrollable:
         for i in range(start_idx, end_idx):
             y_pos = (i - start_idx) * self.line_height
             display_name = items[i].name
-            display_type = items[i].type
+            display_type = items[i].uri
             display_active = getattr(items[i], "active", False) or getattr(
                 items[i], "connected", False
             )

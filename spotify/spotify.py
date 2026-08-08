@@ -73,7 +73,7 @@ class SpotifyExtension(SourceActor):
         if self._proc is not None:
             self._proc.terminate()
             self._proc.kill()
-        logger.debug("Stopped service")
+        logger.info("Stopping service")
         return True
 
     async def on_start_service(self):
@@ -86,7 +86,10 @@ class SpotifyExtension(SourceActor):
             await self._meta_init()
 
             logger.info(
-                f"Started Spotify Connect with name {self._hostname} on {self._output_device}"
+                f"Starting service"
+            )
+            logger.info(
+                f"Started Spotify Connect with {self._hostname} on {self._output_device}"
             )
         else:
             logger.error(f"Librespot service missing")
