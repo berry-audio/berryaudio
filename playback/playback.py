@@ -517,7 +517,7 @@ class PlaybackExtension(Actor):
             self._pipeline.set_state(Gst.State.NULL)
 
         if self._state not in (PlaybackState.PLAYING, PlaybackState.PAUSED):
-            return self._state
+            return True
 
         if self._time_source_id is not None:
             GLib.source_remove(self._time_source_id)
@@ -540,7 +540,7 @@ class PlaybackExtension(Actor):
             state=self._state,
         )
 
-        return self._state
+        return True
 
     def _play(self) -> PlaybackState | bool:
         self._pipeline.set_state(Gst.State.PLAYING)

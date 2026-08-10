@@ -9,6 +9,7 @@ import asyncio
 from pathlib import Path
 from camilladsp import CamillaClient, ProcessingState
 from core.actor import Actor
+from core.util.system import SystemUtil
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +30,7 @@ class DspExtension(Actor):
         self._core = core
         self._db = db
         self._config = config
+        self._system = SystemUtil(core, db)
         self._client = CamillaClient(HOST, PORT)
         self._default_capture_device = self._config.get("dsp", {}).get(
             "default_capture_device"
@@ -51,6 +53,7 @@ class DspExtension(Actor):
         await self.on_set_capture_device()
 
     async def on_start(self):
+        await self._system.write_asoundrc(pcm=self._config.get("mixer", {}).get("hw_device"))
         await self.on_set_capture_device()
         await self.on_service("restart")
         logger.info(f"Started")

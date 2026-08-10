@@ -3,14 +3,14 @@ devices:
   adjust_period: null
   capture:
     channels: 2
-    device: hw:CARD=Loopback,DEV=1
+    device: hw:CARD=UAC2Gadget,DEV=0
     format: null
     labels: null
     link_mute_control: null
     link_volume_control: null
     stop_on_inactive: null
     type: Alsa
-  capture_samplerate: 44100
+  capture_samplerate: 96000
   chunksize: 4096
   enable_rate_adjust: null
   multithreaded: true
@@ -21,9 +21,8 @@ devices:
     type: Alsa
   queuelimit: 2
   rate_measure_interval: null
-  resampler:
-    type: Synchronous
-  samplerate: 48000
+  resampler: null
+  samplerate: 96000
   silence_threshold: null
   silence_timeout: null
   stop_on_rate_change: null
@@ -51,15 +50,15 @@ filters:
       - -2.5
       - -1.8
       - 0.6
-      - 4
-      - 6.1
+      - 3.2
+      - 4.8
       type: GraphicEqualizer
     type: BiquadCombo
   Bass:
     description: null
     parameters:
       freq: 60
-      gain: 0
+      gain: 3.5
       slope: 6
       type: Lowshelf
     type: Biquad
@@ -74,7 +73,7 @@ filters:
   Gain:
     description: null
     parameters:
-      gain: 0
+      gain: -5
       inverted: null
       mute: null
       scale: dB
@@ -83,7 +82,7 @@ filters:
     description: null
     parameters:
       freq: 19000
-      gain: 0
+      gain: 3
       q: 1.5
       type: Peaking
     type: Biquad
@@ -100,8 +99,8 @@ mixers:
     - ROOM R
     - CAVA L
     - CAVA R
-    - BT L
-    - BT R
+    - Web RTC L
+    - Web RTC R
     mapping:
     - dest: 0
       mute: false
@@ -182,10 +181,6 @@ pipeline:
   channels:
   - 0
   - 1
-  - 2
-  - 3
-  - 6
-  - 7
   description: null
   names:
   - 15 Band EQ
@@ -194,10 +189,6 @@ pipeline:
   channels:
   - 0
   - 1
-  - 2
-  - 3
-  - 6
-  - 7
   description: null
   names:
   - Bass

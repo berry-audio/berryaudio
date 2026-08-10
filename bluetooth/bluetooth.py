@@ -10,6 +10,8 @@ from gi.repository import GLib
 from core.actor import SourceActor
 from core.models import Album, Artist, Track, Source, Bluetooth
 from core.types import PlaybackState
+from core.util.system import SystemUtil
+
 
 logger = logging.getLogger(__name__)
 bus = pydbus.SystemBus()
@@ -38,10 +40,6 @@ BLUEALSA_HW_VOLUME = 100
 BLUETOOTH_APLAY_PATH = "/usr/bin/bluealsa-aplay"
 BLUETOOTH_AGENT_PATH = "/usr/bin/bt-agent"
 PCM_BLUEALSA = "bluealsa"
-PCM_PRE_BLUEALSA = "hw:Loopback,1,3"
-PCM_BLUEALSA_BUFFER = 1024
-PCM_BLUEALSA_PERIOD = 256
-PCM_BLUEALSA_LATENCY = 5000
 
 # Profiles
 MODE_TX = "AD2P-source"
@@ -66,8 +64,10 @@ class BluetoothExtension(SourceActor):
         self._core = core
         self._db = db
         self._config = config
+        self._system = SystemUtil(core, db)
         self._hostname = self._config["system"]["hostname"]
-        self._output_device = self._config.get("mixer", {}).get("output_device")
+        self._output_device = self._config.get(
+            "mixer", {}).get("output_device")
         self._volume_default = self._config["mixer"]["volume_default"]
         self._mode = MODE_RX
         self._interface_name = None
@@ -76,7 +76,6 @@ class BluetoothExtension(SourceActor):
         self._track = Track()
         self._proc_aplay = None
         self._proc_agent = None
-        self._alsaloop_proc = None
         self._sample_rate = 44100
         self._source = Source(
             name="Bluetooth",
@@ -105,38 +104,10 @@ class BluetoothExtension(SourceActor):
         )
 
     async def on_event(self, message):
-        if self._mode != MODE_TX:
-            return
-
-        event = message.get("event")
-
-        if event == "dsp_options_changed":
-            await self._stop_alsaloop()
-            await self._start_alsaloop()
-
-            # connected_device = await self.on_device()
-            # if not connected_device:
-            #     return
-
-            # address = connected_device.address
-            # if (
-            #     event == "volume_changed"
-            #     and (volume := message.get("volume")) is not None
-            # ):
-            #     await self.on_set_volume(
-            #         address=address, volume=volume, soft_volume=BLUEALSA_SOFT_VOLUME
-            #     )
-            # elif event == "mixer_mute" and (mute := message.get("mute")) is not None:
-            #     await self.on_set_volume(
-            #         address=address,
-            #         volume=self._volume_default,
-            #         soft_volume=BLUEALSA_SOFT_VOLUME,
-            #         mute=mute,
-            #     )
+        pass
 
     async def on_stop(self):
         await self._stop_aplay()
-        await self._stop_alsaloop()
         self._stop_agent()
         logger.info("Stopped")
 
@@ -147,12 +118,14 @@ class BluetoothExtension(SourceActor):
     async def on_stop_service(self):
         if self._mode == MODE_RX:
             await self._core.request("playback.clear")
-            device = await self.on_device() #directly remove disconnect instead iterating through devices #todo
+            # directly remove disconnect instead iterating through devices #todo
+            device = await self.on_device()
             if device and device.connected:
                 path = self._addr_to_bluez_path(device.address)
                 device_bus = bus.get(BLUEZ_SERVICE, path)
                 if hasattr(device_bus, "Disconnect"):
-                    logger.debug(f"Disconnecting bluetooth device {device.name}")
+                    logger.debug(
+                        f"Disconnecting bluetooth device {device.name}")
                     device_bus.Disconnect()
         return True
 
@@ -164,7 +137,8 @@ class BluetoothExtension(SourceActor):
                 cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE
             )
         else:
-            logger.error(f"Bluetooth agent service not found {BLUETOOTH_AGENT_PATH}")
+            logger.error(
+                f"Bluetooth agent service not found {BLUETOOTH_AGENT_PATH}")
 
     async def _init_aplay(self):
         """Bluetooth Alsa Play service"""
@@ -184,7 +158,8 @@ class BluetoothExtension(SourceActor):
 
             threading.Thread(target=_proc_aplay, daemon=True).start()
         else:
-            logger.error(f"Bluetooth aplay service not found {BLUETOOTH_APLAY_PATH}")
+            logger.error(
+                f"Bluetooth aplay service not found {BLUETOOTH_APLAY_PATH}")
 
     async def _stop_aplay(self):
         if self._proc_aplay is not None:
@@ -247,7 +222,11 @@ class BluetoothExtension(SourceActor):
 
         if self._mode == MODE_TX:
             await self._stop_aplay()
-            await self._start_alsaloop()
+            await self._system.write_asoundrc(pcm=PCM_BLUEALSA)
+            await self._core.request(
+                "dsp.service",
+                state="restart"
+            )
 
             try:
                 await self.on_set_volume(
@@ -285,13 +264,20 @@ class BluetoothExtension(SourceActor):
 
         if not connected_device:
             await self._stop_aplay()
-            
+
             if self._mode == MODE_RX:
                 self._clear_source_info()
                 await self._core.request(
                     "dsp.set_capture_device",
                 )
-                
+
+            if self._mode == MODE_TX:
+                await self._system.write_asoundrc(pcm=self._config.get("mixer", {}).get("hw_device"))
+                await self._core.request(
+                    "dsp.service",
+                    state="restart"
+                )
+
         self._core.send(
             target=["web", "display"],
             event="bluetooth_device_disconnected",
@@ -321,7 +307,8 @@ class BluetoothExtension(SourceActor):
 
                 else:
                     self._loop.call_soon_threadsafe(
-                        asyncio.create_task, self._handle_disconnected(interface_name)
+                        asyncio.create_task, self._handle_disconnected(
+                            interface_name)
                     )
 
             if "ServicesResolved" in properties:
@@ -390,7 +377,8 @@ class BluetoothExtension(SourceActor):
                         update={
                             "name": _track.get("Title", None),
                             "artists": (
-                                frozenset([Artist(name=_track.get("Artist", None))])
+                                frozenset(
+                                    [Artist(name=_track.get("Artist", None))])
                                 if _track.get("Artist")
                                 else []
                             ),
@@ -403,7 +391,8 @@ class BluetoothExtension(SourceActor):
                             "length": _track.get("Duration", 0),
                         }
                     )
-                    self._core._request("playback.set_metadata", track=self._track)
+                    self._core._request(
+                        "playback.set_metadata", track=self._track)
 
     async def on_adapter_set_state(self, state: bool):
         """Sets Adapter State"""
@@ -411,18 +400,23 @@ class BluetoothExtension(SourceActor):
 
         if get_state["powered"] == state:
             if state:
-                ADAPTER.Set(BLUEZ_ADAPTER, "Discoverable", GLib.Variant("b", True))
+                ADAPTER.Set(BLUEZ_ADAPTER, "Discoverable",
+                            GLib.Variant("b", True))
             return self.on_adapter_get_state()
 
         try:
             if state:
-                ADAPTER.Set(BLUEZ_ADAPTER, "Alias", GLib.Variant("s", self._hostname))
+                ADAPTER.Set(BLUEZ_ADAPTER, "Alias",
+                            GLib.Variant("s", self._hostname))
                 ADAPTER.Set(BLUEZ_ADAPTER, "Powered", GLib.Variant("b", True))
-                ADAPTER.Set(BLUEZ_ADAPTER, "Discoverable", GLib.Variant("b", True))
+                ADAPTER.Set(BLUEZ_ADAPTER, "Discoverable",
+                            GLib.Variant("b", True))
                 ADAPTER.Set(BLUEZ_ADAPTER, "Pairable", GLib.Variant("b", True))
             else:
-                ADAPTER.Set(BLUEZ_ADAPTER, "Discoverable", GLib.Variant("b", False))
-                ADAPTER.Set(BLUEZ_ADAPTER, "Pairable", GLib.Variant("b", False))
+                ADAPTER.Set(BLUEZ_ADAPTER, "Discoverable",
+                            GLib.Variant("b", False))
+                ADAPTER.Set(BLUEZ_ADAPTER, "Pairable",
+                            GLib.Variant("b", False))
                 ADAPTER.Set(BLUEZ_ADAPTER, "Powered", GLib.Variant("b", False))
 
             logger.info(self.on_adapter_get_state())
@@ -584,7 +578,8 @@ class BluetoothExtension(SourceActor):
         Disconnect a Bluetooth device by MAC address.
         """
         if not address:
-            raise ValueError("Bluetooth address is required to disconnect a device")
+            raise ValueError(
+                "Bluetooth address is required to disconnect a device")
 
         address = address.upper()
         connected_device = await self.on_device()
@@ -603,8 +598,12 @@ class BluetoothExtension(SourceActor):
             logger.debug(f"Disconnecting Bluetooth device {address} ({path})")
             device = bus.get(BLUEZ_SERVICE, path)
 
-            if self._mode == MODE_TX:
-                await self._stop_alsaloop()
+            # if self._mode == MODE_TX:
+            #     await self._system.write_asoundrc(pcm=self._config.get("mixer", {}).get("hw_device"))
+            #     await self._core.request(
+            #         "dsp.service",
+            #         state="restart"
+            #     )
 
             if hasattr(device, "Disconnect"):
                 device.Disconnect()
@@ -614,14 +613,16 @@ class BluetoothExtension(SourceActor):
         except Exception as e:
             name = disconnecting_device.name
             logger.error(f"{name} - {e}")
-            raise ConnectionError(f"Failed to disconnect device {name}.") from e
+            raise ConnectionError(
+                f"Failed to disconnect device {name}.") from e
 
     async def on_remove(self, address: str) -> bool:
         """
         Remove a Bluetooth device by MAC address.
         """
         if not address:
-            raise ValueError("Bluetooth address is required to remove a device")
+            raise ValueError(
+                "Bluetooth address is required to remove a device")
 
         address = address.upper()
         device_info = await self.on_device(address)
@@ -643,7 +644,8 @@ class BluetoothExtension(SourceActor):
                 event="bluetooth_device_removed",
                 device=device_info,
             )
-            logger.info(f"Bluetooth device removed: {device_info.name} {address}")
+            logger.info(
+                f"Bluetooth device removed: {device_info.name} {address}")
 
             return True
 
@@ -699,73 +701,10 @@ class BluetoothExtension(SourceActor):
         pcm.SoftVolume = soft_volume
         pcm.Volume = [alsa_volume, alsa_volume]
 
-        logger.debug(f"Bluetooth device {address} volume {alsa_volume}, mute {mute}")
+        logger.debug(
+            f"Bluetooth device {address} volume {alsa_volume}, mute {mute}")
 
         return True
-
-    async def _stop_alsaloop(self):
-        if self._alsaloop_proc is not None:
-            self._alsaloop_proc.terminate()
-            self._alsaloop_proc.kill()
-            self._alsaloop_proc = None
-            logger.debug(f"Stopped alsaloop process")
-
-    async def _start_alsaloop(self):
-        if self._alsaloop_proc is not None:
-            return
-
-        connected_device = await self.on_device()
-
-        if not connected_device:
-            return
-        threading.Thread(
-            target=self._alsaloop,
-            kwargs={
-                "samplerate": connected_device.sample_rate,
-                "sampleformat": connected_device.bit_depth,
-                "channels": connected_device.channels,
-            },
-            daemon=True,
-        ).start()
-
-    def _alsaloop(
-        self, samplerate: int = 48000, sampleformat: str = "S16_LE", channels: int = 2
-    ):
-        cmd = [
-            "alsaloop",
-            "-C",
-            PCM_PRE_BLUEALSA,
-            "-P",
-            PCM_BLUEALSA,
-            "-r",
-            str(samplerate),
-            "-f",
-            sampleformat,
-            "-c",
-            str(channels),
-            f"--buffer={PCM_BLUEALSA_BUFFER}",
-            f"--period={PCM_BLUEALSA_PERIOD}",
-            f"--latency={PCM_BLUEALSA_LATENCY}",
-        ]
-
-        self._alsaloop_proc = subprocess.Popen(
-            cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1
-        )
-
-        def log(stream, label):
-            for line in iter(stream.readline, ""):
-                logger.debug(line.strip())
-            stream.close()
-
-        threading.Thread(
-            target=log, args=(self._alsaloop_proc.stdout, "STDOUT"), daemon=True
-        ).start()
-        threading.Thread(
-            target=log, args=(self._alsaloop_proc.stderr, "STDERR"), daemon=True
-        ).start()
-
-        logger.info(f"Starting alsaloop: {' '.join(cmd)}")
-        return self._alsaloop_proc
 
     def _bluez_path_to_addr(self, path: str) -> str:
         """
@@ -801,7 +740,8 @@ class BluetoothExtension(SourceActor):
     def _bluealsa_aplay_to_pcm(self):
         """Gets a bluetooth PCM Information."""
         try:
-            result = subprocess.check_output(["bluealsa-aplay", "-l"], text=True)
+            result = subprocess.check_output(
+                ["bluealsa-aplay", "-l"], text=True)
             lines = result.splitlines()
             for line in lines:
                 if "A2DP" in line:
@@ -818,7 +758,8 @@ class BluetoothExtension(SourceActor):
                                 "channels": int(channels),
                             }
                         )
-                        self._core._request("playback.set_metadata", track=self._track)
+                        self._core._request(
+                            "playback.set_metadata", track=self._track)
                         return codec, fmt, channels, rate
 
         except Exception as e:
