@@ -16,7 +16,8 @@ logger = logging.getLogger(__name__)
 HOST = "127.0.0.1"
 PORT = 1234
 
-CONFIG_PATH = Path(__file__).parent / "camilladsp" / "configs" / "camilladsp.yml"
+CONFIG_PATH = Path(__file__).parent / "camilladsp" / \
+    "configs" / "camilladsp.yml"
 
 VOL_MIN_DB = -100.0
 VOL_MAX_DB = 0.0
@@ -36,7 +37,8 @@ class DspExtension(Actor):
             "default_capture_device"
         )
         self._default_gain = self._config.get("dsp", {}).get("default_gain", 0)
-        self._resample_rate = self._config.get("dsp", {}).get("resample_rate", None)
+        self._resample_rate = self._config.get(
+            "dsp", {}).get("resample_rate", None)
         self._disconnect_task = None
 
     async def on_config_update(self, config):
@@ -62,9 +64,9 @@ class DspExtension(Actor):
         logger.info("Stopped")
 
     async def on_event(self, message):
-        if (message.get("event") == "system_power_state_changed" and 
-            message.get("state") == "standby"):
-            
+        if (message.get("event") == "system_power_state_changed" and
+                message.get("state") == "standby"):
+
             await self.on_set_capture_device(
                 device=self._default_capture_device,
                 gain=self._default_gain,
@@ -83,7 +85,8 @@ class DspExtension(Actor):
     def _write_config(self, config):
         try:
             with open(CONFIG_PATH, "w") as f:
-                yaml.dump(config, f, default_flow_style=False, allow_unicode=True)
+                yaml.dump(config, f, default_flow_style=False,
+                          allow_unicode=True)
         except Exception as e:
             logger.error(f"Failed to write config file: {e}")
             raise ValueError("Failed to write config file") from e
@@ -123,7 +126,8 @@ class DspExtension(Actor):
 
             if self._resample_rate is not None:
                 config["devices"]["samplerate"] = self._resample_rate
-                config["devices"].setdefault("resampler", {})["type"] = "Synchronous"
+                config["devices"].setdefault("resampler", {})[
+                    "type"] = "Synchronous"
                 config["devices"]["capture_samplerate"] = samplerate
             else:
                 config["devices"].pop("resampler", None)
@@ -215,11 +219,6 @@ class DspExtension(Actor):
                 event="error", message="DSP failed to update capture. Please try again"
             )
 
-    def on_status(self):
-        self._client.connect()
-        config = self._client.config.active()
-        self._client.disconnect()
-        return config
 
     def on_volume_to_db(self, volume: int) -> float:
         if volume <= 0:
@@ -285,3 +284,44 @@ class DspExtension(Actor):
         self._client.disconnect()
         logger.info(f"DSP mute set to: {new_mute}")
         return new_mute
+
+    def on_signal_levels(self):
+        def _build_levels():
+            return {
+                    "levels": self._client.levels.levels(),
+                    "labels": self._client.levels.labels(),
+                }
+        try:
+            return _build_levels()
+        except IOError:
+            self._client.connect()
+            return _build_levels()
+
+    def on_status(self):
+        def _build_stats():
+                return {
+                    "capturerate": self._client.rate.capture(),
+                    "rateadjust": self._client.status.rate_adjust(),
+                    "bufferlevel": self._client.status.buffer_level(),
+                    "clippedsamples": self._client.status.clipped_samples(),
+                    "processingload": self._client.status.processing_load(),
+                    "resamplerload": self._client.status.resampler_load(),
+                }
+        try:
+            return _build_stats()
+        except IOError:
+            self._client.connect()
+            return _build_stats()
+
+    def on_get_config(self):
+        self._client.connect()
+        config = self._client.config.active()
+        self._client.disconnect()
+        return config
+
+    def on_set_config(self, config):
+        self._client.connect()
+        self._client.config.set_active(config)
+        self._client.disconnect()
+        self._write_config(config)
+        return True
