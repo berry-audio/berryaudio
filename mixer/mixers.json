@@ -40,6 +40,7 @@
   { "id": 38, "name": "HiFiBerry Digi(Digi+)", "device": "hw:CARD=sndrpihifiberry,DEV=0", "card": "sndrpihifiberry", "dtoverlay": "hifiberry-digi" },
   { "id": 39, "name": "HiFiBerry Digi+ Pro", "device": "hw:CARD=sndrpihifiberry,DEV=0", "card": "sndrpihifiberry", "dtoverlay": "hifiberry-digi-pro" },
   { "id": 40, "name": "HiFiBerry MiniAmp", "device": "hw:CARD=sndrpihifiberry,DEV=0", "card": "sndrpihifiberry", "dtoverlay": "hifiberry-dac" },
+  { "id": 75, "name": "HiFimeDIY UAE23 (USB)", "device": "plughw:CARD=Audio,DEV=0", "card": "Audio", "dtoverlay": "" },
   { "id": 41, "name": "IQaudIO Pi-AMP+", "device": "hw:CARD=IQaudIODAC,DEV=0", "card": "IQaudIODAC", "dtoverlay": "iqaudio-dacplus" },
   { "id": 42, "name": "IQaudIO Pi-DAC", "device": "hw:CARD=IQaudIODAC,DEV=0", "card": "IQaudIODAC", "dtoverlay": "iqaudio-dac" },
   { "id": 43, "name": "IQaudIO Pi-DAC PRO", "device": "hw:CARD=IQaudIODAC,DEV=0", "card": "IQaudIODAC", "dtoverlay": "iqaudio-dacplus" },
