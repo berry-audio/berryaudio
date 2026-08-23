@@ -3,7 +3,7 @@ devices:
   adjust_period: null
   capture:
     channels: 2
-    device: hw:CARD=Loopback,DEV=1
+    device: hw:CARD=UAC2Gadget,DEV=0
     labels: null
     link_mute_control: null
     link_volume_control: null
@@ -20,7 +20,7 @@ devices:
     type: Alsa
   queuelimit: 2
   rate_measure_interval: null
-  samplerate: 44100
+  samplerate: 96000
   silence_threshold: null
   silence_timeout: null
   stop_on_rate_change: null
@@ -60,7 +60,7 @@ filters:
   Gain:
     description: ''
     parameters:
-      gain: -10
+      gain: -5
       inverted: false
       mute: false
       scale: dB
