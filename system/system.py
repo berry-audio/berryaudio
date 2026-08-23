@@ -28,7 +28,7 @@ class SystemExtension(Actor):
         self._system = SystemUtil(core, db)
         self._is_standby = True
         self._power_state = "standby"
-
+    
     async def on_config_update(self, config):
         updated_config = config[self._name]
         if "hostname" in updated_config:
@@ -52,6 +52,21 @@ class SystemExtension(Actor):
             except asyncio.CancelledError:
                 break
 
+    def _app_version(self, command):
+        try:
+            result = subprocess.run(
+                command,
+                capture_output=True,
+                text=True,
+                timeout=2,
+            )
+
+            output = (result.stdout or result.stderr).strip()
+            match = re.search(r"\d+\.\d+(?:\.\d+)?(?:[-+][\w.-]+)?", output)
+            return match.group(0) if match else None
+        except (FileNotFoundError, subprocess.TimeoutExpired):
+            return None
+        
     async def on_stop(self):
         if hasattr(self, "_time_task"):
             self._time_task.cancel()
@@ -191,6 +206,11 @@ class SystemExtension(Actor):
             "hostname": hostname,
             "model": self.get_hardware_model(),
             "version": __version__,
+            "camilladsp": self._app_version(["camilladsp", "--version"]),
+            "shairport_sync": self._app_version(["shairport-sync", "--version"]),
+            "librespot": self._app_version(["librespot", "--version"]),
+            "snapcast_server": self._app_version(["snapserver", "--version"]),
+            "snapcast_client": self._app_version(["snapclient", "--version"]),
             "cpu": {
                 "volts": self.get_volts("core"),
                 "usage_percent": cpu_percent,

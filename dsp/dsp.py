@@ -177,6 +177,11 @@ class DspExtension(Actor):
                         resample=self._resample_rate is not None
                     )
 
+                    self._core.send(
+                        event="dsp_state_changed",
+                        config=self.on_get_config(),
+                    )
+
                     capture_info = (
                         f"{new_capture_rate}Hz"
                         if self._resample_rate
@@ -324,4 +329,8 @@ class DspExtension(Actor):
         self._client.config.set_active(config)
         self._client.disconnect()
         self._write_config(config)
+        self._core.send(
+            event="dsp_state_changed",
+            config=self.on_get_config(),
+        )
         return True
