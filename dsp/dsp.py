@@ -1,8 +1,6 @@
 import yaml
 import subprocess
 import math
-import re
-import time
 import logging
 import asyncio
 
@@ -328,9 +326,9 @@ class DspExtension(Actor):
         self._client.connect()
         self._client.config.set_active(config)
         self._client.disconnect()
-        self._write_config(config)
+        response = self._write_config(config)
         self._core.send(
             event="dsp_state_changed",
             config=self.on_get_config(),
         )
-        return True
+        return response
