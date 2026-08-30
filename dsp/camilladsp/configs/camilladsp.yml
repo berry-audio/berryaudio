@@ -4,7 +4,6 @@ devices:
   capture:
     channels: 2
     device: hw:CARD=Loopback,DEV=1
-    format: null
     labels: null
     link_mute_control: null
     link_volume_control: null
@@ -21,7 +20,6 @@ devices:
     type: Alsa
   queuelimit: 2
   rate_measure_interval: null
-  resampler: null
   samplerate: 44100
   silence_threshold: null
   silence_timeout: null
@@ -35,15 +33,15 @@ filters:
     description: Shows Bass
     parameters:
       freq: 60
-      gain: 2
-      q: 0.5
+      gain: 3
+      q: 1.5
       type: Lowshelf
     type: Biquad
   Bass (Mid):
     description: Bass Mid
     parameters:
       freq: 80
-      gain: 2
+      gain: 0
       q: 0.5
       type: Lowshelf
     type: Biquad
@@ -73,27 +71,27 @@ filters:
       freq_max: 20000
       freq_min: 45
       gains:
-      - 5.8
-      - 2.7
-      - -3.8
+      - 6
+      - 3.4
+      - -2.1
       - -2.3
       - -3.4
-      - -4.1
       - -4.9
+      - -5.5
+      - -5.7
+      - -6
       - -5.4
-      - -6.1
-      - -5
       - -4.5
       - -3.8
       - -1.7
-      - 0.2
-      - 2.7
+      - 5.6
+      - 5.9
       type: GraphicEqualizer
     type: BiquadCombo
   Pitch:
     description: null
     parameters:
-      semitones: 5
+      semitones: -5
       tempo: 1
       wet: 1
     type: Pitch
@@ -102,8 +100,8 @@ filters:
     parameters:
       hf_damping: 0
       pre_delay_ms: 0
-      reverberance: 29
-      room_scale: 21
+      reverberance: 20
+      room_scale: 10
       stereo_depth: 0
       wet: 0.13
       wet_gain_db: 25
@@ -112,7 +110,7 @@ filters:
     description: null
     parameters:
       freq: 19000
-      gain: 12
+      gain: 1
       q: 0.9
       type: Peaking
     type: Biquad
@@ -242,6 +240,12 @@ mixers:
         mute: false
         scale: dB
 pipeline:
+- bypassed: true
+  channels: null
+  description: null
+  names:
+  - Pitch
+  type: Filter
 - bypassed: false
   channels: null
   description: null
@@ -254,19 +258,13 @@ pipeline:
   names:
   - Reverb
   type: Filter
-- bypassed: true
-  channels: null
-  description: null
-  names:
-  - Treble
-  type: Filter
 - bypassed: false
   channels: null
   description: null
   names:
+  - Bass
+  - Bass
   - Parametric Equalizer
-  - Bass
-  - Bass
   type: Filter
 - bypassed: false
   description: null
