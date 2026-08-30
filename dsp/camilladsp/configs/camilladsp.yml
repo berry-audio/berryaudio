@@ -33,16 +33,16 @@ filters:
     description: Shows Bass
     parameters:
       freq: 60
-      gain: 3
-      q: 1.5
+      gain: 2
+      q: 1.2
       type: Lowshelf
     type: Biquad
   Bass (Mid):
     description: Bass Mid
     parameters:
       freq: 80
-      gain: 0
-      q: 0.5
+      gain: 2
+      q: 9.2
       type: Lowshelf
     type: Biquad
   Flanger:
@@ -55,7 +55,7 @@ filters:
       shape: triangle
       speed_hz: 1
       wet: 0.5
-      width: 100
+      width: 50
     type: Flanger
   Gain:
     description: ''
@@ -71,14 +71,14 @@ filters:
       freq_max: 20000
       freq_min: 45
       gains:
-      - 6
-      - 3.4
+      - 8.9
+      - 6.1
       - -2.1
       - -2.3
       - -3.4
       - -4.9
-      - -5.5
-      - -5.7
+      - -5.6
+      - -6
       - -6
       - -5.4
       - -4.5
@@ -91,7 +91,7 @@ filters:
   Pitch:
     description: null
     parameters:
-      semitones: -5
+      semitones: 0
       tempo: 1
       wet: 1
     type: Pitch
@@ -263,7 +263,7 @@ pipeline:
   description: null
   names:
   - Bass
-  - Bass
+  - Bass (Mid)
   - Parametric Equalizer
   type: Filter
 - bypassed: false
