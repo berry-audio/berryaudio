@@ -122,17 +122,17 @@ mixers:
       in: 2
       out: 8
     description: null
-    labels: null
+    labels:
+    - DAC Output R
+    - DAC Output L
+    - Multiroom R
+    - Multiroom L
+    - Spectrum R
+    - Spectrum L
+    - Web RTC R
+    - Web RTC L
     mapping:
     - dest: 0
-      mute: false
-      sources:
-      - channel: 0
-        gain: 0
-        inverted: false
-        mute: false
-        scale: dB
-    - dest: 1
       mute: false
       sources:
       - channel: 1
@@ -140,7 +140,7 @@ mixers:
         inverted: false
         mute: false
         scale: dB
-    - dest: 2
+    - dest: 1
       mute: false
       sources:
       - channel: 0
@@ -148,7 +148,7 @@ mixers:
         inverted: false
         mute: false
         scale: dB
-    - dest: 3
+    - dest: 2
       mute: false
       sources:
       - channel: 1
@@ -159,7 +159,7 @@ mixers:
     - dest: 4
       mute: false
       sources:
-      - channel: 0
+      - channel: 1
         gain: 0
         inverted: false
         mute: false
@@ -167,7 +167,7 @@ mixers:
     - dest: 5
       mute: false
       sources:
-      - channel: 1
+      - channel: 0
         gain: 0
         inverted: false
         mute: false
@@ -175,7 +175,7 @@ mixers:
     - dest: 6
       mute: false
       sources:
-      - channel: 0
+      - channel: 1
         gain: 0
         inverted: false
         mute: false
@@ -183,7 +183,15 @@ mixers:
     - dest: 7
       mute: false
       sources:
-      - channel: 1
+      - channel: 0
+        gain: 0
+        inverted: false
+        mute: false
+        scale: dB
+    - dest: 3
+      mute: false
+      sources:
+      - channel: 0
         gain: 0
         inverted: false
         mute: false
@@ -272,6 +280,12 @@ pipeline:
   description: null
   name: Distributer
   type: Mixer
+- bypassed: true
+  channels: null
+  description: null
+  names:
+  - Bass
+  type: Filter
 processors:
   Unnamed Processor 1:
     description: null
