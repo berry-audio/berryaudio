@@ -78,22 +78,22 @@ class StorageExtension(SourceActor):
         )
 
     async def on_start(self):
-        config_smb_clients = self._config.get(self._name, {}).get("smb_clients", {})
-        if config_smb_clients:
-            for dev, creds in config_smb_clients.items():
-                try:
-                    await self._smb.mount_shared(
-                        devs=[dev],
-                        username=creds.get("username"),
-                        password=creds.get("password", ""),
-                    )
-                except (
-                    ValueError,
-                    PermissionError,
-                    ConnectionError,
-                    FileNotFoundError,
-                ) as e:
-                    logger.error(e)
+        # config_smb_clients = self._config.get(self._name, {}).get("smb_clients", {})
+        # if config_smb_clients:
+        #     for dev, creds in config_smb_clients.items():
+        #         try:
+        #             await self._smb.mount_shared(
+        #                 devs=[dev],
+        #                 username=creds.get("username"),
+        #                 password=creds.get("password", ""),
+        #             )
+        #         except (
+        #             ValueError,
+        #             PermissionError,
+        #             ConnectionError,
+        #             FileNotFoundError,
+        #         ) as e:
+        #             logger.error(e)
         await self._smb.samba_status()
         logger.info("Started")
 
@@ -166,8 +166,8 @@ class StorageExtension(SourceActor):
     async def on_directory(
         self, uri: str = None, limit: int | None = None, offset: int | None = None
     ):
-        if uri == "storage":
-            return self._storage.storages_list()
+        if uri == self._name:
+            return await self._storage.storages_list()
         else:
             return self._storage.directory(
                 uri,
@@ -189,7 +189,9 @@ class StorageExtension(SourceActor):
         return self._smb.add_shared(ip, username, password)
 
     async def on_mount_shared(self, devs: list[str]):
-        return await self._smb.mount_shared(devs)
+        for dev in devs:
+            await self._smb.mount_shared(dev)
+        return True
 
     async def on_unmount_shared(self, dev: str):
         return await self._smb.unmount_shared(dev)

@@ -3,6 +3,7 @@ import subprocess
 import configparser
 import io
 import re
+import os
 import psutil
 import socket
 
@@ -397,208 +398,184 @@ class StorageSmbManager:
             logger.error(f"{ip} error: {e}")
             return None
 
-    def list_smb_shared(self) -> list[Storage]:
-        """Lists all NAS drives from OS """
-
+    async def list_smb_shared(self) -> list[Storage]:
+        """Lists all NAS drives from OS"""
         storages = []
-        with open("/proc/mounts", "r") as f:
-            for line in f:
-                parts = line.split()
-                if len(parts) >= 3 and parts[2] == "cifs":
-                    device, mount_point = parts[0], parts[1]
-                    u = psutil.disk_usage(mount_point)
+        config = self._db.get_config()
+        config_smb_clients = config.get(self._name, {}).get("smb_clients", {})
 
-                    clean_device = device.replace("\\040", " ")
-                    clean_name = clean_device.split("/")[-1]
-                    smb_uri = f"smb://{clean_device.lstrip('/')}"
-                    storages.append(
-                        Storage(
-                            icon="nas",
-                            uri=f"{self._name}:{mount_point}",
-                            name=clean_name,
-                            dev=smb_uri,
-                            shared=False,
-                            fstype="cifs",
-                            status="mounted",
-                            usage=StorageUsage(
-                                total=u.total,
-                                used=u.used,
-                                free=u.free,
-                            ),
-                        )
-                    )
+        if not config_smb_clients:
+            return storages
 
-        self._smb_shares = storages
+        for dev, creds in config_smb_clients.items():
+            if dev in self._smb_shares:
+                storage = self._smb_shares[dev]
+            else:
+                storage = await self.mount_shared(
+                    dev=dev,
+                    username=creds.get("username"),
+                    password=creds.get("password", ""),
+                )
+            storages.append(storage)
         return storages
 
     async def mount_shared(
-        self, devs: list[str], username: str = None, password: str = ""
-    ) -> bool:
-        """Mounts a NAS drive from OS """
+        self, dev: str, username: str | None = None, password: str = ""
+    ) -> Storage:
+        """Mounts a NAS drive from OS. Always returns a Storage — check `.status` for success."""
+
+        def _storage_error(message: str) -> Storage:
+            logger.error(message)
+            return Storage(
+                icon="nas",
+                uri=f"{self._name}:{mount_point}",
+                name=label,
+                dev=dev,
+                fstype="cifs",
+                status="error",
+                message=message,
+                usage=StorageUsage(total=0, used=0, free=0),
+            )
+
+        if not dev.startswith("smb://"):
+            raise ValueError(f"Invalid SMB URI: {dev}")
+
+        path = dev.replace("smb://", "")
+        mount_name = path.replace("/", "_").replace(" ", "_").replace("'", "")
+        mount_point = f"/media/pi/{mount_name}"
+        label = path.split("/")[-1]
+        is_mounted = False
+
+        with open("/proc/mounts", "r") as f:
+            if any(mount_point in line for line in f):
+                logger.info(f"'{dev}' already mounted, skipping")
+                is_mounted = True
+
+        if not is_mounted:
+            subprocess.run(["sudo", "mkdir", "-p", mount_point], check=True)
+
+            user = username or self._remote_username
+            pw = password or self._remote_password
+            options = "vers=2.0,sec=ntlmssp,uid=1000,gid=1000"
+            if user:
+                options += f",username={user},password={pw}"
+            else:
+                options += ",guest"
+
+            result = subprocess.run(
+                ["sudo", "mount", "-t", "cifs",
+                    f"//{path}", mount_point, "-o", options],
+                capture_output=True,
+                text=True,
+            )
+
+            if result.returncode != 0:
+                stderr = result.stderr.strip()
+                if "13" in stderr:
+                    storage = _storage_error(
+                        f"Permission denied '{dev}', check credentials")
+                elif "16" in stderr:
+                    storage = _storage_error(
+                        f"'{dev}' is already mounted or resource is busy")
+                elif "110" in stderr:
+                    storage = _storage_error(
+                        f"Timeout connecting to '{dev}', check network")
+                elif "115" in stderr:
+                    storage = _storage_error(
+                        f"Timeout connecting to '{dev}', check network")
+                elif "2" in stderr:
+                    storage = _storage_error(f"Share not found: '{dev}'")
+                else:
+                    storage = _storage_error(
+                        f"Mount failed for '{dev}': {stderr}")
+                self._smb_shares[dev] = storage
+                return storage
 
         try:
-            for dev in devs:
-                is_mounted = False
-
-                if not dev.startswith("smb://"):
-                    raise ValueError(f"Invalid SMB URI: {dev}")
-
-                if self._db is None:
-                    raise ValueError("DB not initialized")
-
-                path = dev.replace("smb://", "")
-                mount_name = path.replace("/", "_").replace(" ", "_").replace("'", "")
-                mount_point = f"/media/pi/{mount_name}"
-
-                with open("/proc/mounts", "r") as f:
-                    if any(mount_point in line for line in f):
-                        logger.info(f"'{dev}' already mounted, skipping")
-                        is_mounted = True
-
-                if not is_mounted:
-                    subprocess.run(["sudo", "mkdir", "-p", mount_point], check=True)
-                    options = "vers=2.0,sec=ntlmssp,uid=1000,gid=1000"
-
-                    if username:
-                        options += f",username={username},password={password}"
-                    elif self._remote_username and self._remote_password:
-                        options += f",username={self._remote_username},password={self._remote_password}"
-                    else:
-                        options += ",guest"
-
-                    result = subprocess.run(
-                        [
-                            "sudo",
-                            "mount",
-                            "-t",
-                            "cifs",
-                            f"//{path}",
-                            mount_point,
-                            "-o",
-                            options,
-                        ],
-                        capture_output=True,
-                        text=True,
-                    )
-
-                    if result.returncode != 0:
-                        stderr = result.stderr.strip()
-                        if "13" in stderr:
-                            raise PermissionError(
-                                f"Permission denied mounting '{dev}' — check credentials"
-                            )
-                        elif "16":
-                            raise ValueError(
-                                f"'{dev}' is already mounted or resource is busy"
-                            )
-                        elif "115":
-                            raise ConnectionError(
-                                f"Timeout connecting to '{dev}' — check network"
-                            )
-                        elif "2":
-                            raise FileNotFoundError(f"Share not found: '{dev}'")
-                        else:
-                            raise ConnectionError(f"Mount failed for '{dev}': {stderr}")
-
-                u = psutil.disk_usage(mount_point)
-                label = path.split("/")[-1]
-
-                storage = Storage(
-                    icon="nas",
-                    uri=f"{self._name}:{mount_point}",
-                    name=label,
-                    dev=dev,
-                    fstype="cifs",
-                    status="mounted",
-                    usage=StorageUsage(
-                        total=u.total,
-                        used=u.used,
-                        free=u.free,
-                    ),
-                )
-                self._smb_shares[dev] = storage
-
-                config = self._db.get_config()
-                config_storage = config.get(self._name, {}).get("smb_clients", {}) or {}
-                if dev not in config_storage:
-                    config_storage[str(dev)] = {
-                        "username": self._remote_username,
-                        "password": self._remote_password,
-                    }
-                self._db.set_config({self._name: {"smb_clients": config_storage}})
-
-                if not is_mounted:
-                    self._core.send(
-                        target=["web", "display"],
-                        event="storage_mounted",
-                        storage=storage,
-                    )
-
-            return True
-
-        except (ValueError, PermissionError, ConnectionError, FileNotFoundError):
-            raise
+            u = psutil.disk_usage(mount_point)
         except Exception as e:
-            logger.error(f"Failed to mount shares: {e}")
-            return False
+            storage = _storage_error(
+                f"Mounted but failed to read usage for '{dev}': {e}")
+            self._smb_shares[dev] = storage
+            return storage
+
+        storage = Storage(
+            icon="nas",
+            uri=f"{self._name}:{mount_point}",
+            name=label,
+            dev=dev,
+            fstype="cifs",
+            status="mounted",
+            usage=StorageUsage(total=u.total, used=u.used, free=u.free),
+        )
+
+        self._smb_shares[dev] = storage
+
+        config = self._db.get_config()
+        config_storage = config.get(
+            self._name, {}).get("smb_clients", {}) or {}
+
+        if dev not in config_storage:
+            config_storage[str(dev)] = {"username": user, "password": pw}
+
+        self._db.set_config({self._name: {"smb_clients": config_storage}})
+
+        if not is_mounted:
+            self._core.send(
+                target=["web", "display"],
+                event="storage_mounted",
+                storage=storage,
+            )
+        return storage
 
     async def unmount_shared(self, dev: str) -> bool:
-        """Unmounts a NAS drive from OS """
+        """Unmounts a NAS drive from OS"""
+        if not dev.startswith("smb://"):
+            raise ValueError(f"Invalid SMB uri: {dev}")
 
-        try:
-            is_unmounted = False
-            if not dev.startswith("smb://"):
-                raise ValueError(f"Invalid SMB uri: {dev}")
+        path = dev.replace("smb://", "")
+        mount_name = path.replace("/", "_").replace(" ", "_").replace("'", "")
+        mount_point = f"/media/pi/{mount_name}"
 
-            if self._db is None:
-                raise ValueError("DB not initialized")
+        with open("/proc/mounts", "r") as f:
+            is_mounted = any(mount_point in line for line in f)
 
-            path = dev.replace("smb://", "")
-            mount_name = path.replace("/", "_").replace(" ", "_").replace("'", "")
-            mount_point = f"/media/pi/{mount_name}"
+        if is_mounted:
+            result = subprocess.run(
+                ["sudo", "umount", mount_point], capture_output=True, text=True
+            )
+            if result.returncode != 0:
+                stderr = result.stderr.strip()
+                match = re.search(r"error\((\d+)\)|(\d+):", stderr)
+                code = match.group(1) or match.group(2) if match else None
 
-            with open("/proc/mounts", "r") as f:
-                if not any(mount_point in line for line in f):
-                    logger.info(f"'{dev}' already unmounted, skipping")
-                    is_unmounted = True
+                if code == "16":
+                    raise ValueError(f"'{dev}' is busy")
+                elif code == "2":
+                    raise FileNotFoundError(f"'{mount_point}' not found")
+                elif code == "13":
+                    raise PermissionError(f"'{dev}' permission denied")
+                elif code == "22":
+                    raise ValueError(f"'{dev}' invalid argument")
+                else:
+                    raise ConnectionError(f"'{dev}': {stderr}")
+        else:
+            logger.info(f"'{dev}' already unmounted, skipping")
 
-            if not is_unmounted:
-                result = subprocess.run(
-                    ["sudo", "umount", mount_point], capture_output=True, text=True
-                )
+        if os.path.isdir(mount_point):
+            subprocess.run(["sudo", "rmdir", mount_point], capture_output=True)
+        
+        config = self._db.get_config()
+        config_storage = config.get(self._name, {}).get("smb_clients", {}) or {}
+        config_storage.pop(str(dev), None)
+        self._db.set_config({self._name: {"smb_clients": config_storage}})
 
-                if result.returncode != 0:
-                    stderr = result.stderr.strip()
-                    if "16" in stderr:
-                        raise ValueError(f"'{dev}' is busy")
-                    elif "2" in stderr:
-                        raise FileNotFoundError(f"'{mount_point}' not found")
-                    elif "13" in stderr:
-                        raise PermissionError(f"'{dev}' permission denied")
-                    elif "22" in stderr:
-                        raise ValueError(f"'{dev}' invalid argument")
-                    else:
-                        raise ConnectionError(f"'{dev}': {stderr}")
-
-                subprocess.run(["sudo", "rmdir", mount_point], capture_output=True)
-
-            config = self._db.get_config()
-            config_storage = config.get(self._name, {}).get("smb_clients", {}) or {}
-            config_storage.pop(str(dev), None)
-            self._db.set_config({self._name: {"smb_clients": config_storage}})
-
-            if self._smb_shares[dev]:
-                self._core.send(
+        if dev in self._smb_shares:
+            self._core.send(
                     target=["web", "display"],
-                    event="storage_removed",
+                    event="storage_unmounted",
                     storage=self._smb_shares[dev],
                 )
-                self._smb_shares.pop(dev, None)
-
             return True
 
-        except (ValueError, PermissionError, ConnectionError, FileNotFoundError):
-            raise
-        except Exception as e:
-            logger.error(f"Failed to unmount share: {e}")
-            return False
+        return False

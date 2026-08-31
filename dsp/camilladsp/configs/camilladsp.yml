@@ -4,6 +4,7 @@ devices:
   capture:
     channels: 2
     device: hw:CARD=Loopback,DEV=1
+    format: null
     labels: null
     link_mute_control: null
     link_volume_control: null
@@ -20,6 +21,7 @@ devices:
     type: Alsa
   queuelimit: 2
   rate_measure_interval: null
+  resampler: null
   samplerate: 44100
   silence_threshold: null
   silence_timeout: null
@@ -33,16 +35,16 @@ filters:
     description: Shows Bass
     parameters:
       freq: 60
-      gain: 2
-      q: 1.2
+      gain: 3
+      q: 1
       type: Lowshelf
     type: Biquad
   Bass (Mid):
     description: Bass Mid
     parameters:
       freq: 80
-      gain: 2
-      q: 9.2
+      gain: 4
+      q: 1
       type: Lowshelf
     type: Biquad
   Flanger:
@@ -71,21 +73,21 @@ filters:
       freq_max: 20000
       freq_min: 45
       gains:
-      - 8.9
-      - 6.1
-      - -2.1
+      - 7
+      - 5.6
+      - 0.3
       - -2.3
       - -3.4
       - -4.9
       - -5.6
-      - -6
+      - -5.8
       - -6
       - -5.4
       - -4.5
       - -3.8
       - -1.7
-      - 5.6
-      - 5.9
+      - 2.7
+      - 4.7
       type: GraphicEqualizer
     type: BiquadCombo
   Pitch:
@@ -100,7 +102,7 @@ filters:
     parameters:
       hf_damping: 0
       pre_delay_ms: 0
-      reverberance: 20
+      reverberance: 30
       room_scale: 10
       stereo_depth: 0
       wet: 0.13
@@ -244,13 +246,13 @@ pipeline:
   channels: null
   description: null
   names:
-  - Pitch
+  - Gain
   type: Filter
-- bypassed: false
+- bypassed: true
   channels: null
   description: null
   names:
-  - Gain
+  - Pitch
   type: Filter
 - bypassed: false
   channels: null

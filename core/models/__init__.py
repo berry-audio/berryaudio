@@ -223,6 +223,7 @@ class Storage(BaseModel):
     fstype: Optional[str] = None
     size: int = 0
     status: Optional[str] = None
+    message: Optional[str] = None
     usage: Optional[StorageUsage] = None
     read_only: bool = False
     guest_allowed: bool = True
