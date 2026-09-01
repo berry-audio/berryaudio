@@ -43,6 +43,9 @@ class PlaybackExtension(Actor):
         self._resample = Gst.ElementFactory.make("audioresample", "resample")
         self._sink = Gst.ElementFactory.make("alsasink", "sink")
 
+        self._source.set_property("use-buffering", True)
+        self._source.set_property("buffer-duration", 5 * Gst.SECOND)
+
         self._resample.set_property("quality", 0)
 
         self._sink.set_property("device", self._output_device)

@@ -3,8 +3,7 @@ devices:
   adjust_period: null
   capture:
     channels: 2
-    device: hw:CARD=Loopback,DEV=1
-    format: null
+    device: hw:CARD=sndrpihifiberry,DEV=0
     labels: null
     link_mute_control: null
     link_volume_control: null
@@ -21,8 +20,7 @@ devices:
     type: Alsa
   queuelimit: 2
   rate_measure_interval: null
-  resampler: null
-  samplerate: 44100
+  samplerate: 96000
   silence_threshold: null
   silence_timeout: null
   stop_on_rate_change: null
@@ -35,7 +33,7 @@ filters:
     description: Shows Bass
     parameters:
       freq: 60
-      gain: 3
+      gain: 4
       q: 1
       type: Lowshelf
     type: Biquad
@@ -43,7 +41,7 @@ filters:
     description: Bass Mid
     parameters:
       freq: 80
-      gain: 4
+      gain: 2
       q: 1
       type: Lowshelf
     type: Biquad
@@ -62,7 +60,7 @@ filters:
   Gain:
     description: ''
     parameters:
-      gain: -10
+      gain: 15
       inverted: false
       mute: false
       scale: dB
@@ -73,21 +71,21 @@ filters:
       freq_max: 20000
       freq_min: 45
       gains:
-      - 7
-      - 5.6
-      - 0.3
+      - 6.4
+      - 4.6
+      - 0.8
       - -2.3
-      - -3.4
+      - -3.8
       - -4.9
       - -5.6
       - -5.8
-      - -6
+      - -5.7
       - -5.4
       - -4.5
-      - -3.8
-      - -1.7
-      - 2.7
-      - 4.7
+      - -3.2
+      - -0.8
+      - 2.6
+      - 5.9
       type: GraphicEqualizer
     type: BiquadCombo
   Pitch:
@@ -102,7 +100,7 @@ filters:
     parameters:
       hf_damping: 0
       pre_delay_ms: 0
-      reverberance: 30
+      reverberance: 21
       room_scale: 10
       stereo_depth: 0
       wet: 0.13
@@ -111,9 +109,9 @@ filters:
   Treble:
     description: null
     parameters:
-      freq: 19000
-      gain: 1
-      q: 0.9
+      freq: 12000
+      gain: 6
+      q: 1
       type: Peaking
     type: Biquad
 mixers:
@@ -123,8 +121,8 @@ mixers:
       out: 8
     description: null
     labels:
-    - DAC Output R
-    - DAC Output L
+    - DAC R
+    - DAC L
     - Multiroom R
     - Multiroom L
     - Spectrum R
@@ -250,7 +248,7 @@ mixers:
         mute: false
         scale: dB
 pipeline:
-- bypassed: true
+- bypassed: false
   channels: null
   description: null
   names:
@@ -275,17 +273,12 @@ pipeline:
   - Bass
   - Bass (Mid)
   - Parametric Equalizer
+  - Treble
   type: Filter
 - bypassed: false
   description: null
   name: Distributer
   type: Mixer
-- bypassed: true
-  channels: null
-  description: null
-  names:
-  - Bass
-  type: Filter
 processors:
   Unnamed Processor 1:
     description: null
