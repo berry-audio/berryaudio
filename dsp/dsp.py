@@ -132,10 +132,10 @@ class DspExtension(Actor):
                 if samplerate is not None:
                     config["devices"]["samplerate"] = samplerate
 
-            new_capture_format = None
+            new_playback_format = None
             if sampleformat is not None:
                 config["devices"]["capture"]["format"] = sampleformat
-                new_capture_format = sampleformat
+                new_playback_format = sampleformat
             else:
                 config["devices"]["capture"].pop("format", None)
 
@@ -149,74 +149,80 @@ class DspExtension(Actor):
 
             new_sample_rate = config["devices"]["samplerate"] or samplerate
 
-            try:
-                self._client.connect()
-                self._client.config.set_active(config)
-                state = self._client.general.state()
+            max_retries = 3
+            for attempt in range(1, max_retries + 1):
+                try:
+                    self._client.connect()
+                    self._client.config.set_active(config)
+                    state = self._client.general.state()
 
-                if state == ProcessingState.RUNNING:
-                    self._client.general.reload()
-                    await asyncio.sleep(0.1)
-                    active = self._client.config.active()
-                    new_volume = self._client.volume.main_volume()
-                    new_mute = self._client.volume.main_mute()
+                    if state == ProcessingState.RUNNING:
+                        self._client.general.reload()
+                        await asyncio.sleep(0.1)
+                        active = self._client.config.active()
+                        new_volume = self._client.volume.main_volume()
+                        new_mute = self._client.volume.main_mute()
 
-                    new_sample_rate = active["devices"]["samplerate"]
-                    new_capture_rate = active["devices"]["capture_samplerate"]
-                    new_capture_format = (
-                        active["devices"]["capture"]["format"] or "Auto"
-                    )
+                        new_sample_rate = active["devices"]["samplerate"]
+                        new_capture_rate = active["devices"]["capture_samplerate"]
+                        new_playback_format = (
+                            active["devices"]["playback"]["format"] or "Auto"
+                        )
 
+                        self._core.send(
+                            event="dsp_options_changed",
+                            capture_device=capture_device,
+                            sample_rate=new_sample_rate,
+                            sample_format=new_playback_format,
+                            resample=self._resample_rate is not None
+                        )
+
+                        self._core.send(
+                            event="dsp_state_changed",
+                            config=self.on_get_config(),
+                        )
+
+                        capture_info = (
+                            f"{new_capture_rate}Hz"
+                            if self._resample_rate
+                            else f"{new_sample_rate}Hz"
+                        )
+
+                        resample_info = (
+                            f"{self._resample_rate}Hz"
+                            if self._resample_rate
+                            else False
+                        )
+
+                        info = f"DSP: {capture_device} | Gain {float(gain)}dB | Actual Rate {capture_info} | Resample {resample_info} | Format {new_playback_format} | Volume {new_volume}dB | Mute {new_mute}"
+                        divider = "-" * len(info)
+                        logger.info(divider)
+                        logger.info(info)
+                        logger.info(divider)
+
+                        return True
+                except Exception as e:
+                    logger.error(e)
+                    logger.error(f"DSP failed to update capture. Trying again {attempt}/{max_retries} failed: {e}")
                     self._core.send(
-                        event="dsp_options_changed",
+                        event="dsp_options_error",
                         capture_device=capture_device,
                         sample_rate=new_sample_rate,
-                        sample_format=new_capture_format,
-                        resample=self._resample_rate is not None
+                        sample_format=new_playback_format,
                     )
 
-                    self._core.send(
-                        event="dsp_state_changed",
-                        config=self.on_get_config(),
-                    )
-
-                    capture_info = (
-                        f"{new_capture_rate}Hz"
-                        if self._resample_rate
-                        else f"{new_sample_rate}Hz"
-                    )
-
-                    resample_info = (
-                        f"{self._resample_rate}Hz"
-                        if self._resample_rate
-                        else False
-                    )
-
-                    info = f"DSP: {capture_device} | Gain {float(gain)}dB | Actual Rate {capture_info} | Resample {resample_info} | Format {new_capture_format} | Volume {new_volume}dB | Mute {new_mute}"
-                    divider = "-" * len(info)
-                    logger.info(divider)
-                    logger.info(info)
-                    logger.info(divider)
-
-                    return True
-            except Exception as e:
-                logger.warning(e)
-                logger.warning("DSP failed to update capture. Trying again...")
-                self._core.send(
-                    event="dsp_options_error",
-                    capture_device=capture_device,
-                    sample_rate=new_sample_rate,
-                    sample_format=new_capture_format,
-                )
+                if attempt < max_retries:
+                    await asyncio.sleep(1.0 * attempt) 
+                    
 
         except Exception as e:
-            logger.warning(e)
-            logger.warning("DSP failed to update capture. Please try again")
+            logger.error(e)
+            logger.error("DSP failed to update capture. Please try again")
             self._core.send(
                 event="dsp_options_error",
                 capture_device=capture_device,
                 sample_rate=new_sample_rate,
-                sample_format=new_capture_format,
+                sample_format=new_playback_format,
             )
             self._core.send(
                 event="error", message="DSP failed to update capture. Please try again"

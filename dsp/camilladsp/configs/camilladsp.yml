@@ -3,13 +3,13 @@ devices:
   adjust_period: null
   capture:
     channels: 2
-    device: hw:CARD=sndrpihifiberry,DEV=0
+    device: hw:CARD=Loopback,DEV=1
     labels: null
     link_mute_control: null
     link_volume_control: null
     stop_on_inactive: null
     type: Alsa
-  capture_samplerate: 96000
+  capture_samplerate: 44100
   chunksize: 4096
   enable_rate_adjust: null
   multithreaded: true
@@ -20,7 +20,7 @@ devices:
     type: Alsa
   queuelimit: 2
   rate_measure_interval: null
-  samplerate: 96000
+  samplerate: 44100
   silence_threshold: null
   silence_timeout: null
   stop_on_rate_change: null
@@ -60,7 +60,7 @@ filters:
   Gain:
     description: ''
     parameters:
-      gain: 15
+      gain: -15
       inverted: false
       mute: false
       scale: dB
@@ -72,26 +72,26 @@ filters:
       freq_min: 45
       gains:
       - 6.4
-      - 4.6
+      - 6.3
       - 0.8
-      - -2.3
+      - -1.9
+      - -3
+      - -3.6
+      - -3.5
+      - -4
+      - -4.2
+      - -3.9
       - -3.8
-      - -4.9
-      - -5.6
-      - -5.8
-      - -5.7
-      - -5.4
-      - -4.5
-      - -3.2
+      - -2.9
       - -0.8
       - 2.6
-      - 5.9
+      - 5.5
       type: GraphicEqualizer
     type: BiquadCombo
   Pitch:
     description: null
     parameters:
-      semitones: 0
+      semitones: 5
       tempo: 1
       wet: 1
     type: Pitch
@@ -100,7 +100,7 @@ filters:
     parameters:
       hf_damping: 0
       pre_delay_ms: 0
-      reverberance: 21
+      reverberance: 18
       room_scale: 10
       stereo_depth: 0
       wet: 0.13
@@ -110,7 +110,7 @@ filters:
     description: null
     parameters:
       freq: 12000
-      gain: 6
+      gain: 1
       q: 1
       type: Peaking
     type: Biquad

@@ -43,8 +43,11 @@ class PlaybackExtension(Actor):
         self._resample = Gst.ElementFactory.make("audioresample", "resample")
         self._sink = Gst.ElementFactory.make("alsasink", "sink")
 
-        self._source.set_property("use-buffering", True)
-        self._source.set_property("buffer-duration", 5 * Gst.SECOND)
+        if uri:
+            is_network = uri.startswith(("http://", "https://", "rtsp://", "rtmp://"))
+            self._source.set_property("use-buffering", is_network)
+            if is_network:
+                self._source.set_property("buffer-duration", 5 * Gst.SECOND)
 
         self._resample.set_property("quality", 0)
 

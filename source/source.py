@@ -74,7 +74,7 @@ class SourceExtension(Actor):
                         )
                     )
                 except Exception as e:
-                    raise
+                    logger.error(e)
 
         if uri is None:
             self._current = Source(
@@ -96,7 +96,6 @@ class SourceExtension(Actor):
                             state={"connected": False},
                         )
                     )
-                    raise
                 self._current = source
                 self._core.send(
                     target=["web", "display"],

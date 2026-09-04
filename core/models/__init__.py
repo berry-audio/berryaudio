@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import enum
 from collections.abc import Iterator
-from typing import Literal, NewType, TypeAlias, Optional
+from typing import Literal, NewType, TypeAlias, Optional, Any
 
 from pydantic import Field, ConfigDict
 from pydantic.fields import Field
@@ -282,11 +282,10 @@ class Bluetooth(BaseModel):
 
 class Room(BaseModel):
     model_config = ConfigDict(frozen=False)
-
     model: Literal["Room"] = Field(default="Room", alias="__model__", repr=False)
     service_name: Optional[str] = None
     name: Optional[str] = None
     ip: Optional[str] = None
     port: Optional[int] = None
     connected: Optional[bool] = None
-    status: Optional[str] = None
+    status: Optional[dict[str, Any]] = None

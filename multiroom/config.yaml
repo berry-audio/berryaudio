@@ -1,5 +1,5 @@
-capture_device: hw:Loopback,0,1
-playback_device: hw:Loopback,1,1
+client_device: plughw:CARD=Loopback,DEV=0
+server_device: hw:Loopback,1,1
 server: false
 codec: opus
 chunk: 50

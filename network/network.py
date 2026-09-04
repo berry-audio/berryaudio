@@ -40,41 +40,53 @@ class NetworkExtension(Actor):
         pass
 
     async def on_stop(self):
+        self.running = False
         if hasattr(self, "_monitor_task"):
             self._monitor_task.cancel()
-            await asyncio.gather(self._monitor_task, return_exceptions=True)
+            try:
+                await self._monitor_task
+            except asyncio.CancelledError:
+                pass
         logger.info("Stopped")
 
     async def _monitor_network(self):
         while self.running:
             try:
+                logger.debug(f'Network status: {self._is_connected()}')
                 if not self._is_connected():
-                    if not self._hotspot_active:
-                        if not self._conn_in_progress:
-                            logger.warning("WLAN down, starting hotspot")
-                            await self.on_start_ap_mode()
+                    if not self._hotspot_active and not self._conn_in_progress:
+                        if not self.running: 
+                            break
+                        logger.warning("WLAN down, starting hotspot")
+                        await self.on_start_ap_mode()
                 else:
-                    if self._hotspot_active:
-                        if not self._conn_in_progress:
-                            logger.info("WLAN restored, stopping hotspot")
-                            await self.on_stop_ap_mode()
+                    if self._hotspot_active and not self._conn_in_progress:
+                        if not self.running:
+                            break
+                        logger.info("WLAN restored, stopping hotspot")
+                        await self.on_stop_ap_mode()
+
+            except asyncio.CancelledError:
+                raise 
             except Exception as e:
                 logger.error(f"Network monitor error: {e}")
 
-            await asyncio.sleep(CONFIG_WIFI_CHECK_INTERVAL)
+            try:
+                await asyncio.sleep(CONFIG_WIFI_CHECK_INTERVAL)
+            except asyncio.CancelledError:
+                break
 
     def _is_connected(self) -> bool:
         try:
-            _cmd = subprocess.run(
+            result = subprocess.run(
                 ["nmcli", "-t", "-f", "DEVICE,STATE,CONNECTION", "device"],
-                capture_output=True,
-                text=True,
+                capture_output=True, text=True, timeout=3,
             )
-            for line in _cmd.stdout.splitlines():
+            for line in result.stdout.splitlines():
                 parts = line.split(":")
                 if len(parts) >= 3:
                     device, state, connection = parts[0], parts[1], parts[2]
-                    if device == "wlan0" and state == "connected":
+                    if device == "wlan0" and "connected" in state.lower():
                         if "hotspot" in connection.lower():
                             return False
                         return True
