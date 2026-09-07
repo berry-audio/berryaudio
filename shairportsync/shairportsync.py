@@ -94,7 +94,7 @@ class ShairportsyncExtension(SourceActor):
     async def on_start_service(self):
         self._source_active = True
         if os.path.exists(SHAIRPORT_PATH) and os.path.exists(SHAIRPORT_RENDER_PATH):
-            await self._core.request("dsp.set_capture_device", samplerate=self._sample_rate)
+            await self._core.request("dsp.set_capture_device", samplerate=self._sample_rate, gain=-5.0)
             threading.Thread(target=self._shairportsync_init,
                              daemon=True).start()
             threading.Thread(

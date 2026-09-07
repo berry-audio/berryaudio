@@ -33,6 +33,7 @@ async def async_main(verbose=False):
     core = Core()
     extensions = [
         "config",
+        "dsp",
         "system",
         "mixer",
         "tracklist",
@@ -57,7 +58,6 @@ async def async_main(verbose=False):
         "webrtc",
         "linein",
         "command",
-        "dsp",
         "usbdac",
     ]
     await core.load_extensions_by_name(extensions)

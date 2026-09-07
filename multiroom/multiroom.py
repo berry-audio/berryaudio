@@ -6,12 +6,13 @@ import os
 import re
 import socket
 import json
+import aiohttp
 import websockets
 
 from pathlib import Path
 from zeroconf.asyncio import AsyncZeroconf, AsyncServiceBrowser
 from core.util.system import SystemUtil
-from core.models import Track, Source, Room
+from core.models import Track, Source, Room, Album, Artist
 from core.actor import SourceActor
 
 logger = logging.getLogger(__name__)
@@ -29,7 +30,6 @@ SNAPCLIENT_PATH = "/usr/local/bin/snapclient"
 SNAPSERVER_CONFIG_PATH = Path(__file__).parent / "snapserver.conf"
 
 SAMPLE_FORMAT_MAP = {
-    "Auto": 32,
     "S16_LE": 16,
     "S24_LE": 24,
     "S32_LE": 32,
@@ -69,8 +69,8 @@ class MultiroomExtension(SourceActor):
                 "icon": "speaker",
             },
         )
-        self._sample_rate = None
-        self._bit_depth = self._config["multiroom"].get("bit_depth", 16)
+        self._sample_rate = 44100
+        self._bit_depth = self._config["multiroom"].get("bit_depth", 32)
         self._track = Track()
         self._zc_tasks = set()
         self._loop = asyncio.get_running_loop()
@@ -98,16 +98,19 @@ class MultiroomExtension(SourceActor):
 
     async def on_event(self, message):
         event = message.get("event")
-        if event == "dsp_options_before":
-            resample = message.get("resample")
-            if not resample:
-                await self._stop_snapserver()
-
         if event == "dsp_options_changed":
-            self._sample_rate = message.get("sample_rate", 44100)
-            self._bit_depth = SAMPLE_FORMAT_MAP.get(
-                message.get("sample_format", 32))
+            self._sample_rate = message.get("sample_rate", self._sample_rate)
+            self._bit_depth = SAMPLE_FORMAT_MAP.get(message.get("sample_format", 32))
             await self._control_snapserver()
+
+        if event == "track_meta_updated":
+            await self.on_servers()
+            if SNAPCAST_LOCAL_IP in self._servers:
+                self._core.send(
+                    target=["web", "display"],
+                    event="multiroom_server_updated",
+                    server=self._servers[SNAPCAST_LOCAL_IP],
+                )
 
     async def on_start_service(self):
         return self._source
@@ -121,7 +124,7 @@ class MultiroomExtension(SourceActor):
             self._source.state.icon = None
             self._source.state.connected = False
             self._source.state.address = None
-            await self._stop_snapclient()
+            await self.on_stop_snapclient()
             await self._send_connection_update(self._source.state.address)
         return True
 
@@ -174,7 +177,7 @@ class MultiroomExtension(SourceActor):
                 ip=resolved_ip,
                 port=info.port,
                 connected=False,
-                status={},
+                status=None,
             )
 
             self._servers[resolved_ip].status = await self.on_get_status(self._servers[resolved_ip].ip)
@@ -196,16 +199,23 @@ class MultiroomExtension(SourceActor):
                         server=self._servers[server.ip],
                     )
 
+    async def _send_request_rpc(self, ip, request, port=8080, timeout=1.0):
+        url = f"http://{ip}:{port}/rpc"
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, json=request, timeout=timeout) as resp:
+                return await resp.json()
+
     async def _send_request(self, ip, request):
         self._reader, self._writer = await asyncio.open_connection(ip, JSONRPC_PORT)
         self._writer.write((json.dumps(request) + "\n").encode())
         await self._writer.drain()
         try:
-            response = await asyncio.wait_for(self._reader.readline(), timeout=0.2)
+            response = await asyncio.wait_for(self._reader.readline(), timeout=1.0)
+            logger.debug(request)
             if response:
                 result = json.loads(response.decode())
                 if "error" in result:
-                    logger.error("Multiroom error:", result["error"])
+                    logger.error(result["error"])
 
                 if self._writer:
                     try:
@@ -246,8 +256,6 @@ class MultiroomExtension(SourceActor):
             logger.error("Multiroom config missing")
             return
 
-        # await self._control_snapserver()
-
         AsyncServiceBrowser(
             self.zeroconf.zeroconf,
             SERVICE_TYPE,
@@ -269,17 +277,17 @@ class MultiroomExtension(SourceActor):
             finally:
                 self._server_websockets.pop(ip, None)
 
-        await self._stop_snapclient()
-        await self._stop_snapserver()
+        await self.on_stop_snapclient()
+        await self.on_stop_snapserver()
         logger.info("Stopped")
 
     async def _control_snapserver(self):
         if self._server_enabled:
-            await self._start_snapserver()
+            await self.on_start_snapserver()
         else:
-            await self._stop_snapserver()
+            await self.on_stop_snapserver()
 
-    async def _stop_snapserver(self):
+    async def on_stop_snapserver(self):
         if self._proc_snapserver is not None:
             self._proc_snapserver.terminate()
             self._proc_snapserver.kill()
@@ -292,7 +300,7 @@ class MultiroomExtension(SourceActor):
 
             logger.info(f"Multiroom server stopped")
 
-    async def _start_snapserver(self):
+    async def on_start_snapserver(self):
         if self._proc_snapserver is not None:
             return
 
@@ -322,6 +330,8 @@ class MultiroomExtension(SourceActor):
         )
 
         async def _on_connected():
+            logger.info(
+                f"Snapcast server started with {self._sample_rate}:{self._bit_depth}:2")
             await self._start_notification_listener(SNAPCAST_LOCAL_IP)
 
         def _log(stream, label):
@@ -352,7 +362,7 @@ class MultiroomExtension(SourceActor):
         logger.info(
             f"Multiroom server started at {SNAPCAST_LOCAL_IP}:{AUDIO_PORT}")
 
-    async def _stop_snapclient(self):
+    async def on_stop_snapclient(self):
         """Multiroom client stop"""
         if self._proc_snapclient is None:
             return
@@ -363,7 +373,7 @@ class MultiroomExtension(SourceActor):
         await self._core.request("playback.clear")
         logger.info(f"Multiroom client stopped")
 
-    async def _start_snapclient(self, ip):
+    async def on_start_snapclient(self, ip):
         """Multiroom client initialization"""
         if self._proc_snapclient is not None:
             return
@@ -391,10 +401,11 @@ class MultiroomExtension(SourceActor):
             )
 
         async def _client_connected():
+            server = self._servers[ip]
             self._source.state.icon = "speaker"
             self._source.state.connected = True
             self._source.state.address = ip
-            self._source.state.name = "UNKNOWN TO DO"
+            self._source.state.name = server.name
             await self._send_connection_update(ip)
             await self._start_notification_listener(ip)
             await self._core.request("source.set", uri="multiroom")
@@ -408,8 +419,6 @@ class MultiroomExtension(SourceActor):
                 event="error",
                 message=line,
             )
-            
-
 
         def _log(stream, label):
             for line in iter(stream.readline, ""):
@@ -430,15 +439,17 @@ class MultiroomExtension(SourceActor):
 
                     self._track = Track(
                         uri=self._name,
-                        name="Client Room",
+                        name=self._source.state.name,
+                        albums=frozenset([Album(name="Multiroom")]),
+                        artists=frozenset([Artist(name="Multiroom")]),
                         sample_rate=rate,
                         bit_depth=f"{bit_depth}bit",
                         channels=channels,
                         audio_codec=codec,
                     )
 
-                    self._core._request("playback.set_metadata", track=self._track)
-
+                    self._core._request(
+                        "playback.set_metadata", track=self._track)
 
                 if "Connected" in line:
                     self._loop.call_soon_threadsafe(
@@ -450,10 +461,10 @@ class MultiroomExtension(SourceActor):
                         asyncio.create_task, _client_disconnected()
                     )
 
-                if "Exception" in line:
+                if "Exception in" in line:
                     self._loop.call_soon_threadsafe(
                         asyncio.create_task, _client_errors(line)
-                    )    
+                    )
 
             stream.close()
 
@@ -467,8 +478,7 @@ class MultiroomExtension(SourceActor):
 
     async def on_servers(self):
         servers = []
-
-        await asyncio.sleep(0.3)
+        await asyncio.sleep(0.1)
         for server in list(self._servers.values()):
             server.connected = server.ip == self._source.state.address
             server.status = await self.on_get_status(server.ip)
@@ -488,13 +498,37 @@ class MultiroomExtension(SourceActor):
         await self._core.request("source.update_source", source=self._source)
         await self._core.request("playback.clear")
 
-        await self._stop_snapclient()
+        await self.on_stop_snapclient()
         await self._send_connection_update(ip)
         return True
 
     async def on_connect(self, ip):
-        await self._start_snapclient(ip)
+        await self.on_start_snapclient(ip)
         return True
+
+    async def on_add_stream(self, ip):
+        request = {
+            "id": 8,
+            "jsonrpc": "2.0",
+            "method": "Stream.AddStream",
+            "params": {
+                "streamUri": f"alsa:///?name=Loopback1&sampleformat={self._sample_rate}:{self._bit_depth}:2&device=hw:Loopback,1,2"
+            }
+        }
+        result = await self._send_request(ip, request)
+        return result
+
+    async def on_remove_stream(self, ip):
+        request = {
+            "id": 1,
+            "jsonrpc": "2.0",
+            "method": "Stream.RemoveStream",
+            "params": {
+                "id": "Loopback"
+            }
+        }
+        result = await self._send_request(ip, request)
+        return result
 
     async def on_get_status(self, ip):
         request = {
@@ -502,13 +536,22 @@ class MultiroomExtension(SourceActor):
             "jsonrpc": "2.0",
             "method": "Server.GetStatus",
         }
-        result = {}
+        request_meta = {
+            "id": 2,
+            "jsonrpc": "2.0",
+            "method": "playback.get_current_tl_track",
+        }
+        response_status = {}
         try:
-            result = await self._send_request(ip, request)
+            response_status = await self._send_request(ip, request)
+            response_meta = await self._send_request_rpc(ip, request_meta)
+            if response_status['server']['streams']:
+                response_status['server']['streams'][0]['meta'] = response_meta.get(
+                    'result', None)
         except (OSError, Exception) as e:
             logger.warning(f"Failed to get status for {ip}: {e}")
-            result = {}
-        return result
+            response_status = {}
+        return response_status
 
     async def on_set_volume(self, ip, client_id, volume=None, mute=False):
         request = {
@@ -644,11 +687,11 @@ class MultiroomExtension(SourceActor):
             websockets.exceptions.ConnectionClosedOK,
         ) as e:
             logger.warning(f"WebSocket closed, reconnecting in 3s: {e}")
-            await asyncio.sleep(3)
+            await asyncio.sleep(1)
 
         except Exception as e:
             logger.error(f"Notification listener error: {e}")
-            await asyncio.sleep(3)
+            await asyncio.sleep(1)
 
         finally:
             if self._server_websockets.get(ip) is ws:

@@ -38,6 +38,7 @@ class DspExtension(Actor):
         self._resample_rate = self._config.get(
             "dsp", {}).get("resample_rate", None)
         self._disconnect_task = None
+        self._dsp_running = True
 
     async def on_config_update(self, config):
         updated_config = config[self._name]
@@ -54,11 +55,12 @@ class DspExtension(Actor):
 
     async def on_start(self):
         await self._system.write_asoundrc(pcm=self._config.get("mixer", {}).get("hw_device"))
+      
         await self.on_set_capture_device()
-        await self.on_service("restart")
         logger.info(f"Started")
 
     async def on_stop(self):
+        self._dsp_running = False
         logger.info("Stopped")
 
     async def on_event(self, message):
@@ -85,6 +87,7 @@ class DspExtension(Actor):
             with open(CONFIG_PATH, "w") as f:
                 yaml.dump(config, f, default_flow_style=False,
                           allow_unicode=True)
+            logger.info('DSP config written')    
         except Exception as e:
             logger.error(f"Failed to write config file: {e}")
             raise ValueError("Failed to write config file") from e
@@ -114,120 +117,105 @@ class DspExtension(Actor):
         sampleformat=None,
     ):
         """Update config file directly then restart CamillaDSP."""
-        try:
-            config = self._read_config()
+        self._dsp_running = True
 
-            gain = gain if gain else self._default_gain
-            capture_device = device if device else self._default_capture_device
-            config["filters"]["Gain"]["parameters"]["gain"] = gain
-            config["devices"]["capture"]["device"] = capture_device
+        if self._resample_rate is None:
+            await self._core.request("multiroom.stop_snapserver")
 
-            if self._resample_rate is not None:
-                config["devices"]["samplerate"] = self._resample_rate
-                config["devices"].setdefault("resampler", {})[
-                    "type"] = "Synchronous"
-                config["devices"]["capture_samplerate"] = samplerate
-            else:
-                config["devices"].pop("resampler", None)
-                if samplerate is not None:
-                    config["devices"]["samplerate"] = samplerate
+        #Set Gain and Capture Device
+        config = self._read_config()
+        gain = gain if gain else self._default_gain
+        capture_device = device if device else self._default_capture_device
+        config["filters"]["Gain"]["parameters"]["gain"] = gain
+        config["devices"]["capture"]["device"] = capture_device
 
-            new_playback_format = None
-            if sampleformat is not None:
-                config["devices"]["capture"]["format"] = sampleformat
-                new_playback_format = sampleformat
-            else:
-                config["devices"]["capture"].pop("format", None)
+        #Set Samplerate
+        if self._resample_rate is not None:
+            config["devices"]["samplerate"] = self._resample_rate
+            config["devices"]["capture_samplerate"] = samplerate
+            config["devices"].setdefault("resampler", {})["type"] = "Synchronous"
+        else:
+            config["devices"].pop("resampler", None)
+            config["devices"]["samplerate"] = samplerate
 
-            self._write_config(config)
-            self._core.send(
-                event="dsp_options_before",
-                capture_device=capture_device,
-                sample_rate=config["devices"]["samplerate"],
-                resample=self._resample_rate is not None
-            )
+        #Set Format
+        if sampleformat is not None:
+            config["devices"]["capture"]["format"] = sampleformat
+        else:
+            config["devices"]["capture"].pop("format", None)
 
-            new_sample_rate = config["devices"]["samplerate"] or samplerate
+        self._write_config(config)
+        await self.on_service("start")
 
-            max_retries = 3
-            for attempt in range(1, max_retries + 1):
-                try:
-                    self._client.connect()
-                    self._client.config.set_active(config)
-                    state = self._client.general.state()
+        while self._dsp_running:
+            try:
+                while self._dsp_running:
+                    try:
+                        self._client.connect()
+                        break
+                    except (ConnectionRefusedError, OSError) as e:
+                        logger.warning(f"DSP not reachable yet, retrying: {e}")
+                        raise
 
-                    if state == ProcessingState.RUNNING:
-                        self._client.general.reload()
-                        await asyncio.sleep(0.1)
-                        active = self._client.config.active()
-                        new_volume = self._client.volume.main_volume()
-                        new_mute = self._client.volume.main_mute()
+                self._client.config.set_active(config)
 
-                        new_sample_rate = active["devices"]["samplerate"]
-                        new_capture_rate = active["devices"]["capture_samplerate"]
-                        new_playback_format = (
-                            active["devices"]["playback"]["format"] or "Auto"
-                        )
+                while self._client.general.state() != ProcessingState.RUNNING:
+                    await asyncio.sleep(0.1)
 
-                        self._core.send(
-                            event="dsp_options_changed",
-                            capture_device=capture_device,
-                            sample_rate=new_sample_rate,
-                            sample_format=new_playback_format,
-                            resample=self._resample_rate is not None
-                        )
+                self._client.general.reload()
+                active = self._client.config.active()
+                new_volume = self._client.volume.main_volume()
+                new_mute = self._client.volume.main_mute()
 
-                        self._core.send(
-                            event="dsp_state_changed",
-                            config=self.on_get_config(),
-                        )
+                new_capture_rate = active["devices"]["capture_samplerate"] if self._resample_rate else samplerate
 
-                        capture_info = (
-                            f"{new_capture_rate}Hz"
-                            if self._resample_rate
-                            else f"{new_sample_rate}Hz"
-                        )
+                self._core.send(
+                    event="dsp_options_changed",
+                    capture_device=capture_device,
+                    sample_rate=self._resample_rate if self._resample_rate else samplerate,
+                    sample_format=sampleformat or 'S32_LE',
+                    resample=self._resample_rate is not None
+                )
 
-                        resample_info = (
-                            f"{self._resample_rate}Hz"
-                            if self._resample_rate
-                            else False
-                        )
+                self._core.send(
+                    event="dsp_state_changed",
+                    config=self.on_get_config(),
+                )                 
 
-                        info = f"DSP: {capture_device} | Gain {float(gain)}dB | Actual Rate {capture_info} | Resample {resample_info} | Format {new_playback_format} | Volume {new_volume}dB | Mute {new_mute}"
-                        divider = "-" * len(info)
-                        logger.info(divider)
-                        logger.info(info)
-                        logger.info(divider)
+                resample_info = (
+                    f"{self._resample_rate}Hz"
+                    if self._resample_rate
+                    else False
+                )
 
-                        return True
-                except Exception as e:
-                    logger.error(e)
-                    logger.error(f"DSP failed to update capture. Trying again {attempt}/{max_retries} failed: {e}")
-                    self._core.send(
-                        event="dsp_options_error",
-                        capture_device=capture_device,
-                        sample_rate=new_sample_rate,
-                        sample_format=new_playback_format,
-                    )
+                info = (
+                    f'DSP: {capture_device} | Gain {float(gain)}dB | '
+                    f'Actual Rate {new_capture_rate}Hz | Resample {resample_info} | '
+                    f'Format {sampleformat or "Auto (S32_LE)"} | '
+                    f'Volume {new_volume}dB | Mute {new_mute}'
+                )
+                divider = "-" * len(info)
+                logger.info(divider)
+                logger.info(info)
+                logger.info(divider)
+                return True
 
-                if attempt < max_retries:
-                    await asyncio.sleep(1.0 * attempt) 
-                    
-
-        except Exception as e:
-            logger.error(e)
-            logger.error("DSP failed to update capture. Please try again")
-            self._core.send(
-                event="dsp_options_error",
-                capture_device=capture_device,
-                sample_rate=new_sample_rate,
-                sample_format=new_playback_format,
-            )
-            self._core.send(
-                event="error", message="DSP failed to update capture. Please try again"
-            )
-
+            except Exception as e:
+                logger.error(f"DSP failed to update capture {e} ")
+                await self._core.request("multiroom.stop_snapserver")
+                
+                self._core.send(
+                    event="dsp_options_error",
+                    message="DSP failed to update.",
+                )
+                self._core.send(
+                    event="error",
+                    message=f"DSP error:{e} ",
+                )
+                self._dsp_running = False
+                await self.on_set_capture_device()
+                await self.on_service('restart')
+                break
 
     def on_volume_to_db(self, volume: int) -> float:
         if volume <= 0:
@@ -297,9 +285,9 @@ class DspExtension(Actor):
     def on_signal_levels(self):
         def _build_levels():
             return {
-                    "levels": self._client.levels.levels(),
-                    "labels": self._client.levels.labels(),
-                }
+                "levels": self._client.levels.levels(),
+                "labels": self._client.levels.labels(),
+            }
         try:
             return _build_levels()
         except IOError:
@@ -308,14 +296,14 @@ class DspExtension(Actor):
 
     def on_status(self):
         def _build_stats():
-                return {
-                    "capturerate": self._client.rate.capture(),
-                    "rateadjust": self._client.status.rate_adjust(),
-                    "bufferlevel": self._client.status.buffer_level(),
-                    "clippedsamples": self._client.status.clipped_samples(),
-                    "processingload": self._client.status.processing_load(),
-                    "resamplerload": self._client.status.resampler_load(),
-                }
+            return {
+                "capturerate": self._client.rate.capture(),
+                "rateadjust": self._client.status.rate_adjust(),
+                "bufferlevel": self._client.status.buffer_level(),
+                "clippedsamples": self._client.status.clipped_samples(),
+                "processingload": self._client.status.processing_load(),
+                "resamplerload": self._client.status.resampler_load(),
+            }
         try:
             return _build_stats()
         except IOError:

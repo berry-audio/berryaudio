@@ -29,111 +29,81 @@ devices:
   volume_ramp_time: null
   worker_threads: null
 filters:
-  Bass:
-    description: Shows Bass
-    parameters:
-      freq: 60
-      gain: 4
-      q: 1
-      type: Lowshelf
-    type: Biquad
-  Bass (Mid):
-    description: Bass Mid
-    parameters:
-      freq: 80
-      gain: 2
-      q: 1
-      type: Lowshelf
-    type: Biquad
-  Flanger:
+  15 Band EQ:
     description: null
     parameters:
-      delay_ms: 3
-      depth_ms: 3
-      phase_deg: 180
-      regen: 50
-      shape: triangle
-      speed_hz: 1
-      wet: 0.5
-      width: 50
-    type: Flanger
-  Gain:
-    description: ''
-    parameters:
-      gain: -15
-      inverted: false
-      mute: false
-      scale: dB
-    type: Gain
-  Parametric Equalizer:
-    description: Graphic equaliser
-    parameters:
-      freq_max: 20000
+      freq_max: 19000
       freq_min: 45
       gains:
-      - 6.4
-      - 6.3
-      - 0.8
-      - -1.9
-      - -3
+      - 3
+      - -2.3
+      - -1.3
+      - -2.6
       - -3.6
-      - -3.5
       - -4
-      - -4.2
       - -3.9
+      - -4.3
       - -3.8
-      - -2.9
-      - -0.8
-      - 2.6
-      - 5.5
+      - -3.2
+      - -2.5
+      - -1.8
+      - 0.6
+      - 4
+      - 6.1
       type: GraphicEqualizer
     type: BiquadCombo
-  Pitch:
+  Bass:
     description: null
     parameters:
-      semitones: 5
-      tempo: 1
-      wet: 1
-    type: Pitch
-  Reverb:
+      freq: 60
+      gain: 0
+      slope: 6
+      type: Lowshelf
+    type: Biquad
+  Bass 80:
     description: null
     parameters:
-      hf_damping: 0
-      pre_delay_ms: 0
-      reverberance: 18
-      room_scale: 10
-      stereo_depth: 0
-      wet: 0.13
-      wet_gain_db: 25
-    type: Reverb
+      freq: 80
+      gain: 5
+      slope: 5
+      type: Lowshelf
+    type: Biquad
+  Gain:
+    description: null
+    parameters:
+      gain: -15
+      inverted: null
+      mute: null
+      scale: dB
+    type: Gain
   Treble:
     description: null
     parameters:
-      freq: 12000
-      gain: 1
-      q: 1
+      freq: 19000
+      gain: 0
+      q: 1.5
       type: Peaking
     type: Biquad
 mixers:
-  Distributer:
+  Main Distributer:
     channels:
       in: 2
       out: 8
     description: null
     labels:
-    - DAC R
     - DAC L
-    - Multiroom R
-    - Multiroom L
-    - Spectrum R
-    - Spectrum L
-    - Web RTC R
-    - Web RTC L
+    - DAC R
+    - ROOM L
+    - ROOM R
+    - CAVA L
+    - CAVA R
+    - BT L
+    - BT R
     mapping:
     - dest: 0
       mute: false
       sources:
-      - channel: 1
+      - channel: 0
         gain: 0
         inverted: false
         mute: false
@@ -141,44 +111,12 @@ mixers:
     - dest: 1
       mute: false
       sources:
-      - channel: 0
+      - channel: 1
         gain: 0
         inverted: false
         mute: false
         scale: dB
     - dest: 2
-      mute: false
-      sources:
-      - channel: 1
-        gain: 0
-        inverted: false
-        mute: false
-        scale: dB
-    - dest: 4
-      mute: false
-      sources:
-      - channel: 1
-        gain: 0
-        inverted: false
-        mute: false
-        scale: dB
-    - dest: 5
-      mute: false
-      sources:
-      - channel: 0
-        gain: 0
-        inverted: false
-        mute: false
-        scale: dB
-    - dest: 6
-      mute: false
-      sources:
-      - channel: 1
-        gain: 0
-        inverted: false
-        mute: false
-        scale: dB
-    - dest: 7
       mute: false
       sources:
       - channel: 0
@@ -189,19 +127,12 @@ mixers:
     - dest: 3
       mute: false
       sources:
-      - channel: 0
+      - channel: 1
         gain: 0
         inverted: false
         mute: false
         scale: dB
-  Unnamed Mixer 2:
-    channels:
-      in: 8
-      out: 2
-    description: null
-    labels: null
-    mapping:
-    - dest: 0
+    - dest: 4
       mute: false
       sources:
       - channel: 0
@@ -209,22 +140,7 @@ mixers:
         inverted: false
         mute: false
         scale: dB
-      - channel: 2
-        gain: 0
-        inverted: false
-        mute: false
-        scale: dB
-      - channel: 4
-        gain: 0
-        inverted: false
-        mute: false
-        scale: dB
-      - channel: 6
-        gain: 0
-        inverted: false
-        mute: false
-        scale: dB
-    - dest: 1
+    - dest: 5
       mute: false
       sources:
       - channel: 1
@@ -232,17 +148,18 @@ mixers:
         inverted: false
         mute: false
         scale: dB
-      - channel: 3
+    - dest: 6
+      mute: false
+      sources:
+      - channel: 0
         gain: 0
         inverted: false
         mute: false
         scale: dB
-      - channel: 5
-        gain: 0
-        inverted: false
-        mute: false
-        scale: dB
-      - channel: 7
+    - dest: 7
+      mute: false
+      sources:
+      - channel: 1
         gain: 0
         inverted: false
         mute: false
@@ -254,48 +171,35 @@ pipeline:
   names:
   - Gain
   type: Filter
-- bypassed: true
-  channels: null
+- bypassed: false
+  description: null
+  name: Main Distributer
+  type: Mixer
+- bypassed: false
+  channels:
+  - 0
+  - 1
+  - 2
+  - 3
+  - 6
+  - 7
   description: null
   names:
-  - Pitch
+  - 15 Band EQ
   type: Filter
 - bypassed: false
-  channels: null
-  description: null
-  names:
-  - Reverb
-  type: Filter
-- bypassed: false
-  channels: null
+  channels:
+  - 0
+  - 1
+  - 2
+  - 3
+  - 6
+  - 7
   description: null
   names:
   - Bass
-  - Bass (Mid)
-  - Parametric Equalizer
+  - Bass 80
   - Treble
   type: Filter
-- bypassed: false
-  description: null
-  name: Distributer
-  type: Mixer
-processors:
-  Unnamed Processor 1:
-    description: null
-    parameters:
-      attack: 0.025
-      channels: 2
-      clip_limit: null
-      factor: 5
-      makeup_gain: 15
-      monitor_channels:
-      - 0
-      - 1
-      process_channels:
-      - 0
-      - 1
-      release: 1
-      soft_clip: false
-      threshold: -25
-    type: Compressor
+processors: {}
 title: Parametric EQ 10-Band

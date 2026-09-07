@@ -208,6 +208,7 @@ class SystemExtension(Actor):
             "version": __version__,
             "camilladsp": self._app_version(["camilladsp", "--version"]),
             "shairport_sync": self._app_version(["shairport-sync", "--version"]),
+            "nqptp": self._app_version(["nqptp", "-V"]),
             "librespot": self._app_version(["librespot", "--version"]),
             "snapcast_server": self._app_version(["snapserver", "--version"]),
             "snapcast_client": self._app_version(["snapclient", "--version"]),
