@@ -37,6 +37,7 @@ class ShairportsyncExtension(SourceActor):
         self._source = Source(
             name="Airplay",
             uri=self._name,
+            enabled=False,
             controls=[],
             state={"connected": False},
         )
@@ -50,15 +51,17 @@ class ShairportsyncExtension(SourceActor):
         self._sample_rate = 44100
         self._loop = asyncio.get_running_loop()
 
+    def _enabled_state(self):
+        self._source.enabled = os.path.exists(SHAIRPORT_PATH) and os.path.exists(SHAIRPORT_RENDER_PATH)
+
     async def on_start(self):
         if not os.path.exists(SHAIRPORT_PATH):
             logger.error("Shairport service missing")
-            return
 
         if not os.path.exists(SHAIRPORT_RENDER_PATH):
             logger.error("Shairport meta service missing")
-            return
 
+        self._enabled_state()
         logger.info("Started")
 
     async def on_event(self, message):
@@ -108,7 +111,7 @@ class ShairportsyncExtension(SourceActor):
                 f"Started Shairport Sync with name {self._hostname} on {self._output_device}"
             )
         else:
-            logger.error(f"Shairport servics missing")
+            logger.error(f"Shairport services missing")
         return self._source
 
     def _clean_images_dir(self):

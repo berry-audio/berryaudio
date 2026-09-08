@@ -22,6 +22,7 @@ class UsbdacExtension(SourceActor):
         self._gain = self._config[self._name].get("gain")
         self._channels = 2
         self._audio_codec = "PCM"
+        self._enabled = self._config[self._name].get("enable")
         self._track = Track(
             uri=self._name,
             name="USB DAC",
@@ -33,6 +34,7 @@ class UsbdacExtension(SourceActor):
         self._source = Source(
             name="USB DAC",
             uri=self._name,
+            enabled=False,
             controls=[],
             state={"connected": False},
         )
@@ -48,6 +50,7 @@ class UsbdacExtension(SourceActor):
 
         if "enable" in updated_config:
             await self.on_init(updated_config["enable"])
+            self._enabled = updated_config["enable"]
             self._core.send(event="system", action="restart")
 
         if "sample_rate" in updated_config:
@@ -59,6 +62,8 @@ class UsbdacExtension(SourceActor):
 
         if "gain" in updated_config:
             self._gain = updated_config["gain"]
+
+        self._enabled_state()
 
         if await self.is_active():
             await self._core.request(
@@ -72,8 +77,12 @@ class UsbdacExtension(SourceActor):
         source = await self._core.request("source.get")
         return bool(source and source.uri == self._name)
 
+    def _enabled_state(self):
+        self._source.enabled = self._enabled
+
     async def on_start(self):
         await self.on_init(self._config[self._name].get("enable"))
+        self._enabled_state()
         logger.info("Started")
 
     async def on_event(self, message):

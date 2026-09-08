@@ -31,9 +31,13 @@ class LineinExtension(SourceActor):
         self._source = Source(
             name="Line In",
             uri=self._name,
+            enabled=False,
             controls=[],
             state={"connected": False},
         )
+
+    def _enabled_state(self):
+        self._source.enabled = self._input_device is not None
 
     async def on_config_update(self, config):
         updated_config = config[self._name]
@@ -51,6 +55,8 @@ class LineinExtension(SourceActor):
         if "gain" in updated_config:
             self._gain = updated_config["gain"]
 
+        self._enabled_state()
+
         if await self.is_active():
             await self._core.request(
                 "dsp.set_capture_device",
@@ -64,6 +70,7 @@ class LineinExtension(SourceActor):
         return bool(source and source.uri == self._name)
 
     async def on_start(self):
+        self._enabled_state()
         logger.info("Started")
 
     async def on_event(self, message):

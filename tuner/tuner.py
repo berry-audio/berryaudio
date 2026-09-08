@@ -48,6 +48,7 @@ class TunerExtension(SourceActor):
         self._source = Source(
             name="Tuner",
             uri=self._name,
+            enabled=False,
             controls=[
                 PlaybackControls.NEXT,
                 PlaybackControls.PREVIOUS,
@@ -80,6 +81,8 @@ class TunerExtension(SourceActor):
         if "gain" in updated_config:
             self._gain = updated_config["gain"]
 
+        self._enabled_state()
+        
         if await self.is_active():
             await self._core.request(
                 "dsp.set_capture_device",
@@ -88,12 +91,16 @@ class TunerExtension(SourceActor):
                 samplerate=self._sample_rate,
             )
 
+    def _enabled_state(self):
+        self._source.enabled = self._input_device is not None and self._hw_device is not None
+
     async def is_active(self):
         source = await self._core.request("source.get")
         return bool(source and source.uri == self._name)
 
     async def on_start(self):
         self._init_db()
+        self._enabled_state()
         logger.info("Started")
 
     async def on_event(self, message):

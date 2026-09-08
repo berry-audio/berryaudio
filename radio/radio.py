@@ -59,12 +59,11 @@ class RadioExtension(SourceActor):
         self._core = core
         self._db = db
         self._config = config
-
         self._rb_instance = None
-        
         self._source = Source(
             name="Radio",
             uri=self._name,
+            enabled=True,
             controls=[
                 PlaybackControls.SEEK,
                 PlaybackControls.PLAY,

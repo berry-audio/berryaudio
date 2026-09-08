@@ -64,6 +64,7 @@ class MultiroomExtension(SourceActor):
         self._source = Source(
             name="Multiroom",
             uri=self._name,
+            enabled=False,
             controls=[],
             state={
                 "icon": "speaker",
@@ -95,6 +96,9 @@ class MultiroomExtension(SourceActor):
             self._server_buffer = updated_config["buffer"]
 
         await self._control_snapserver()
+
+    def _enabled_state(self):
+        self._source.enabled = os.path.exists(SNAPSERVER_PATH) and os.path.exists(SNAPCLIENT_PATH)
 
     async def on_event(self, message):
         event = message.get("event")
@@ -246,15 +250,14 @@ class MultiroomExtension(SourceActor):
     async def on_start(self):
         if not os.path.exists(SNAPSERVER_PATH):
             logger.error("Multiroom server missing")
-            return
 
         if not os.path.exists(SNAPCLIENT_PATH):
             logger.error("Multiroom client missing")
-            return
 
         if not os.path.exists(SNAPSERVER_CONFIG_PATH):
             logger.error("Multiroom config missing")
-            return
+
+        self._enabled_state()
 
         AsyncServiceBrowser(
             self.zeroconf.zeroconf,
@@ -304,6 +307,9 @@ class MultiroomExtension(SourceActor):
         if self._proc_snapserver is not None:
             return
 
+        if not os.path.exists(SNAPSERVER_PATH):
+            return
+        
         cmd = [
             SNAPSERVER_PATH,
             "-c",
@@ -378,6 +384,9 @@ class MultiroomExtension(SourceActor):
         if self._proc_snapclient is not None:
             return
 
+        if not os.path.exists(SNAPCLIENT_PATH):
+            return
+        
         cmd = [
             SNAPCLIENT_PATH,
             f"tcp://{ip}:{AUDIO_PORT}",

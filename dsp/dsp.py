@@ -39,6 +39,7 @@ class DspExtension(Actor):
             "dsp", {}).get("resample_rate", None)
         self._disconnect_task = None
         self._dsp_running = True
+        self._default_sample_rate = 44100
 
     async def on_config_update(self, config):
         updated_config = config[self._name]
@@ -70,7 +71,7 @@ class DspExtension(Actor):
             await self.on_set_capture_device(
                 device=self._default_capture_device,
                 gain=self._default_gain,
-                samplerate=self._resample_rate,
+                samplerate=self._default_sample_rate,
             )
 
     def _read_config(self):

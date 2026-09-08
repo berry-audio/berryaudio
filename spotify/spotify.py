@@ -46,16 +46,20 @@ class SpotifyExtension(SourceActor):
         self._source = Source(
             name="Spotify Connect",
             uri=self._name,
+            enabled=False,
             controls=[],
             state={"connected": False},
         )
         self._source_active = False
 
+    def _enabled_state(self):
+        self._source.enabled = os.path.exists(LIBRESPOT_PATH)
+
     async def on_start(self):
         if not os.path.exists(LIBRESPOT_PATH):
             logger.error("Librespot service missing")
-            return
 
+        self._enabled_state()        
         logger.info("Started")
 
     async def on_event(self, message):

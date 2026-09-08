@@ -167,6 +167,7 @@ class LocalExtension(SourceActor):
         self._source = Source(
             name="Library",
             uri=self._name,
+            enabled=True,
             controls=[
                 PlaybackControls.SEEK,
                 PlaybackControls.PLAY,

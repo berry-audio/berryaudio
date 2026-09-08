@@ -202,6 +202,7 @@ class Source(BaseModel):
     name: Optional[str] = None
     uri: Optional[Uri] = None
     active: bool = False
+    enabled: bool = False
     controls: list[str] = Field(default_factory=list)
     state: State = Field(default_factory=State)
 

@@ -80,6 +80,7 @@ class BluetoothExtension(SourceActor):
         self._source = Source(
             name="Bluetooth",
             uri=self._name,
+            enabled=True,
             controls=[],
             state={"connected": False},
         )
@@ -217,6 +218,8 @@ class BluetoothExtension(SourceActor):
                 sampleformat=fmt,
                 samplerate=int(self._sample_rate),
             )
+            
+
             await self._stop_aplay()
             await self._init_aplay()
 
