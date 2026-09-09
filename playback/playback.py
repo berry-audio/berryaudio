@@ -348,6 +348,7 @@ class PlaybackExtension(Actor):
                 self._setup_playbin(uri=self._playback_uri)
                 self._pipeline.set_state(Gst.State.PLAYING)
                 self._state = PlaybackState.PLAYING
+                
                 self._core.send(
                     target=["web", "display"],
                     event="playback_state_changed",

@@ -3,7 +3,7 @@ devices:
   adjust_period: null
   capture:
     channels: 2
-    device: hw:CARD=UAC2Gadget,DEV=0
+    device: hw:CARD=Loopback,DEV=1
     labels: null
     link_mute_control: null
     link_volume_control: null
@@ -20,7 +20,7 @@ devices:
     type: Alsa
   queuelimit: 2
   rate_measure_interval: null
-  samplerate: 96000
+  samplerate: 44100
   silence_threshold: null
   silence_timeout: null
   stop_on_rate_change: null
@@ -78,7 +78,7 @@ filters:
       - -3
       - -3.6
       - -3.3
-      - -3
+      - -3.5
       - -3
       - -3.2
       - -3.8
@@ -100,11 +100,11 @@ filters:
     parameters:
       hf_damping: 0
       pre_delay_ms: 0
-      reverberance: 18
+      reverberance: 19
       room_scale: 10
       stereo_depth: 0
       wet: 0.13
-      wet_gain_db: 25
+      wet_gain_db: 20
     type: Reverb
   Treble:
     description: null
@@ -260,7 +260,7 @@ pipeline:
   names:
   - Pitch
   type: Filter
-- bypassed: true
+- bypassed: false
   channels: null
   description: null
   names:

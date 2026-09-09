@@ -37,7 +37,6 @@ async def async_main(verbose=False):
         "system",
         "mixer",
         "tracklist",
-        "web",
         "radio",
         "source",
         "spotify",
@@ -59,6 +58,7 @@ async def async_main(verbose=False):
         "linein",
         "command",
         "usbdac",
+        "web",
     ]
     await core.load_extensions_by_name(extensions)
 

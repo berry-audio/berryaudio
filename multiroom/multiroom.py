@@ -104,8 +104,8 @@ class MultiroomExtension(SourceActor):
         event = message.get("event")
         if event == "dsp_options_changed":
             self._sample_rate = message.get("sample_rate", self._sample_rate)
-            self._bit_depth = SAMPLE_FORMAT_MAP.get(message.get("sample_format", 32))
-            await self._control_snapserver()
+            self._bit_depth = SAMPLE_FORMAT_MAP.get(message.get("sample_format", self._bit_depth))
+            # await self._control_snapserver()
 
         if event == "track_meta_updated":
             await self.on_servers()
@@ -133,7 +133,6 @@ class MultiroomExtension(SourceActor):
         return True
 
     """Zeroconf default callbacks"""
-
     def _manage_service(self, **kwargs):
         task = asyncio.create_task(self._service_handler(kwargs))
         self._zc_tasks.add(task)
@@ -303,13 +302,19 @@ class MultiroomExtension(SourceActor):
 
             logger.info(f"Multiroom server stopped")
 
-    async def on_start_snapserver(self):
+    async def on_start_snapserver(self, sample_rate=44100, bit_depth='S32_LE'):
+        if not self._server_enabled:
+             return
+         
         if self._proc_snapserver is not None:
             return
 
         if not os.path.exists(SNAPSERVER_PATH):
             return
-        
+
+        self._sample_rate = sample_rate if sample_rate else self._sample_rate
+        self._bit_depth = SAMPLE_FORMAT_MAP.get(bit_depth) if bit_depth else self._bit_depth
+
         cmd = [
             SNAPSERVER_PATH,
             "-c",
@@ -365,6 +370,7 @@ class MultiroomExtension(SourceActor):
         threading.Thread(
             target=_log, args=(self._proc_snapserver.stderr, "STDERR"), daemon=True
         ).start()
+        
         logger.info(
             f"Multiroom server started at {SNAPCAST_LOCAL_IP}:{AUDIO_PORT}")
 
