@@ -82,7 +82,7 @@ class TunerExtension(SourceActor):
             self._gain = updated_config["gain"]
 
         self._enabled_state()
-        
+
         if await self.is_active():
             await self._core.request(
                 "dsp.set_capture_device",
@@ -116,10 +116,14 @@ class TunerExtension(SourceActor):
             gain=self._gain,
             device=self._input_device,
             samplerate=self._sample_rate,
+            ext=self._name
         )
-        await self._init_tuner()
         logger.info("Starting service")
         return self._source
+
+    async def on_start_stream(self):
+        logger.info("Starting stream")
+        await self._init_tuner()
 
     async def on_stop_service(self):
         if self._tuner:

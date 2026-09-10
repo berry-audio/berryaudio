@@ -35,6 +35,7 @@ class PlaybackExtension(Actor):
         self._playback_ready = False
         self._tl_track = None
         self._loop = asyncio.get_event_loop()
+        self._ext = None
 
     def _setup_playbin(self, uri: str | None = None):
         self._pipeline = Gst.Pipeline.new("audio-player")
@@ -133,29 +134,12 @@ class PlaybackExtension(Actor):
                         event="track_meta_updated",
                         tl_track=self._tl_track,
                     )
-                    if self._sample_rate and not self._playback_ready:
-                        self._playback_ready = True
-                        self._elapsed = 0
-
-                        GLib.idle_add(self._on_format_detected,
-                                      self._sample_rate)
-
             return Gst.PadProbeReturn.REMOVE
 
         pad.add_probe(Gst.PadProbeType.BUFFER, probe)
 
     def _on_format_detected(self, sample_rate):
-        if self._pipeline is not None:
-            self._pipeline.set_state(Gst.State.NULL)
-   
-        if self._time_source_id is not None:
-            GLib.source_remove(self._time_source_id)
-            self._time_source_id = None
-
-        asyncio.run_coroutine_threadsafe(
-            self._core.request("dsp.set_capture_device", samplerate=sample_rate
-                               ), self._loop,)
-
+       
         return False
 
     def _on_message(self, bus, message):
@@ -247,7 +231,24 @@ class PlaybackExtension(Actor):
             )
 
         elif t == Gst.MessageType.ASYNC_DONE:
-            pass
+            if self._sample_rate and not self._playback_ready:
+                self._playback_ready = True
+                self._elapsed = 0
+
+                if self._pipeline is not None:
+                    self._pipeline.set_state(Gst.State.NULL)
+        
+                if self._time_source_id is not None:
+                    GLib.source_remove(self._time_source_id)
+                    self._time_source_id = None
+        
+                asyncio.run_coroutine_threadsafe(
+                    self._core.request(
+                        "dsp.set_capture_device",
+                        samplerate=self._sample_rate,
+                        ext=self._ext,
+                    ), self._loop,)
+    
 
         elif t == Gst.MessageType.EOS:
             self.on_stop()
@@ -338,25 +339,9 @@ class PlaybackExtension(Actor):
         self.on_stop()
 
     async def on_event(self, message):
-        event = message.get("event")    
+        event = message.get("event")
         if event == "dsp_options_error":
-            self._playback_ready = False
             self.on_stop()
-
-        if event == "dsp_options_changed":
-            if self._playback_ready:
-                self._setup_playbin(uri=self._playback_uri)
-                self._pipeline.set_state(Gst.State.PLAYING)
-                self._state = PlaybackState.PLAYING
-                
-                self._core.send(
-                    target=["web", "display"],
-                    event="playback_state_changed",
-                    state=self._state,
-                )
-                track = self._tl_track.track
-                logger.info(
-                    f"Now Playing: {track.name or 'Unknown Title'} : {track.audio_codec} | {track.bitrate}bps | {track.sample_rate}Hz | {track.bit_depth}")
 
         if event == "tracklist_changed":
             if not message["tl_tracks"]:
@@ -406,8 +391,24 @@ class PlaybackExtension(Actor):
         )
         return True
 
+    async def on_start_stream(self):
+        if self._playback_ready:
+            self._setup_playbin(uri=self._playback_uri)
+            self._pipeline.set_state(Gst.State.PLAYING)
+            self._state = PlaybackState.PLAYING
+
+            self._core.send(
+                target=["web", "display"],
+                event="playback_state_changed",
+                state=self._state,
+            )
+            track = self._tl_track.track
+            logger.info(
+                f"Now Playing: {track.name or 'Unknown Title'} : {track.audio_codec} | {track.bitrate}bps | {track.sample_rate}Hz | {track.bit_depth}")
+
     async def on_play(self, uri: str | None = None, tlid: int | None = 0) -> bool:
         if uri:
+            self._ext = None
             try:
                 ext, path = uri.split(":", 1)
             except ValueError:
@@ -430,6 +431,7 @@ class PlaybackExtension(Actor):
             if not self._playback_uri:
                 raise ValueError("Playback uri not found")
 
+            self._ext = ext
             if self._playback_uri == ext:
                 return True
 
@@ -557,6 +559,7 @@ class PlaybackExtension(Actor):
         self._state = PlaybackState.STOPPED
         self._playback_ready = False
         self._elapsed = 0
+        self._ext = None
 
         self._core.send(
             target=["web", "display"],

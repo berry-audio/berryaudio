@@ -3,7 +3,7 @@ devices:
   adjust_period: null
   capture:
     channels: 2
-    device: hw:CARD=Loopback,DEV=1
+    device: hw:CARD=UAC2Gadget,DEV=0
     labels: null
     link_mute_control: null
     link_volume_control: null
@@ -20,7 +20,7 @@ devices:
     type: Alsa
   queuelimit: 2
   rate_measure_interval: null
-  samplerate: 44100
+  samplerate: 96000
   silence_threshold: null
   silence_timeout: null
   stop_on_rate_change: null
@@ -60,7 +60,7 @@ filters:
   Gain:
     description: ''
     parameters:
-      gain: -10
+      gain: -5
       inverted: false
       mute: false
       scale: dB
@@ -72,12 +72,12 @@ filters:
       freq_min: 45
       gains:
       - 6.5
-      - 5.6
+      - 6.3
       - 0.5
       - -1.9
       - -3
       - -3.6
-      - -3.3
+      - -2.9
       - -3.5
       - -3
       - -3.2
@@ -100,7 +100,7 @@ filters:
     parameters:
       hf_damping: 0
       pre_delay_ms: 0
-      reverberance: 19
+      reverberance: 21
       room_scale: 10
       stereo_depth: 0
       wet: 0.13
@@ -110,7 +110,7 @@ filters:
     description: null
     parameters:
       freq: 12000
-      gain: 1
+      gain: 4
       q: 1
       type: Peaking
     type: Biquad
@@ -248,6 +248,18 @@ mixers:
         mute: false
         scale: dB
 pipeline:
+- bypassed: true
+  channels:
+  - 2
+  - 3
+  - 4
+  - 5
+  - 6
+  - 7
+  description: null
+  names:
+  - Flanger
+  type: Filter
 - bypassed: false
   channels: null
   description: null

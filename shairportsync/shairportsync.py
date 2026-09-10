@@ -52,7 +52,8 @@ class ShairportsyncExtension(SourceActor):
         self._loop = asyncio.get_running_loop()
 
     def _enabled_state(self):
-        self._source.enabled = os.path.exists(SHAIRPORT_PATH) and os.path.exists(SHAIRPORT_RENDER_PATH)
+        self._source.enabled = os.path.exists(
+            SHAIRPORT_PATH) and os.path.exists(SHAIRPORT_RENDER_PATH)
 
     async def on_start(self):
         if not os.path.exists(SHAIRPORT_PATH):
@@ -96,23 +97,26 @@ class ShairportsyncExtension(SourceActor):
 
     async def on_start_service(self):
         self._source_active = True
+        logger.info("Starting service")
+        await self._core.request("dsp.set_capture_device", samplerate=self._sample_rate, gain=-5.0, ext=self._name)
+        return self._source
+
+    async def on_start_stream(self):
+        logger.info("Starting stream")
         if os.path.exists(SHAIRPORT_PATH) and os.path.exists(SHAIRPORT_RENDER_PATH):
-            await self._core.request("dsp.set_capture_device", samplerate=self._sample_rate, gain=-5.0)
+            
             threading.Thread(target=self._shairportsync_init,
                              daemon=True).start()
             threading.Thread(
                 target=self._shairportsync_meta_init, daemon=True).start()
             self._clean_images_dir()
             self._reset_meta()
-            logger.info(
-                f"Starting Service"
-            )
+
             logger.info(
                 f"Started Shairport Sync with name {self._hostname} on {self._output_device}"
             )
         else:
             logger.error(f"Shairport services missing")
-        return self._source
 
     def _clean_images_dir(self):
         if ALBUM_IMAGES_DIR.exists() and ALBUM_IMAGES_DIR.is_dir():

@@ -92,17 +92,21 @@ class UsbdacExtension(SourceActor):
         logger.info("Stopped")
 
     async def on_start_service(self):
+        logger.info("Starting service")
         await self._core.request(
             "dsp.set_capture_device",
             device=self._input_device,
             gain=self._gain,
             samplerate=self._sample_rate,
+            ext=self._name
         )
-        await self._core.request("playback.set_metadata", track=self._track)
-        logger.info("Starting service")
         return self._source
 
+    async def on_start_stream(self):
+         logger.info("Starting stream")
+         await self._core.request("playback.set_metadata", track=self._track)
+
     async def on_stop_service(self):
-        await self._core.request("playback.clear")
+        await self._core.request("playback.set_metadata")
         logger.info("Stopping service")
         return True

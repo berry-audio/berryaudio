@@ -122,7 +122,7 @@ class DspExtension(Actor):
                 self._client = CamillaClient(HOST, PORT)
                 self._client.connect()
             except Exception as e:
-                logger.error(e)    
+                logger.error(e)
 
     async def on_set_capture_device(
         self,
@@ -130,6 +130,7 @@ class DspExtension(Actor):
         gain: float = None,
         samplerate: int = 44100,
         sampleformat=None,
+        ext=None,
     ):
         """Update config file directly then restart CamillaDSP."""
         if self._resample_rate is None:
@@ -160,13 +161,12 @@ class DspExtension(Actor):
 
         self._write_config(config)
         await self.on_service('start')
-       
+
         try:
             self._client_connect()
-            await asyncio.sleep(0.1)
             self._client.config.set_active(config)
             self._client.general.reload()
-            
+
             for attempt in range(10):
                 if self._client.general.state() == ProcessingState.RUNNING:
                     break
@@ -186,13 +186,6 @@ class DspExtension(Actor):
 
             new_volume = self._client.volume.main_volume()
             new_mute = self._client.volume.main_mute()
-
-            await self._core.request(
-                "multiroom.start_snapserver", 
-                sample_rate=self._resample_rate if self._resample_rate else samplerate, 
-                bit_depth=sampleformat or self._default_sample_format
-            )
-            await asyncio.sleep(0.5)
 
             self._core.send(
                 event="dsp_options_changed",
@@ -224,6 +217,15 @@ class DspExtension(Actor):
             logger.info(info)
             logger.info(divider)
 
+            await self._core.request(
+                "multiroom.start_snapserver",
+                sample_rate=self._resample_rate if self._resample_rate else samplerate,
+                bit_depth=sampleformat or self._default_sample_format
+            )
+
+            if ext is not None:
+                await self._core.request(f"{ext}.start_stream")
+            
         except Exception as e:
             logger.error(e)
             await self._core.request("multiroom.stop_snapserver")
