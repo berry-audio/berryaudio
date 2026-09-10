@@ -30,7 +30,8 @@ class SpotifyExtension(SourceActor):
         self._volume_normalization = self._config.get("spotify", {}).get(
             "volume_normalization"
         )
-        self._output_device = self._config.get("spotify", {}).get("output_device")
+        self._output_device = self._config.get(
+            "spotify", {}).get("output_device")
         self._channels = 2
         self._proc = None
         self._track = None
@@ -59,7 +60,7 @@ class SpotifyExtension(SourceActor):
         if not os.path.exists(LIBRESPOT_PATH):
             logger.error("Librespot service missing")
 
-        self._enabled_state()        
+        self._enabled_state()
         logger.info("Started")
 
     async def on_event(self, message):
@@ -83,21 +84,29 @@ class SpotifyExtension(SourceActor):
     async def on_start_service(self):
         self._source_active = True
         if os.path.exists(LIBRESPOT_PATH):
-            await self._core.request(
-                "dsp.set_capture_device", samplerate=self._sample_rate
-            )
-            threading.Thread(target=self._librespot_init, daemon=True).start()
-            await self._meta_init()
-
             logger.info(
                 f"Starting service"
+            )
+            await self._core.request(
+                "dsp.set_capture_device", samplerate=self._sample_rate, ext=self._name
+            )
+        else:
+            logger.error(f"Librespot service missing")
+        return self._source
+
+    async def on_start_stream(self):
+        logger.info("Starting stream")
+        if os.path.exists(LIBRESPOT_PATH):
+            threading.Thread(target=self._librespot_init, daemon=True).start()
+            await self._meta_init()
+            logger.info(
+                f"Starting stream"
             )
             logger.info(
                 f"Started Spotify Connect with {self._hostname} on {self._output_device}"
             )
         else:
             logger.error(f"Librespot service missing")
-        return self._source
 
     async def _meta_init(self):
         """Reset metadata handling"""
@@ -220,7 +229,8 @@ class SpotifyExtension(SourceActor):
 
             if event["PLAYER_EVENT"] in ("track_changed"):
                 covers = event["COVERS"]
-                image = covers.split("\n")[0] if covers else "/images/no_cover.jpg"
+                image = covers.split(
+                    "\n")[0] if covers else "/images/no_cover.jpg"
 
                 if self._track is not None:
                     await self._stop_timer()
@@ -284,8 +294,10 @@ class SpotifyExtension(SourceActor):
         def log(stream, label):
             for line in iter(stream.readline, ""):
                 if "error" in line.strip().lower():
-                    # self._core.send(event="error", message=line.strip())
+                    if "unavailable" in line.strip().lower():
+                        self._core.send(event="error", message="Service unavailable")
                     logger.error(line.strip())
+                    
                 else:
                     logger.debug(line.strip())
             stream.close()

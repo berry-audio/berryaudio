@@ -78,22 +78,7 @@ class StorageExtension(SourceActor):
         )
 
     async def on_start(self):
-        # config_smb_clients = self._config.get(self._name, {}).get("smb_clients", {})
-        # if config_smb_clients:
-        #     for dev, creds in config_smb_clients.items():
-        #         try:
-        #             await self._smb.mount_shared(
-        #                 devs=[dev],
-        #                 username=creds.get("username"),
-        #                 password=creds.get("password", ""),
-        #             )
-        #         except (
-        #             ValueError,
-        #             PermissionError,
-        #             ConnectionError,
-        #             FileNotFoundError,
-        #         ) as e:
-        #             logger.error(e)
+        await self._storage.storages_list()
         await self._smb.samba_status()
         logger.info("Started")
 

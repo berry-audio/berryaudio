@@ -98,13 +98,15 @@ class MultiroomExtension(SourceActor):
         await self._control_snapserver()
 
     def _enabled_state(self):
-        self._source.enabled = os.path.exists(SNAPSERVER_PATH) and os.path.exists(SNAPCLIENT_PATH)
+        self._source.enabled = os.path.exists(
+            SNAPSERVER_PATH) and os.path.exists(SNAPCLIENT_PATH)
 
     async def on_event(self, message):
         event = message.get("event")
         if event == "dsp_options_changed":
             self._sample_rate = message.get("sample_rate", self._sample_rate)
-            self._bit_depth = SAMPLE_FORMAT_MAP.get(message.get("sample_format", self._bit_depth))
+            self._bit_depth = SAMPLE_FORMAT_MAP.get(
+                message.get("sample_format", self._bit_depth))
             # await self._control_snapserver()
 
         if event == "track_meta_updated":
@@ -133,6 +135,7 @@ class MultiroomExtension(SourceActor):
         return True
 
     """Zeroconf default callbacks"""
+
     def _manage_service(self, **kwargs):
         task = asyncio.create_task(self._service_handler(kwargs))
         self._zc_tasks.add(task)
@@ -302,18 +305,22 @@ class MultiroomExtension(SourceActor):
 
             logger.info(f"Multiroom server stopped")
 
-    async def on_start_snapserver(self, sample_rate=44100, bit_depth='S32_LE'):
+    async def on_start_snapserver(self, sample_rate=44100, bit_depth='S32_LE', timeout=10):
+        self._snapserver_ready = asyncio.Event()
+        self._snapserver_error = None
+
         if not self._server_enabled:
-             return
-         
-        if self._proc_snapserver is not None:
+            self._snapserver_ready.set()
             return
 
+        if self._proc_snapserver is not None:
+            return
         if not os.path.exists(SNAPSERVER_PATH):
             return
 
         self._sample_rate = sample_rate if sample_rate else self._sample_rate
-        self._bit_depth = SAMPLE_FORMAT_MAP.get(bit_depth) if bit_depth else self._bit_depth
+        self._bit_depth = SAMPLE_FORMAT_MAP.get(
+            bit_depth) if bit_depth else self._bit_depth
 
         cmd = [
             SNAPSERVER_PATH,
@@ -344,6 +351,7 @@ class MultiroomExtension(SourceActor):
             logger.info(
                 f"Snapcast server started with {self._sample_rate}:{self._bit_depth}:2")
             await self._start_notification_listener(SNAPCAST_LOCAL_IP)
+            self._snapserver_ready.set()
 
         def _log(stream, label):
             for line in iter(stream.readline, ""):
@@ -360,6 +368,8 @@ class MultiroomExtension(SourceActor):
                         event="error",
                         message=line,
                     )
+                    self._snapserver_error = line
+                    self._loop.call_soon_threadsafe(self._snapserver_ready.set)
 
             stream.close()
 
@@ -370,9 +380,19 @@ class MultiroomExtension(SourceActor):
         threading.Thread(
             target=_log, args=(self._proc_snapserver.stderr, "STDERR"), daemon=True
         ).start()
-        
         logger.info(
             f"Multiroom server started at {SNAPCAST_LOCAL_IP}:{AUDIO_PORT}")
+
+        try:
+            await asyncio.wait_for(self._snapserver_ready.wait(), timeout=timeout)
+        except asyncio.TimeoutError:
+            raise RuntimeError("Timed out waiting for snapserver to start")
+
+        if self._snapserver_error:
+            raise RuntimeError(
+                f"snapserver failed to start: {self._snapserver_error}")
+
+        return
 
     async def on_stop_snapclient(self):
         """Multiroom client stop"""
@@ -392,7 +412,7 @@ class MultiroomExtension(SourceActor):
 
         if not os.path.exists(SNAPCLIENT_PATH):
             return
-        
+
         cmd = [
             SNAPCLIENT_PATH,
             f"tcp://{ip}:{AUDIO_PORT}",

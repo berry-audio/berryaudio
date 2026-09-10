@@ -105,13 +105,18 @@ class RadioExtension(SourceActor):
         pass
 
     async def on_stop_service(self) -> bool:
-        logger.info("Stopping Service")
+        logger.info("Stopping service")
         await self._core.request("playback.clear")
         return True
 
     async def on_start_service(self):
         logger.info("Starting Service")
+        await self._core.request("dsp.set_capture_device")
         return self._source
+
+    async def on_start_stream(self):
+        logger.info("Starting stream")
+        await self._core.request("playback.start_stream")
 
     def _init_table(self):
         self._db.executescript(SQL_QUERY_CREATE)

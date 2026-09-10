@@ -112,6 +112,11 @@ class BluetoothExtension(SourceActor):
         self._stop_agent()
         logger.info("Stopped")
 
+    async def on_start_stream(self):
+        logger.info("Starting stream")
+        await self._stop_aplay()
+        await self._init_aplay()
+
     async def on_start_service(self):
         await self.on_adapter_set_state(True)
         return self._source
@@ -217,11 +222,8 @@ class BluetoothExtension(SourceActor):
                 "dsp.set_capture_device",
                 sampleformat=fmt,
                 samplerate=int(self._sample_rate),
+                ext=self._name
             )
-            
-
-            await self._stop_aplay()
-            await self._init_aplay()
 
         if self._mode == MODE_TX:
             await self._stop_aplay()
