@@ -76,20 +76,17 @@ class TunerExtension(SourceActor):
         if "sample_rate" in updated_config:
             self._sample_rate = updated_config["sample_rate"]
             self._track.sample_rate = self._sample_rate
-            await self._core.request("playback.set_metadata", track=self._track)
+            self._core.send(event="system", action="restart")
 
         if "gain" in updated_config:
             self._gain = updated_config["gain"]
+            if await self.is_active():
+                await self._core.request(
+                    "dsp.set_capture_gain",
+                    gain=self._gain,
+                )
 
         self._enabled_state()
-
-        if await self.is_active():
-            await self._core.request(
-                "dsp.set_capture_device",
-                gain=self._gain,
-                device=self._input_device,
-                samplerate=self._sample_rate,
-            )
 
     def _enabled_state(self):
         self._source.enabled = self._input_device is not None and self._hw_device is not None

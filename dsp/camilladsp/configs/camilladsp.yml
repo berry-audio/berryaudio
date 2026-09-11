@@ -3,7 +3,8 @@ devices:
   adjust_period: null
   capture:
     channels: 2
-    device: hw:CARD=UAC2Gadget,DEV=0
+    device: hw:CARD=Loopback,DEV=1
+    format: null
     labels: null
     link_mute_control: null
     link_volume_control: null
@@ -20,7 +21,8 @@ devices:
     type: Alsa
   queuelimit: 2
   rate_measure_interval: null
-  samplerate: 96000
+  resampler: null
+  samplerate: 44100
   silence_threshold: null
   silence_timeout: null
   stop_on_rate_change: null
@@ -41,7 +43,7 @@ filters:
     description: Bass Mid
     parameters:
       freq: 80
-      gain: 2
+      gain: 4
       q: 1
       type: Lowshelf
     type: Biquad
@@ -55,7 +57,7 @@ filters:
       shape: triangle
       speed_hz: 1
       wet: 0.5
-      width: 50
+      width: 85
     type: Flanger
   Gain:
     description: ''
@@ -71,21 +73,21 @@ filters:
       freq_max: 20000
       freq_min: 45
       gains:
-      - 6.5
-      - 6.3
-      - 0.5
+      - 5.3
+      - 3.8
+      - -0.1
       - -1.9
       - -3
       - -3.6
-      - -2.9
       - -3.5
-      - -3
+      - -3.6
       - -3.2
-      - -3.8
-      - -2.9
+      - -3.2
+      - -3
+      - -2.5
       - -0.8
-      - 2.6
-      - 5.5
+      - 1.9
+      - 4.3
       type: GraphicEqualizer
     type: BiquadCombo
   Pitch:
@@ -103,14 +105,14 @@ filters:
       reverberance: 21
       room_scale: 10
       stereo_depth: 0
-      wet: 0.13
+      wet: 0.1
       wet_gain_db: 20
     type: Reverb
   Treble:
     description: null
     parameters:
       freq: 12000
-      gain: 4
+      gain: 1
       q: 1
       type: Peaking
     type: Biquad
@@ -248,18 +250,6 @@ mixers:
         mute: false
         scale: dB
 pipeline:
-- bypassed: true
-  channels:
-  - 2
-  - 3
-  - 4
-  - 5
-  - 6
-  - 7
-  description: null
-  names:
-  - Flanger
-  type: Filter
 - bypassed: false
   channels: null
   description: null
@@ -271,6 +261,12 @@ pipeline:
   description: null
   names:
   - Pitch
+  type: Filter
+- bypassed: true
+  channels: null
+  description: null
+  names:
+  - Flanger
   type: Filter
 - bypassed: false
   channels: null
@@ -286,6 +282,12 @@ pipeline:
   - Bass (Mid)
   - Parametric Equalizer
   - Treble
+  type: Filter
+- bypassed: true
+  channels: null
+  description: null
+  names:
+  - Parametric Equalizer
   type: Filter
 - bypassed: false
   description: null

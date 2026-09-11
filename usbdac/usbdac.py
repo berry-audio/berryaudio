@@ -57,21 +57,17 @@ class UsbdacExtension(SourceActor):
             self._sample_rate = updated_config["sample_rate"]
             await self._system.write_g_audio_config(samplerate=self._sample_rate)
             self._track.sample_rate = self._sample_rate
-            await self._core.request("playback.set_metadata", track=self._track)
             self._core.send(event="system", action="restart")
 
         if "gain" in updated_config:
             self._gain = updated_config["gain"]
+            if await self.is_active():
+                await self._core.request(
+                    "dsp.set_capture_gain",
+                    gain=self._gain,
+                )
 
         self._enabled_state()
-
-        if await self.is_active():
-            await self._core.request(
-                "dsp.set_capture_device",
-                device=self._input_device,
-                gain=self._gain,
-                samplerate=self._sample_rate,
-            )
 
     async def is_active(self):
         source = await self._core.request("source.get")
@@ -103,8 +99,8 @@ class UsbdacExtension(SourceActor):
         return self._source
 
     async def on_start_stream(self):
-         logger.info("Starting stream")
-         await self._core.request("playback.set_metadata", track=self._track)
+        logger.info("Starting stream")
+        await self._core.request("playback.set_metadata", track=self._track)
 
     async def on_stop_service(self):
         await self._core.request("playback.set_metadata")
