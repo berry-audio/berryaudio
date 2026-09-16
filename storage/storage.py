@@ -148,6 +148,10 @@ class StorageExtension(SourceActor):
     async def on_lookup_track(self, path: str) -> Track:
         return Track(**self._build_track(path))
 
+    async def on_start_stream(self):
+        logger.info("Starting stream")
+        await self._core.request("playback.start_stream")
+    
     async def on_directory(
         self, uri: str = None, limit: int | None = None, offset: int | None = None
     ):
