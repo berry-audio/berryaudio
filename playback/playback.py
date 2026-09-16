@@ -138,10 +138,6 @@ class PlaybackExtension(Actor):
 
         pad.add_probe(Gst.PadProbeType.BUFFER, probe)
 
-    def _on_format_detected(self, sample_rate):
-       
-        return False
-
     def _on_message(self, bus, message):
         t = message.type
 
@@ -237,26 +233,20 @@ class PlaybackExtension(Actor):
 
                 if self._pipeline is not None:
                     self._pipeline.set_state(Gst.State.NULL)
-        
+
                 if self._time_source_id is not None:
                     GLib.source_remove(self._time_source_id)
                     self._time_source_id = None
-        
+
                 asyncio.run_coroutine_threadsafe(
                     self._core.request(
                         "dsp.set_capture_device",
                         samplerate=self._sample_rate,
                         ext=self._ext,
                     ), self._loop,)
-    
 
         elif t == Gst.MessageType.EOS:
-            self.on_stop()
-            self._core.send(
-                target=["web", "display", "tracklist"],
-                event="track_playback_ended",
-                tl_track=self._tl_track,
-            )
+            asyncio.run_coroutine_threadsafe(self.on_playback_stop(), self._loop,)
 
         elif t == Gst.MessageType.ERROR:
             err, debug = message.parse_error()
@@ -302,7 +292,7 @@ class PlaybackExtension(Actor):
                 message=custom_message,
             )
 
-            self.on_stop()
+            asyncio.run_coroutine_threadsafe(self.on_playback_stop(), self._loop,)
 
         elif t == Gst.MessageType.STREAM_START:
             if self._playback_ready:
@@ -333,15 +323,19 @@ class PlaybackExtension(Actor):
         self._setup_playbin()
         logger.info("Started")
 
+    async def on_stop(self):
+        await self.on_playback_stop()
+        logger.info("Stopped")
+
     async def on_clear(self):
         self._playback_uri = None
         self.on_set_metadata()
-        self.on_stop()
+        await self.on_playback_stop()
 
     async def on_event(self, message):
         event = message.get("event")
         if event == "dsp_options_error":
-            self.on_stop()
+            await self.on_playback_stop()
 
         if event == "tracklist_changed":
             if not message["tl_tracks"]:
@@ -414,7 +408,7 @@ class PlaybackExtension(Actor):
             except ValueError:
                 raise ValueError(f"Invalid uri format: {uri}")
 
-            self.on_stop()
+            await self.on_playback_stop()
             await self._core.request("source.set", uri=ext)
 
             track = await self._core.request(f"{ext}.lookup_track", path=path)
@@ -437,11 +431,15 @@ class PlaybackExtension(Actor):
 
             self._sample_rate = None
             self._playback_ready = False
-            self._setup_playbin(uri=self._playback_uri)
+            self._pipeline.set_state(Gst.State.NULL)
+            self._setup_playbin(self._playback_uri)
 
             self._pipeline.set_state(Gst.State.PAUSED)
             self._state = PlaybackState.PAUSED
         else:
+            if self._state == PlaybackState.STOPPED:
+                await self.on_play(self._tl_track.track.uri, self._tl_track.tlid)
+
             if self._state == PlaybackState.PAUSED:
                 return self._resume()
 
@@ -475,22 +473,20 @@ class PlaybackExtension(Actor):
             else:
                 return False
 
-    async def on_next(self, from_ui: bool = True) -> bool:
-        next_track = await self._core.request("tracklist.next_track", from_ui=from_ui)
-        if next_track is not None:
-            await self.on_play(next_track.track.uri, next_track.tlid)
+    async def on_next(self) -> bool:
+        next_tl_track = await self._core.request("tracklist.next_track")
+        if next_tl_track is not None:
+            await self.on_play(next_tl_track.track.uri, next_tl_track.tlid)
         else:
-            self.on_stop()
+            await self.on_playback_stop()
         return True
 
-    async def on_previous(self, from_ui: bool = True) -> bool:
-        previous_track = await self._core.request(
-            "tracklist.previous_track", from_ui=from_ui
-        )
-        if previous_track is not None:
-            await self.on_play(previous_track.track.uri, previous_track.tlid)
+    async def on_previous(self) -> bool:
+        previous_tl_track = await self._core.request("tracklist.previous_track")
+        if previous_tl_track is not None:
+            await self.on_play(previous_tl_track.track.uri, previous_tl_track.tlid)
         else:
-            self.on_stop()
+            await self.on_playback_stop()
         return True
 
     def _resume(self):
@@ -545,7 +541,7 @@ class PlaybackExtension(Actor):
 
         return True
 
-    def on_stop(self) -> PlaybackState:
+    async def on_playback_stop(self) -> PlaybackState:
         if self._pipeline is not None:
             self._pipeline.set_state(Gst.State.NULL)
 
@@ -573,5 +569,8 @@ class PlaybackExtension(Actor):
             event="playback_state_changed",
             state=self._state,
         )
+
+        if self._tl_track.tlid:
+            await self.on_next()
 
         return True

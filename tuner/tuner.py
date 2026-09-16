@@ -127,7 +127,6 @@ class TunerExtension(SourceActor):
             self._tuner.shutdown()
             self._tuner = None
         self._disable_mux()
-        await self._core.request("playback.clear")
         logger.info("Stopping service")
         return True
 

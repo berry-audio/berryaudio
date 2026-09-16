@@ -52,41 +52,33 @@ class NetworkExtension(Actor):
     async def _monitor_network(self):
         while self.running:
             try:
-                logger.debug(f'Network status: {self._is_connected()}')
                 if not self._is_connected():
-                    if not self._hotspot_active and not self._conn_in_progress:
-                        if not self.running: 
-                            break
-                        logger.warning("WLAN down, starting hotspot")
-                        await self.on_start_ap_mode()
+                    if not self._hotspot_active:
+                        if not self._conn_in_progress:
+                            logger.warning("WLAN down, starting hotspot")
+                            await self.on_start_ap_mode()
                 else:
-                    if self._hotspot_active and not self._conn_in_progress:
-                        if not self.running:
-                            break
-                        logger.info("WLAN restored, stopping hotspot")
-                        await self.on_stop_ap_mode()
-
-            except asyncio.CancelledError:
-                raise 
+                    if self._hotspot_active:
+                        if not self._conn_in_progress:
+                            logger.info("WLAN restored, stopping hotspot")
+                            await self.on_stop_ap_mode()
             except Exception as e:
                 logger.error(f"Network monitor error: {e}")
 
-            try:
-                await asyncio.sleep(CONFIG_WIFI_CHECK_INTERVAL)
-            except asyncio.CancelledError:
-                break
+            await asyncio.sleep(CONFIG_WIFI_CHECK_INTERVAL)
 
     def _is_connected(self) -> bool:
         try:
-            result = subprocess.run(
+            _cmd = subprocess.run(
                 ["nmcli", "-t", "-f", "DEVICE,STATE,CONNECTION", "device"],
-                capture_output=True, text=True, timeout=3,
+                capture_output=True,
+                text=True,
             )
-            for line in result.stdout.splitlines():
+            for line in _cmd.stdout.splitlines():
                 parts = line.split(":")
                 if len(parts) >= 3:
                     device, state, connection = parts[0], parts[1], parts[2]
-                    if device == "wlan0" and "connected" in state.lower():
+                    if device == "wlan0" and state == "connected":
                         if "hotspot" in connection.lower():
                             return False
                         return True
