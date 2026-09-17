@@ -9,8 +9,8 @@ Berryaudio is a diy open source audiophile audio player / streamer for **[Raspbe
 
 Built using **gstreamer**, **python** as server, **reactjs** & **typescript** as client, designed for smooth performance across touch displays, Building your own custom music system headless or with an attached display.
 
-![Description](https://www.berryaudio.org/assets/hero_screenshot.png)
-![Description](https://www.berryaudio.org/assets/dsp_screenshot1.png)
+![Description](https://www.berryaudio.org/assets/hero_screenshot2.png)
+![Description](https://www.berryaudio.org/assets/dsp_screenshot2.png)
 ![Description](https://www.berryaudio.org/assets/overview_screenshot.png)
 
 > "As an audiophile, a software engineer, and someone who loves building own products, I’ve always wanted an audio system/streamer built with my own preferred tech stack—something modern, intuitive, and truly customizable. With modern hardware,computing power and with a vision to preserve offline experiences & privacy, I’m convinced you can build almost anything without relying on the cloud services.
