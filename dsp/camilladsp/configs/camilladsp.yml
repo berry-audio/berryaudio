@@ -3,7 +3,8 @@ devices:
   adjust_period: null
   capture:
     channels: 2
-    device: hw:CARD=UAC2Gadget,DEV=0
+    device: hw:CARD=Loopback,DEV=1
+    format: null
     labels: null
     link_mute_control: null
     link_volume_control: null
@@ -20,7 +21,8 @@ devices:
     type: Alsa
   queuelimit: 2
   rate_measure_interval: null
-  samplerate: 96000
+  resampler: null
+  samplerate: 44100
   silence_threshold: null
   silence_timeout: null
   stop_on_rate_change: null
@@ -41,7 +43,7 @@ filters:
     description: Bass Mid
     parameters:
       freq: 80
-      gain: 5
+      gain: 4
       q: 1
       type: Lowshelf
     type: Biquad
@@ -100,17 +102,17 @@ filters:
     parameters:
       hf_damping: 0
       pre_delay_ms: 0
-      reverberance: 21
-      room_scale: 10
+      reverberance: 40
+      room_scale: 20
       stereo_depth: 0
-      wet: 0.15
+      wet: 0.18
       wet_gain_db: 20
     type: Reverb
   Treble:
     description: null
     parameters:
       freq: 12000
-      gain: 6
+      gain: 4
       q: 0.6
       type: Peaking
     type: Biquad
@@ -278,16 +280,8 @@ pipeline:
   names:
   - Bass
   - Bass (Mid)
-  - Parametric Equalizer
   - Treble
-  type: Filter
-- bypassed: true
-  channels: null
-  description: null
-  names:
   - Parametric Equalizer
-  - Treble
-  - Bass (Mid)
   type: Filter
 - bypassed: false
   description: null

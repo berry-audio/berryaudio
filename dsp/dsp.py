@@ -66,16 +66,6 @@ class DspExtension(Actor):
                     self._client_connect()
                     return func(self, *args, **kwargs)
             return sync_wrapper
-
-    def _client_connect(self):
-        try:
-            self._client = CamillaClient(HOST, PORT)
-            self._client.connect()
-            logger.info(f"Connected to CamillaDsp on {HOST} {PORT}")
-        except Exception as e:
-            self._stop_camilladsp()
-            logger.error(e)
-            raise
             
     async def on_config_update(self, config):
         updated_config = config[self._name]
@@ -222,6 +212,10 @@ class DspExtension(Actor):
 
         try:
             self._client_connect()
+
+            if self._client is None:
+                return
+
             self._client.config.set_active(config)
             self._client.general.reload()
 
