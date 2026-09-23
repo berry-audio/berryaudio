@@ -310,8 +310,11 @@ class MultiroomExtension(SourceActor):
             return
 
         if self._proc_snapserver is not None:
+            self._snapserver_ready.set()
             return
+        
         if not os.path.exists(SNAPSERVER_PATH):
+            self._snapserver_ready.set()
             return
 
         dsp_capture = await self._core.request("dsp.get_capture_device")

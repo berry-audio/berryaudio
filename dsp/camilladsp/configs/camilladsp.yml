@@ -9,7 +9,7 @@ devices:
     link_volume_control: null
     stop_on_inactive: null
     type: Alsa
-  capture_samplerate: null
+  capture_samplerate: 96000
   chunksize: 4096
   enable_rate_adjust: null
   multithreaded: false
@@ -20,6 +20,8 @@ devices:
     type: Alsa
   queuelimit: 2
   rate_measure_interval: null
+  resampler:
+    type: Synchronous
   samplerate: 96000
   silence_threshold: null
   silence_timeout: null
