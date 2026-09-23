@@ -64,6 +64,8 @@ class RadioExtension(SourceActor):
             name="Radio",
             uri=self._name,
             enabled=True,
+            index=5,
+            browsable=True, 
             controls=[
                 PlaybackControls.SEEK,
                 PlaybackControls.PLAY,
@@ -74,7 +76,6 @@ class RadioExtension(SourceActor):
                 PlaybackControls.SHUFFLE,
                 PlaybackControls.FAVOURITE,
             ],
-            state={},
         )
 
     @property

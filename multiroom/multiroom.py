@@ -12,7 +12,7 @@ import websockets
 from pathlib import Path
 from zeroconf.asyncio import AsyncZeroconf, AsyncServiceBrowser
 from core.util.system import SystemUtil
-from core.models import Track, Source, Room, Album, Artist
+from core.models import Track, Source, Room, Album, Artist, TlTrack
 from core.actor import SourceActor
 
 logger = logging.getLogger(__name__)
@@ -64,15 +64,17 @@ class MultiroomExtension(SourceActor):
         self._source = Source(
             name="Multiroom",
             uri=self._name,
+            index=12,
+            browsable=True, 
             enabled=False,
             controls=[],
             state={
                 "icon": "speaker",
             },
         )
-        self._sample_rate = 44100
-        self._bit_depth = self._config["multiroom"].get("bit_depth", 32)
-        self._track = Track()
+        self._sample_rate = self._config.get("dsp", {}).get("resample_rate", 44100)
+        self._sample_format = 16
+        self._tl_track = None
         self._zc_tasks = set()
         self._loop = asyncio.get_running_loop()
         self._server_notification_tasks = {}
@@ -103,12 +105,6 @@ class MultiroomExtension(SourceActor):
 
     async def on_event(self, message):
         event = message.get("event")
-        if event == "dsp_options_changed":
-            self._sample_rate = message.get("sample_rate", self._sample_rate)
-            self._bit_depth = SAMPLE_FORMAT_MAP.get(
-                message.get("sample_format", self._bit_depth))
-            # await self._control_snapserver()
-
         if event == "track_meta_updated":
             await self.on_servers()
             if SNAPCAST_LOCAL_IP in self._servers:
@@ -305,7 +301,7 @@ class MultiroomExtension(SourceActor):
 
             logger.info(f"Multiroom server stopped")
 
-    async def on_start_snapserver(self, sample_rate=44100, bit_depth='S32_LE', timeout=10):
+    async def on_start_snapserver(self, timeout=10):
         self._snapserver_ready = asyncio.Event()
         self._snapserver_error = None
 
@@ -318,9 +314,9 @@ class MultiroomExtension(SourceActor):
         if not os.path.exists(SNAPSERVER_PATH):
             return
 
-        self._sample_rate = sample_rate if sample_rate else self._sample_rate
-        self._bit_depth = SAMPLE_FORMAT_MAP.get(
-            bit_depth) if bit_depth else self._bit_depth
+        dsp_capture = await self._core.request("dsp.get_capture_device")
+        self._sample_rate = dsp_capture.get('sample_rate', self._sample_rate)
+        self._sample_format = SAMPLE_FORMAT_MAP.get(dsp_capture.get('sample_format', self._sample_format))
 
         cmd = [
             SNAPSERVER_PATH,
@@ -336,7 +332,7 @@ class MultiroomExtension(SourceActor):
             f"alsa://?name=Loopback"
             f"&device={self._server_device}"
             f"&devicename={self._hostname}"
-            f"&sampleformat={self._sample_rate}:{self._bit_depth}:2",
+            f"&sampleformat={self._sample_rate}:{self._sample_format}:2",
         ]
 
         self._proc_snapserver = subprocess.Popen(
@@ -349,7 +345,7 @@ class MultiroomExtension(SourceActor):
 
         async def _on_connected():
             logger.info(
-                f"Snapcast server started with {self._sample_rate}:{self._bit_depth}:2")
+                f"Snapcast server started with {self._sample_rate}:{self._sample_format}:2")
             await self._start_notification_listener(SNAPCAST_LOCAL_IP)
             self._snapserver_ready.set()
 
@@ -472,7 +468,7 @@ class MultiroomExtension(SourceActor):
                         rate, bit_depth, channels = map(
                             int, sampleformat.split(":"))
 
-                    self._track = Track(
+                    track = Track(
                         uri=self._name,
                         name=self._source.state.name,
                         albums=frozenset([Album(name="Multiroom")]),
@@ -482,9 +478,8 @@ class MultiroomExtension(SourceActor):
                         channels=channels,
                         audio_codec=codec,
                     )
-
                     self._core._request(
-                        "playback.set_metadata", track=self._track)
+                        "playback.set_metadata", tl_track=TlTrack(tlid=0, track=track))
 
                 if "Connected" in line:
                     self._loop.call_soon_threadsafe(
@@ -547,7 +542,7 @@ class MultiroomExtension(SourceActor):
             "jsonrpc": "2.0",
             "method": "Stream.AddStream",
             "params": {
-                "streamUri": f"alsa:///?name=Loopback1&sampleformat={self._sample_rate}:{self._bit_depth}:2&device=hw:Loopback,1,2"
+                "streamUri": f"alsa:///?name=Loopback1&sampleformat={self._sample_rate}:{self._sample_format}:2&device=hw:Loopback,1,2"
             }
         }
         result = await self._send_request(ip, request)

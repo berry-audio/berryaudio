@@ -5,7 +5,7 @@ import logging
 from pathlib import Path
 from datetime import datetime
 from core.actor import SourceActor
-from core.models import Track, Source, Tuner
+from core.models import Track, Source, Tuner, TlTrack
 from core.types import PlaybackControls
 
 
@@ -24,14 +24,10 @@ class TunerExtension(SourceActor):
         self._name = name
         self._core = core
         self._config = config
-        self._input_device = self._config.get(
-            self._name, {}).get("input_device")
-        self._output_device = self._config.get(
-            "mixer", {}).get("output_device")
-        self._sample_rate = self._config.get(
-            self._name, {}).get("sample_rate")
-        self._bit_depth = self._config.get(
-            self._name, {}).get("bit_depth")
+        self._input_device = self._config.get(self._name, {}).get("input_device")
+        self._output_device = self._config.get("mixer", {}).get("output_device")
+        self._sample_rate = self._config.get(self._name, {}).get("sample_rate")
+        self._bit_depth = self._config.get(self._name, {}).get("bit_depth")
         self._gain = self._config.get(self._name, {}).get("gain", 0)
         self._hw_device = self._config.get(self._name, {}).get("hw_device")
         self._hw_device_params = None
@@ -48,6 +44,7 @@ class TunerExtension(SourceActor):
         self._source = Source(
             name="Tuner",
             uri=self._name,
+            index=9,
             enabled=False,
             controls=[
                 PlaybackControls.NEXT,
@@ -55,7 +52,6 @@ class TunerExtension(SourceActor):
                 PlaybackControls.REPEAT,
                 PlaybackControls.SHUFFLE,
             ],
-            state={},
         )
 
     async def on_config_update(self, config):
@@ -108,6 +104,7 @@ class TunerExtension(SourceActor):
         logger.info("Stopped")
 
     async def on_start_service(self):
+        logger.info("Starting service")
         await self._core.request(
             "dsp.set_capture_device",
             gain=self._gain,
@@ -115,7 +112,6 @@ class TunerExtension(SourceActor):
             samplerate=self._sample_rate,
             ext=self._name
         )
-        logger.info("Starting service")
         return self._source
 
     async def on_start_stream(self):
@@ -123,11 +119,12 @@ class TunerExtension(SourceActor):
         await self._init_tuner()
 
     async def on_stop_service(self):
+        logger.info("Stopping service")
         if self._tuner:
             self._tuner.shutdown()
             self._tuner = None
         self._disable_mux()
-        logger.info("Stopping service")
+        await self._core.request("playback.clear")
         return True
 
     def _init_db(self):
@@ -162,7 +159,7 @@ class TunerExtension(SourceActor):
     async def _status(self):
         """Display current tuner status"""
         freq, channels, channels_text, rssi = self._read_stats()
-        track = self._track.copy(
+        self._track = self._track.copy(
             update={
                 "uri": f"{self._name}",
                 "name": f"FM {(freq/10):.1f} MHz",
@@ -173,8 +170,8 @@ class TunerExtension(SourceActor):
                 "audio_codec": self._audio_codec,
             }
         )
-        self._track = track
-        await self._core.request("playback.set_metadata", track=self._track)
+        tl_track = TlTrack(tlid=0, track=self._track)
+        await self._core.request("playback.set_metadata", tl_track=tl_track)
         self._core.send(
             target=["web", "display"], event="channel_updated", channel=freq
         )

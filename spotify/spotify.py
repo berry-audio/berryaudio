@@ -34,7 +34,6 @@ class SpotifyExtension(SourceActor):
             "spotify", {}).get("output_device")
         self._channels = 2
         self._proc = None
-        self._track = None
         self._tl_track = None
         self._timer = None
         self._timer_running = True
@@ -45,8 +44,9 @@ class SpotifyExtension(SourceActor):
         self._audio_codec = "Ogg Vorbis (lossy audio codec)"
         self._backend = "alsa"
         self._source = Source(
-            name="Spotify Connect",
+            name="Spotify",
             uri=self._name,
+            index=6,
             enabled=False,
             controls=[],
             state={"connected": False},
@@ -98,7 +98,7 @@ class SpotifyExtension(SourceActor):
         logger.info("Starting stream")
         if os.path.exists(LIBRESPOT_PATH):
             threading.Thread(target=self._librespot_init, daemon=True).start()
-            await self._meta_init()
+            await self._reset_meta()
             logger.info(
                 f"Starting stream"
             )
@@ -108,7 +108,7 @@ class SpotifyExtension(SourceActor):
         else:
             logger.error(f"Librespot service missing")
 
-    async def _meta_init(self):
+    async def _reset_meta(self):
         """Reset metadata handling"""
         track = Track(
             uri=self._name,
@@ -118,8 +118,8 @@ class SpotifyExtension(SourceActor):
             channels=self._channels,
             audio_codec=self._audio_codec,
         )
-        self._track = track
-        await self._core.request("playback.set_metadata", track=self._track)
+        self._tl_track = TlTrack(tlid=0, track=track)
+        await self._core.request("playback.set_metadata", tl_track=self._tl_track)
 
     async def on_message(self, event):
         """Handle incoming events from librespot"""
@@ -144,9 +144,9 @@ class SpotifyExtension(SourceActor):
                     if event["CONNECTION_ID"] == self._source.state.connection_id:
                         self._source.state.connected = False
                 await self._stop_timer()
-                await self._meta_init()
-                await self._core.request("playback.stop")
+                await self._core.request("playback.playback_stop")
                 await self._core.request("source.update_source", source=self._source)
+                await self._reset_meta()
                 self._core.send(
                     target=["web", "display"],
                     event="spotify_disconnected",
@@ -161,7 +161,7 @@ class SpotifyExtension(SourceActor):
                     self._source.state.user_name
                 )  # event["CLIENT_NAME"] not available anymore
                 await self._stop_timer()
-                await self._meta_init()
+                await self._reset_meta()
                 await self._core.request(
                     "playback.set_state", state=PlaybackState.STOPPED
                 )
@@ -232,11 +232,11 @@ class SpotifyExtension(SourceActor):
                 image = covers.split(
                     "\n")[0] if covers else "/images/no_cover.jpg"
 
-                if self._track is not None:
+                if self._tl_track is not None:
                     await self._stop_timer()
                     await self._core.request("playback.stop")
 
-                self._track = Track(
+                track = Track(
                     uri=event["URI"] or "",
                     name=event["NAME"] or "Unknown",
                     artists=frozenset([Artist(name=event["ARTISTS"] or "")]),
@@ -253,10 +253,10 @@ class SpotifyExtension(SourceActor):
                     audio_codec=self._audio_codec,
                     images=[Image(uri=image)] or [],
                 )
-                self._tl_track = TlTrack(tlid=0, track=self._track)
+                self._tl_track = TlTrack(tlid=0, track=track)
 
                 await self._start_timer()
-                await self._core.request("playback.set_metadata", track=self._track)
+                await self._core.request("playback.set_metadata", tl_track=self._tl_track)
                 self._core.send(
                     target=["web", "display"],
                     event="track_playback_started",

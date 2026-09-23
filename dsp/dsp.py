@@ -7,7 +7,8 @@ import asyncio
 
 from pathlib import Path
 from camilladsp import CamillaClient, ProcessingState
-from core.actor import Actor
+from core.actor import SourceActor
+from core.models import Source
 from core.util.system import SystemUtil
 
 logger = logging.getLogger(__name__)
@@ -24,7 +25,7 @@ VOL_CURVE = 3.0  # higher = more gradual at low end, try 2.0-4.0
 CAMILLADSP_PATH = "/usr/local/bin/camilladsp"
 
 
-class DspExtension(Actor):
+class DspExtension(SourceActor):
     def __init__(self, name, core, db, config):
         super().__init__()
         self._name = name
@@ -32,13 +33,23 @@ class DspExtension(Actor):
         self._db = db
         self._config = config
         self._system = SystemUtil(core, db)
-        self._default_capture_device = self._config.get("dsp", {}).get("default_capture_device")
+        self._default_capture_device = self._config.get(
+            "dsp", {}).get("default_capture_device")
         self._default_gain = self._config.get("dsp", {}).get("default_gain", 0)
-        self._resample_rate = self._config.get("dsp", {}).get("resample_rate", None)
+        self._resample_rate = self._config.get(
+            "dsp", {}).get("resample_rate", None)
         self._default_sample_rate = 44100
         self._default_sample_format = 'S32_LE'
-        self._disconnect_task = None
+        self._sample_rate = self._default_sample_rate
+        self._sample_format = self._default_sample_format
         self._client = None
+        self._source = Source(
+            name="DSP",
+            uri=self._name,
+            index=13,
+            browsable=True,
+            enabled=True,
+        )
 
     @staticmethod
     def client_connection(func):
@@ -66,7 +77,7 @@ class DspExtension(Actor):
                     self._client_connect()
                     return func(self, *args, **kwargs)
             return sync_wrapper
-            
+
     async def on_config_update(self, config):
         updated_config = config[self._name]
         if not updated_config:
@@ -82,7 +93,6 @@ class DspExtension(Actor):
 
     async def on_service(self, state: str):
         """Control CamillaDSP service"""
-        self._stop_camilladsp()
         try:
             subprocess.run(
                 ["sudo", "/bin/systemctl", state, "camilladsp.service"],
@@ -97,7 +107,6 @@ class DspExtension(Actor):
             raise ValueError(
                 f"Service {state} failed: {e.stderr}"
             ) from e
-        self._client_connect()
 
     async def on_start(self):
         await self._system.write_asoundrc(pcm=self._config.get("mixer", {}).get("hw_device"))
@@ -146,21 +155,11 @@ class DspExtension(Actor):
             raise ValueError("Failed to write config file") from e
 
     def _client_connect(self):
-        if self._client is not None:
-            try:
-                self._client.volume.main_volume()
-            except Exception as e:
-                self._stop_camilladsp()
+        self._stop_camilladsp()
+        self._client = CamillaClient(HOST, PORT)
+        self._client.connect()
+        logger.info(f"Connected to CamillaDsp on {HOST} {PORT}")
 
-        if self._client is None:
-            try:
-                self._client = CamillaClient(HOST, PORT)
-                self._client.connect()
-                logger.info(f"Connected to CamillaDsp on {HOST} {PORT}")
-            except Exception as e:
-                self._stop_camilladsp()
-                logger.error(e)
-            
     @client_connection
     async def on_set_capture_gain(self, gain=None):
         config = self._read_config()
@@ -170,6 +169,12 @@ class DspExtension(Actor):
         self._client.config.set_active(config)
         self._client.general.reload()
         logger.info(f"Capture device gain updated to {gain}")
+
+    async def on_get_capture_device(self):
+        return {
+            'sample_rate': self._sample_rate,
+            'sample_format': self._sample_format
+        }
 
     async def on_set_capture_device(
         self,
@@ -196,10 +201,12 @@ class DspExtension(Actor):
         if self._resample_rate is not None:
             config["devices"]["samplerate"] = self._resample_rate
             config["devices"]["capture_samplerate"] = samplerate
-            config["devices"].setdefault("resampler", {})[
-                "type"] = "Synchronous"
+            config["devices"]["resampler"] = config["devices"].get(
+                "resampler") or {}
+            config["devices"]["resampler"]["type"] = "Synchronous"
         else:
             config["devices"].pop("resampler", None)
+            config["devices"]["capture_samplerate"] = None
             config["devices"]["samplerate"] = samplerate
 
         # Set Format
@@ -238,12 +245,14 @@ class DspExtension(Actor):
 
             new_volume = self._client.volume.main_volume()
             new_mute = self._client.volume.main_mute()
+            self._sample_rate = self._resample_rate if self._resample_rate else samplerate
+            self._sample_format = sampleformat or self._default_sample_format
 
             self._core.send(
                 event="dsp_options_changed",
                 capture_device=capture_device,
-                sample_rate=self._resample_rate if self._resample_rate else samplerate,
-                sample_format=sampleformat or self._default_sample_format,
+                sample_rate=self._sample_rate,
+                sample_format=self._sample_format,
                 resample=self._resample_rate is not None
             )
 
@@ -260,8 +269,8 @@ class DspExtension(Actor):
 
             info = (
                 f'DSP: {capture_device} | Gain {float(gain)}dB | '
-                f'Actual Rate {self._resample_rate if self._resample_rate else samplerate}Hz | Resample {resample_info} | '
-                f'Format {sampleformat or "Auto (S32_LE)"} | '
+                f'Actual Rate {samplerate}Hz | Resample {resample_info} | '
+                f'Format {self._sample_format or "Auto"} | '
                 f'Volume {new_volume}dB | Mute {new_mute}'
             )
             divider = "-" * len(info)
@@ -269,14 +278,12 @@ class DspExtension(Actor):
             logger.info(info)
             logger.info(divider)
 
-            await self._core.request(
-                "multiroom.start_snapserver",
-                sample_rate=self._resample_rate if self._resample_rate else samplerate,
-                bit_depth=sampleformat or self._default_sample_format
-            )
-
             if ext is not None:
+                await asyncio.sleep(0.3)
                 await self._core.request(f"{ext}.start_stream")
+
+            await self._core.request("multiroom.start_snapserver")
+            await self._core.request("display.start_cava")
 
         except Exception as e:
             logger.error(e)
@@ -319,18 +326,7 @@ class DspExtension(Actor):
     @client_connection
     def on_set_volume(self, volume_db: float = None):
         self._client.volume.set_main_volume(float(volume_db))
-        if self._disconnect_task and not self._disconnect_task.done():
-            self._disconnect_task.cancel()
-
-        async def _delayed_disconnect():
-            try:
-                await asyncio.sleep(0.3)
-                logger.info(f"DSP volume set to: {volume_db} dB")
-                logger.debug("DSP client disconnected")
-            except asyncio.CancelledError:
-                pass
-
-        self._disconnect_task = asyncio.create_task(_delayed_disconnect())
+        logger.info(f"DSP volume set to: {volume_db} dB")
         return volume_db
 
     @client_connection

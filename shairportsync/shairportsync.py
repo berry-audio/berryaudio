@@ -7,7 +7,7 @@ import time
 
 from pathlib import Path
 from core.actor import SourceActor
-from core.models import Album, Artist, Track, Image, Source
+from core.models import Album, Artist, Track, Image, Source, TlTrack
 from core.types import PlaybackState
 
 logger = logging.getLogger(__name__)
@@ -37,6 +37,7 @@ class ShairportsyncExtension(SourceActor):
         self._source = Source(
             name="Airplay",
             uri=self._name,
+            index=7,
             enabled=False,
             controls=[],
             state={"connected": False},
@@ -135,7 +136,7 @@ class ShairportsyncExtension(SourceActor):
             uri=self._name,
             name="Airplay",
         )
-        self._core._request("playback.set_metadata", track=self._track)
+        self._core._request("playback.set_metadata", tl_track=TlTrack(tlid=0, track=self._track))
 
     def _shairportsync_init(self):
         """Starting shairportsync service"""
@@ -210,8 +211,9 @@ class ShairportsyncExtension(SourceActor):
                 picture_uri = ()
 
             self._track = self._track.copy(update={"images": picture_uri})
+            
             if self._source_active:
-                self._core._request("playback.set_metadata", track=self._track)
+                self._core._request("playback.set_metadata", tl_track=TlTrack(tlid=0, track=self._track))
 
         def _parse_metadata_line(line: str):
             line = line.strip()
@@ -332,7 +334,7 @@ class ShairportsyncExtension(SourceActor):
                     # self._clean_images_dir()
                     if self._source_active:
                         self._core._request(
-                            "playback.set_metadata", track=self._track)
+                            "playback.set_metadata", tl_track=TlTrack(tlid=0, track=self._track))
 
                 if meta_code == "prsm":  # play stream resume
                     self._resume_timer()
@@ -391,7 +393,7 @@ class ShairportsyncExtension(SourceActor):
                                 "playback.set_time_position", position_ms=position_ms
                             )
                             self._core._request(
-                                "playback.set_metadata", track=self._track
+                                "playback.set_metadata", tl_track=TlTrack(tlid=0, track=self._track)
                             )
 
             except Exception:

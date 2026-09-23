@@ -8,7 +8,7 @@ import os
 
 from gi.repository import GLib
 from core.actor import SourceActor
-from core.models import Album, Artist, Track, Source, Bluetooth
+from core.models import Album, Artist, Track, Source, Bluetooth, TlTrack
 from core.types import PlaybackState
 from core.util.system import SystemUtil
 
@@ -80,6 +80,8 @@ class BluetoothExtension(SourceActor):
         self._source = Source(
             name="Bluetooth",
             uri=self._name,
+            index=8,
+            browsable=True, 
             enabled=True,
             controls=[],
             state={"connected": False},
@@ -283,18 +285,18 @@ class BluetoothExtension(SourceActor):
                     state="restart"
                 )
 
-        self._core.send(
-            target=["web", "display"],
-            event="bluetooth_device_disconnected",
-            device=disconnected_device,
-        )
-        if current_source.uri == self._name:
-            self._track = Track()
-            self._core._request("playback.set_metadata", track=self._track)
+        if disconnected_device:
+            self._core.send(
+                target=["web", "display"],
+                event="bluetooth_device_disconnected",
+                device=disconnected_device,
+            )
+            if current_source.uri == self._name:
+                self._core._request("playback.set_metadata")
 
-        logger.info(
-            f"Bluetooth device disconnected: {disconnected_device.name} {disconnected_device.address}"
-        )
+            logger.info(
+                f"Bluetooth device disconnected: {disconnected_device.name} {disconnected_device.address}"
+            )
 
     def _properties_changed(self, *args):
         """Properties changed listener for python DBus"""
@@ -396,8 +398,8 @@ class BluetoothExtension(SourceActor):
                             "length": _track.get("Duration", 0),
                         }
                     )
-                    self._core._request(
-                        "playback.set_metadata", track=self._track)
+                    self._core._request("playback.set_metadata", tl_track=TlTrack(
+                        tlid=0, track=self._track))
 
     async def on_adapter_set_state(self, state: bool):
         """Sets Adapter State"""
@@ -625,10 +627,6 @@ class BluetoothExtension(SourceActor):
         """
         Remove a Bluetooth device by MAC address.
         """
-        if not address:
-            raise ValueError(
-                "Bluetooth address is required to remove a device")
-
         address = address.upper()
         device_info = await self.on_device(address)
         connected_device = await self.on_device()
@@ -764,7 +762,7 @@ class BluetoothExtension(SourceActor):
                             }
                         )
                         self._core._request(
-                            "playback.set_metadata", track=self._track)
+                            "playback.set_metadata", tl_track=TlTrack(tlid=0, track=self._track))
                         return codec, fmt, channels, rate
 
         except Exception as e:

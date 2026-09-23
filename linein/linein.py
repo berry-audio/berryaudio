@@ -1,7 +1,7 @@
 import logging
 
 from core.actor import SourceActor
-from core.models import Track, Source, RefType
+from core.models import Track, Source, TlTrack
 
 logger = logging.getLogger(__name__)
 
@@ -20,20 +20,11 @@ class LineinExtension(SourceActor):
         self._gain = self._config["linein"].get("gain", 0)
         self._channels = 2
         self._audio_codec = "PCM"
-        self._track = Track(
-            uri=self._name,
-            name="Line In",
-            sample_rate=self._sample_rate,
-            bit_depth=self._bit_depth,
-            channels=self._channels,
-            audio_codec=self._audio_codec,
-        )
         self._source = Source(
             name="Line In",
             uri=self._name,
+            index=10,
             enabled=False,
-            controls=[],
-            state={"connected": False},
         )
 
     def _enabled_state(self):
@@ -89,9 +80,20 @@ class LineinExtension(SourceActor):
 
     async def on_start_stream(self):
         logger.info("Starting stream")
-        await self._core.request("playback.set_metadata", track=self._track)
+        tl_track = TlTrack(
+            tlid=0, 
+            track=Track(
+                uri=self._name,
+                name="Line In",
+                sample_rate=self._sample_rate,
+                bit_depth=self._bit_depth,
+                channels=self._channels,
+                audio_codec=self._audio_codec,
+            )
+        )
+        await self._core.request("playback.set_metadata", tl_track=tl_track)
 
     async def on_stop_service(self):
-        await self._core.request("playback.set_metadata")
-        logger.info("Stopped service")
+        logger.info("Stopping service")
+        await self._core.request("playback.clear")
         return True

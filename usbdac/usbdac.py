@@ -1,7 +1,7 @@
 import logging
 
 from core.actor import SourceActor
-from core.models import Track, Source
+from core.models import Track, Source, TlTrack
 from core.util.system import SystemUtil
 
 logger = logging.getLogger(__name__)
@@ -23,20 +23,11 @@ class UsbdacExtension(SourceActor):
         self._channels = 2
         self._audio_codec = "PCM"
         self._enabled = self._config[self._name].get("enable")
-        self._track = Track(
-            uri=self._name,
-            name="USB DAC",
-            sample_rate=self._sample_rate,
-            bit_depth=self._bit_depth,
-            channels=self._channels,
-            audio_codec=self._audio_codec,
-        )
         self._source = Source(
             name="USB DAC",
             uri=self._name,
+            index=11,
             enabled=False,
-            controls=[],
-            state={"connected": False},
         )
 
     async def on_init(self, enable=False):
@@ -100,7 +91,18 @@ class UsbdacExtension(SourceActor):
 
     async def on_start_stream(self):
         logger.info("Starting stream")
-        await self._core.request("playback.set_metadata", track=self._track)
+        tl_track = TlTrack(
+            tlid=0,
+            track=Track(
+                uri=self._name,
+                name="USB DAC",
+                sample_rate=self._sample_rate,
+                bit_depth=self._bit_depth,
+                channels=self._channels,
+                audio_codec=self._audio_codec,
+            )
+        )
+        await self._core.request("playback.set_metadata", tl_track=tl_track)
 
     async def on_stop_service(self):
         await self._core.request("playback.set_metadata")

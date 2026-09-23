@@ -201,10 +201,12 @@ class Source(BaseModel):
     model: Literal["Source"] = Field(default="Source", alias="__model__", repr=False)
     name: Optional[str] = None
     uri: Optional[Uri] = None
-    active: bool = False
+    active: Optional[bool] = False
     enabled: bool = False
-    controls: list[str] = Field(default_factory=list)
-    state: State = Field(default_factory=State)
+    index: Optional[int] = 0
+    browsable: Optional[bool] = False
+    controls: Optional[list[str]] = Field(default_factory=list)
+    state: Optional[State] = Field(default_factory=State)
 
 
 class StorageUsage(BaseModel):

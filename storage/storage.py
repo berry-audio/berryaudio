@@ -47,6 +47,9 @@ class StorageExtension(SourceActor):
         self._source = Source(
             name="Storage",
             uri=self._name,
+            enabled=True,
+            index=4,
+            browsable=True, 
             controls=[
                 PlaybackControls.SEEK,
                 PlaybackControls.PLAY,
@@ -57,7 +60,6 @@ class StorageExtension(SourceActor):
                 PlaybackControls.SHUFFLE,
                 PlaybackControls.FAVOURITE,
             ],
-            state={},
         )
 
     async def on_config_update(self, config):

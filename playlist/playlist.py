@@ -1,15 +1,15 @@
 import logging
 import json
 
-from core.models import Playlist, TlTrack
+from core.models import Playlist, TlTrack, Source
 from core.util import generate_tlid
-from core.actor import Actor
+from core.actor import SourceActor
 from datetime import datetime
 
 from .utils import build_tltrack, to_serialize
 
 logger = logging.getLogger(__name__)
-SQL_QUERY_CREATE =  """
+SQL_QUERY_CREATE = """
             CREATE TABLE IF NOT EXISTS playlist (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL,
@@ -19,13 +19,21 @@ SQL_QUERY_CREATE =  """
             );
             """
 
-class PlaylistExtension(Actor):
+
+class PlaylistExtension(SourceActor):
     def __init__(self, name, core, db, config):
         super().__init__()
         self._name = name
         self._core = core
         self._db = db
         self._config = config
+        self._source = Source(
+            name="Playlists",
+            uri=self._name,
+            enabled=True,
+            index=1,
+            browsable=True, 
+        )
 
     async def on_start(self):
         self._init_table()
@@ -74,7 +82,8 @@ class PlaylistExtension(Actor):
                     raise ValueError(f"View '{view}' not supported")
                 if ref_type != "tracks":
                     raise ValueError(f"View type '{ref_type}' not supported")
-                row = self._db.fetchone(f"SELECT * FROM playlist WHERE id = {ref_id}")
+                row = self._db.fetchone(
+                    f"SELECT * FROM playlist WHERE id = {ref_id}")
                 result = []
                 for t in json.loads(row.tracks):
                     obj = build_tltrack(t)
@@ -84,7 +93,8 @@ class PlaylistExtension(Actor):
 
             case 2:
                 view, ref_id = values
-                row = self._db.fetchone(f"SELECT * FROM playlist WHERE id = {ref_id}")
+                row = self._db.fetchone(
+                    f"SELECT * FROM playlist WHERE id = {ref_id}")
                 return Playlist(**self._build_playlist(row))
 
             case 1:
@@ -134,7 +144,8 @@ class PlaylistExtension(Actor):
         )
         logger.debug(f"{uri} updated")
 
-        row = self._db.fetchone(f"SELECT * FROM playlist WHERE id = {playlist_id}")
+        row = self._db.fetchone(
+            f"SELECT * FROM playlist WHERE id = {playlist_id}")
         if not row:
             raise ValueError(f"Playlist {uri} not found")
 
@@ -162,7 +173,8 @@ class PlaylistExtension(Actor):
         if not playlist_id:
             raise ValueError("id not provided")
 
-        row = self._db.fetchone(f"SELECT * FROM playlist WHERE id = {playlist_id}")
+        row = self._db.fetchone(
+            f"SELECT * FROM playlist WHERE id = {playlist_id}")
         if not row:
             raise ValueError(f"Playlist {uri} not found")
 
@@ -216,7 +228,8 @@ class PlaylistExtension(Actor):
         Move a slice of tracks within a playlist to a new position.
         """
         playlist_id = int(uri.split(":")[1])
-        row = self._db.fetchone(f"SELECT * FROM playlist WHERE id = {playlist_id}")
+        row = self._db.fetchone(
+            f"SELECT * FROM playlist WHERE id = {playlist_id}")
         tl_tracks = [build_tltrack(t) for t in json.loads(row.tracks)]
 
         if start == end:
@@ -230,7 +243,8 @@ class PlaylistExtension(Actor):
         if to_position < 0:
             raise AssertionError("to_position must be at least zero")
         if to_position > len(tl_tracks):
-            raise AssertionError("to_position can not be larger than tracklist length")
+            raise AssertionError(
+                "to_position can not be larger than tracklist length")
 
         new_tl_tracks = tl_tracks[:start] + tl_tracks[end:]
         for tl_track in tl_tracks[start:end]:
@@ -267,7 +281,8 @@ class PlaylistExtension(Actor):
         if not tlid:
             raise ValueError("tlid not provided")
 
-        row = self._db.fetchone(f"SELECT * FROM playlist WHERE id = {playlist_id}")
+        row = self._db.fetchone(
+            f"SELECT * FROM playlist WHERE id = {playlist_id}")
         if not row:
             raise ValueError(f"Playlist {uri} not found")
 
@@ -303,7 +318,8 @@ class PlaylistExtension(Actor):
 
         for uri in uris:
             playlist_id = int(uri.split(":")[1])
-            row = self._db.fetchone("SELECT * FROM playlist WHERE id = ?", (playlist_id,))
+            row = self._db.fetchone(
+                "SELECT * FROM playlist WHERE id = ?", (playlist_id,))
             tl_tracks = [build_tltrack(t) for t in json.loads(row.tracks)]
             tl_tracks_updated = []
 

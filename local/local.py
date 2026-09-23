@@ -168,6 +168,8 @@ class LocalExtension(SourceActor):
             name="Library",
             uri=self._name,
             enabled=True,
+            index=3,
+            browsable=True,
             controls=[
                 PlaybackControls.SEEK,
                 PlaybackControls.PLAY,
@@ -178,7 +180,6 @@ class LocalExtension(SourceActor):
                 PlaybackControls.SHUFFLE,
                 PlaybackControls.FAVOURITE,
             ],
-            state={},
         )
 
     async def on_event(self, message):
