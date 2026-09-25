@@ -27,7 +27,7 @@ class StorageManager:
             "org.freedesktop.UDisks2", "/org/freedesktop/UDisks2"
         )
         self._smb = StorageSmbManager(
-            name=self._name, core=self._core, username=None, password=None
+            name=self._name, core=self._core, db=self.db, username=None, password=None
         )
         self._storage_list = []
 
@@ -129,9 +129,9 @@ class StorageManager:
                 continue
         return storages
 
-    def storages_list(self) -> list[Storage]:
+    async def storages_list(self) -> list[Storage]:
         storages = self.storages_internal()
-        storages.extend(self._smb.list_smb_shared())
+        storages.extend(await self._smb.list_smb_shared())
         return storages
 
     async def storage_mount(self, dev: str) -> str | None:

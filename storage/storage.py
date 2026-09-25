@@ -47,6 +47,9 @@ class StorageExtension(SourceActor):
         self._source = Source(
             name="Storage",
             uri=self._name,
+            enabled=True,
+            index=4,
+            browsable=True, 
             controls=[
                 PlaybackControls.SEEK,
                 PlaybackControls.PLAY,
@@ -57,7 +60,6 @@ class StorageExtension(SourceActor):
                 PlaybackControls.SHUFFLE,
                 PlaybackControls.FAVOURITE,
             ],
-            state={},
         )
 
     async def on_config_update(self, config):
@@ -78,22 +80,7 @@ class StorageExtension(SourceActor):
         )
 
     async def on_start(self):
-        config_smb_clients = self._config.get(self._name, {}).get("smb_clients", {})
-        if config_smb_clients:
-            for dev, creds in config_smb_clients.items():
-                try:
-                    await self._smb.mount_shared(
-                        devs=[dev],
-                        username=creds.get("username"),
-                        password=creds.get("password", ""),
-                    )
-                except (
-                    ValueError,
-                    PermissionError,
-                    ConnectionError,
-                    FileNotFoundError,
-                ) as e:
-                    logger.error(e)
+        await self._storage.storages_list()
         await self._smb.samba_status()
         logger.info("Started")
 
@@ -163,11 +150,15 @@ class StorageExtension(SourceActor):
     async def on_lookup_track(self, path: str) -> Track:
         return Track(**self._build_track(path))
 
+    async def on_start_stream(self):
+        logger.info("Starting stream")
+        await self._core.request("playback.start_stream")
+    
     async def on_directory(
         self, uri: str = None, limit: int | None = None, offset: int | None = None
     ):
-        if uri == "storage":
-            return self._storage.storages_list()
+        if uri == self._name:
+            return await self._storage.storages_list()
         else:
             return self._storage.directory(
                 uri,
@@ -189,7 +180,9 @@ class StorageExtension(SourceActor):
         return self._smb.add_shared(ip, username, password)
 
     async def on_mount_shared(self, devs: list[str]):
-        return await self._smb.mount_shared(devs)
+        for dev in devs:
+            await self._smb.mount_shared(dev)
+        return True
 
     async def on_unmount_shared(self, dev: str):
         return await self._smb.unmount_shared(dev)

@@ -40,9 +40,13 @@ class NetworkExtension(Actor):
         pass
 
     async def on_stop(self):
+        self.running = False
         if hasattr(self, "_monitor_task"):
             self._monitor_task.cancel()
-            await asyncio.gather(self._monitor_task, return_exceptions=True)
+            try:
+                await self._monitor_task
+            except asyncio.CancelledError:
+                pass
         logger.info("Stopped")
 
     async def _monitor_network(self):

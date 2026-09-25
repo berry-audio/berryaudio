@@ -1,7 +1,7 @@
 import logging
 
 from core.actor import SourceActor
-from core.models import Track, Source, RefType
+from core.models import Track, Source, TlTrack
 
 logger = logging.getLogger(__name__)
 
@@ -20,20 +20,15 @@ class LineinExtension(SourceActor):
         self._gain = self._config["linein"].get("gain", 0)
         self._channels = 2
         self._audio_codec = "PCM"
-        self._track = Track(
-            uri=self._name,
-            name="Line In",
-            sample_rate=self._sample_rate,
-            bit_depth=self._bit_depth,
-            channels=self._channels,
-            audio_codec=self._audio_codec,
-        )
         self._source = Source(
             name="Line In",
             uri=self._name,
-            controls=[],
-            state={"connected": False},
+            index=10,
+            enabled=False,
         )
+
+    def _enabled_state(self):
+        self._source.enabled = self._input_device is not None
 
     async def on_config_update(self, config):
         updated_config = config[self._name]
@@ -46,24 +41,24 @@ class LineinExtension(SourceActor):
         if "sample_rate" in updated_config:
             self._sample_rate = updated_config["sample_rate"]
             self._track.sample_rate = self._sample_rate
-            await self._core.request("playback.set_metadata", track=self._track)
+            self._core.send(event="system", action="restart")
 
         if "gain" in updated_config:
             self._gain = updated_config["gain"]
+            if await self.is_active():
+                await self._core.request(
+                    "dsp.set_capture_gain",
+                    gain=self._gain,
+                )
 
-        if await self.is_active():
-            await self._core.request(
-                "dsp.set_capture_device",
-                device=self._input_device,
-                gain=self._gain,
-                samplerate=self._sample_rate,
-            )
+        self._enabled_state()
 
     async def is_active(self):
         source = await self._core.request("source.get")
         return bool(source and source.uri == self._name)
 
     async def on_start(self):
+        self._enabled_state()
         logger.info("Started")
 
     async def on_event(self, message):
@@ -73,17 +68,32 @@ class LineinExtension(SourceActor):
         logger.info("Stopped")
 
     async def on_start_service(self):
+        logger.info("Starting service")
         await self._core.request(
             "dsp.set_capture_device",
             device=self._input_device,
             gain=self._gain,
             samplerate=self._sample_rate,
+            ext=self._name
         )
-        await self._core.request("playback.set_metadata", track=self._track)
-        logger.info("Started service")
         return self._source
 
+    async def on_start_stream(self):
+        logger.info("Starting stream")
+        tl_track = TlTrack(
+            tlid=0, 
+            track=Track(
+                uri=self._name,
+                name="Line In",
+                sample_rate=self._sample_rate,
+                bit_depth=self._bit_depth,
+                channels=self._channels,
+                audio_codec=self._audio_codec,
+            )
+        )
+        await self._core.request("playback.set_metadata", tl_track=tl_track)
+
     async def on_stop_service(self):
+        logger.info("Stopping service")
         await self._core.request("playback.clear")
-        logger.info("Stopped service")
         return True

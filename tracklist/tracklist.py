@@ -57,20 +57,8 @@ class TracklistExtension(Actor):
         logger.info("Started")
 
     async def on_event(self, message) -> None:
-        """
-        Handle playback-related events.
-        - track_playback_error → increment error counter
-        - track_playback_ended → move to next track, unless all failed
-        """
-        event = message.get("event")
+       pass
 
-        if event == "track_playback_ended":
-            tl_track = message.get("tl_track")
-            if tl_track.tlid == 0:
-                return
-            next_track = await self.on_next_track()
-            if next_track is not None:
-                await self._core.request("playback.next", from_ui=False)
 
     async def on_stop(self) -> None:
         """Called when the extension is shutting down."""
@@ -270,7 +258,7 @@ class TracklistExtension(Actor):
                 return i
         return None
 
-    async def on_next_track(self, from_ui: bool = False) -> TlTrack:
+    async def on_next_track(self) -> TlTrack:
         """
         Advance to the next track.
         Handles repeat, single, and shuffle modes.
@@ -298,10 +286,7 @@ class TracklistExtension(Actor):
             next_index %= len(tracklist)
 
             if self._single:
-                if from_ui:
-                    await self.on_set_single({"value": False})
-                else:
-                    return self._current_tltrack
+                return self._current_tltrack
 
         elif next_index >= len(tracklist):
             self._next_tltrack = None
@@ -310,7 +295,7 @@ class TracklistExtension(Actor):
         self._next_tltrack = tracklist[next_index]
         return tracklist[next_index]
 
-    async def on_previous_track(self, from_ui: bool = False) -> TlTrack:
+    async def on_previous_track(self) -> TlTrack:
         """
         Go back to the previous track.
         Respects single mode and shuffle setting.
@@ -329,10 +314,6 @@ class TracklistExtension(Actor):
 
         tracklist = self._tl_tracks_shuffled if self._random else self._tl_tracks
         position = self._get_index(self._current_tltrack.tlid)
-
-        if self._single:
-            if from_ui:
-                await self.on_set_single({"value": False})
 
         if position in (None, 0):
             return None

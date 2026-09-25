@@ -1,17 +1,25 @@
 import logging
 
-from core.actor import Actor
+from core.actor import SourceActor
+from core.models import Source
 
 logger = logging.getLogger(__name__)
 
 
-class ConfigExtension(Actor):
+class ConfigExtension(SourceActor):
     def __init__(self, name, core, db, config):
         super().__init__()
         self._name = name
         self._core = core
         self._db = db
         self._config = config
+        self._source = Source(
+            name="Settings",
+            uri=self._name,
+            index=14,
+            enabled=True,
+            browsable=True, 
+        )
 
     async def on_start(self):
         config = self._db.get_config()

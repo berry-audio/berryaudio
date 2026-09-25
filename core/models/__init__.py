@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import enum
 from collections.abc import Iterator
-from typing import Literal, NewType, TypeAlias, Optional
+from typing import Literal, NewType, TypeAlias, Optional, Any
 
 from pydantic import Field, ConfigDict
 from pydantic.fields import Field
@@ -201,9 +201,12 @@ class Source(BaseModel):
     model: Literal["Source"] = Field(default="Source", alias="__model__", repr=False)
     name: Optional[str] = None
     uri: Optional[Uri] = None
-    active: bool = False
-    controls: list[str] = Field(default_factory=list)
-    state: State = Field(default_factory=State)
+    active: Optional[bool] = False
+    enabled: bool = False
+    index: Optional[int] = 0
+    browsable: Optional[bool] = False
+    controls: Optional[list[str]] = Field(default_factory=list)
+    state: Optional[State] = Field(default_factory=State)
 
 
 class StorageUsage(BaseModel):
@@ -223,6 +226,7 @@ class Storage(BaseModel):
     fstype: Optional[str] = None
     size: int = 0
     status: Optional[str] = None
+    message: Optional[str] = None
     usage: Optional[StorageUsage] = None
     read_only: bool = False
     guest_allowed: bool = True
@@ -281,11 +285,10 @@ class Bluetooth(BaseModel):
 
 class Room(BaseModel):
     model_config = ConfigDict(frozen=False)
-
     model: Literal["Room"] = Field(default="Room", alias="__model__", repr=False)
     service_name: Optional[str] = None
     name: Optional[str] = None
     ip: Optional[str] = None
     port: Optional[int] = None
     connected: Optional[bool] = None
-    status: Optional[str] = None
+    status: Optional[dict[str, Any]] = None

@@ -1,17 +1,17 @@
 ![Description](https://www.berryaudio.org/assets/berryaudio_logo_dark.png)
 
-> ⭐ If this project helps you, consider 
+> ⭐ If this project helps you, consider
 > [Buy me a Coffee](https://www.buymeacoffee.com/varungujjar)
-> to keep it alive and maintained. 
-
-
+> to keep it alive and maintained.
 
 Berryaudio is a diy open source audiophile audio player / streamer for **[Raspberry Pi](https://www.raspberrypi.com/)** designed for for pure music listening experience with a beautifully crafted, responsive, touch-optimized user interface.
 — No ads, no subscription, just pure rich, high-resolution playback and a sleek beautiful responsive UI for your DAC setup.
 
 Built using **gstreamer**, **python** as server, **reactjs** & **typescript** as client, designed for smooth performance across touch displays, Building your own custom music system headless or with an attached display.
 
-![Description](https://www.berryaudio.org/assets/screenshot.png)
+![Description](https://www.berryaudio.org/assets/hero_screenshot2.png)
+![Description](https://www.berryaudio.org/assets/dsp_screenshot1.png)
+![Description](https://www.berryaudio.org/assets/overview_screenshot2.png)
 
 > "As an audiophile, a software engineer, and someone who loves building own products, I’ve always wanted an audio system/streamer built with my own preferred tech stack—something modern, intuitive, and truly customizable. With modern hardware,computing power and with a vision to preserve offline experiences & privacy, I’m convinced you can build almost anything without relying on the cloud services.
 > After years of missing the simplicity of Winamp and the smart features of old MusicMatch (some of you might not even remember those days), along with the charm of classic audio systems, I finally decided to create something for myself. So today, I’m starting that journey: building a DAC setup that blends the best of modern features with the soul of legacy audio systems." - Varun Gujjar
@@ -28,12 +28,14 @@ Built using **gstreamer**, **python** as server, **reactjs** & **typescript** as
 ## Overview
 
 - Designed for the Raspberry Pi (should also work on other single board computers)
-- Plays MP3, FLAC, WAV, OGG, DSD, DSF, and other formats, with detailed codec info, ID3 tag reading, and cover art extraction.
+- Plays MP3, FLAC, WAV, OGG, DSD, DSF, and other formats, with detailed codec info, ID3 tag reading, and cover art extraction
+- **Fully integerated Camilla DSP GUI**
+- **Supports Effects Reverb, Flanger & Pitch Control with Parametric EQ**
 - Bluetooth streaming, AirPlay 2, Spotify Connect, and built-in file browser for easy library management.
 - Filter Music Library & Radio by alphabets dictionary
-- **Collection - Recently Played, Top 100, Favourites**
+- Collection - Recently Played, Top 100, Favourites
 - Bluetooth receiver and transmitter support (Handles automatically based on device connected)
-- Multi-room synchronized audio playback 
+- Bit perfect Multi-room synchronized audio playback
 - Curated list of 200+ radio stations, including major providers like BBC and SomaFM.
 - Full ID3 tag support, music scanning, and automatic artist info from TheAudioDB.com.
 - Create and manage playlists with touch-friendly drag-and-drop sorting and playback modes (Repeat, Shuffle).
@@ -42,13 +44,11 @@ Built using **gstreamer**, **python** as server, **reactjs** & **typescript** as
 - Manage Bluetooth, view system stats, and control power options (Shutdown, Reboot, Standby).
 - Manage wireless & ethernet network, Hotspot, IP configurations direclty from the interface
 - Fully accessible using a responsive web interface.
-- Support for Line In Audio for DAC with ADC 
-- **Search and play radio stations from the Radio Browser directory** by [@FloTec508](https://github.com/FloTec508)
-- **Support for Si4703 Tuner Boards**
-- **Stream audio directly to browser making it a Music Server (Beta)**
-- **Works as Hi-Res Soundcard DAC when connected to computer or phone(Pi Zero 2W)**
-- **Lots of UI improvements & fixes**
-
+- Support for Line In Audio for DAC with ADC
+- Search and play radio stations from the Radio Browser directory by [@FloTec508](https://github.com/FloTec508)
+- Support for Si4703 Tuner Boards
+- Stream audio directly to browser making it a Music Server (Beta)
+- Works as Hi-Res Soundcard DAC when connected to computer or phone(Pi Zero 2W)
 
 ## Download
 
@@ -67,105 +67,110 @@ Installation guides, SD card flashing instructions, and hardware compatibility &
 - [Website](https://www.berryaudio.org/)
 
 ## Supported Hardware
+
 - [Raspberry Pi Boards](https://docs.berryaudio.org/getting-started/supported-hardware.html#supported-raspberry-pi)
 - [Audio Boards](https://docs.berryaudio.org/getting-started/supported-hardware.html#supported-dac-adc)
-
 
 ## Features
 
 ### Playback
 
-- Plays **MP3, M4A, MP4, AAC, FLAC, OGG, OPUS, WMA, WAV, and DSF** audio formats *(DSF requires a supported DAC)*  
-- Reads **ID3 tags** and extracts **embedded cover art** from various file types  
-- Displays detailed **audio codec, sample rate, and bit-depth information**  
+- Plays **MP3, M4A, MP4, AAC, FLAC, OGG, OPUS, WMA, WAV, and DSF** audio formats _(DSF requires a supported DAC)_
+- Reads **ID3 tags** and extracts **embedded cover art** from various file types
+- Displays detailed **audio codec, sample rate, and bit-depth information**
 - Fast search by **artist, album, and track**
 
 ### Sources
 
-- **Bluetooth streaming** with **aptX, LDAC, SBC XQ+**, including metadata display *(supported devices only)*  
-- Can be used as a **Bluetooth receiver or transmitter**  
-- **AirPlay 2 receiver** *(PCM 44/48 kHz / 32-bit)* with cover art & metadata display — powered by [Shairport Sync v5.0](https://github.com/mikebrady/shairport-sync)  
-- **Spotify Connect** with cover art & metadata display — powered by [Librespot](https://github.com/librespot-org/librespot)  
-- Built-in **File Browser** for easy navigation and library management 
+- **Bluetooth streaming** with **aptX, LDAC, SBC XQ+**, including metadata display _(supported devices only)_
+- Can be used as a **Bluetooth receiver or transmitter**
+- **AirPlay 2 receiver** _(PCM 44/48 kHz / 32-bit)_ with cover art & metadata display — powered by [Shairport Sync v5.5](https://github.com/mikebrady/shairport-sync)
+- **Spotify Connect** with cover art & metadata display — powered by [Librespot](https://github.com/librespot-org/librespot)
+- Built-in **File Browser** for easy navigation and library management
 - **Si4703** based FM Tuner breakout boards (Docs coming soon..)
 - Use it as a **USB DAC sound card** by connecting it to a Mac or Windows computer (Pi Zero 2W only)
 
 ### Display
 
-- Supports **SSD1322, SSD1306, and Waveshare 2.8" DSI displays** with new fonts and icons — ([Display wiring guide](https://docs.berryaudio.org/display/generic-hdmi.html))  
-- OLED displays *(SSD1322 & SSD1306)* include **Spectrum Analyzer modes and a Retro VU Meter visualizer**
+- Supports **SSD1322, SSD1306, and Waveshare 2.8" DSI displays** with new fonts and icons — ([Display wiring guide](https://docs.berryaudio.org/display/generic-hdmi.html))
+- OLED displays _(SSD1322 & SSD1306)_ include **Spectrum Analyzer modes and a Retro VU Meter visualizer**
 
 ### Multiroom
 
-- **Synchronized audio playback** across multiple rooms  
-- **Low-latency streaming** with **Snapcast** *(PCM, FLAC, Opus, Ogg)*  
-- Easily **group and manage multiple audio clients**  
-- **Perfectly synchronized playback** between devices  
-- **Client and server-side volume control**  
+- **Synchronized bit perfect audio playback** across multiple rooms with Meta Display
+- **Low-latency streaming** with **Snapcast** (PCM, FLAC, Opus, Ogg)
+- Easily **group and manage multiple audio clients** (In Progress)
+- **Perfectly synchronized playback** between devices
+- **Client and server-side volume control**
 - Can be used as a **receiver or transmitter**
 
 ### Internet Radio
 
-- **Curated list of 200+ radio stations**  
-- Includes **Pop, Rock, 80s, News, and more**  
+- **Curated list of 200+ radio stations**
+- Includes **Pop, Rock, 80s, News, and more**
 - Features major stations such as **BBC, FluxFM, and SomaFM**
 - Search and play radio stations from the Radio Browser directory
 
 ### Library
 
-- Full **ID3 tag and cover art support** across various file formats  
-- Scan and index music from **multiple storage locations**  
-- Automatically download **artist information** from [TheAudioDB](https://www.theaudiodb.com/)  
-- Browse music by **Artist, Album, Genre, and Tracks**  
-- Add **artists or albums directly to playlists or the queue**  
+- Full **ID3 tag and cover art support** across various file formats
+- Scan and index music from **multiple storage locations**
+- Automatically download **artist information** from [TheAudioDB](https://www.theaudiodb.com/)
+- Browse music by **Artist, Album, Genre, and Tracks**
+- Add **artists or albums directly to playlists or the queue**
 - **Infinite query-based smooth scrolling** for large music libraries
 - **Collection** - Recently Played, Top 100, Favourites
 - Filter by **Alphabet** dictionary
 
 ### Playlists
 
-- **Create and manage playlists**  
-- **Touch-friendly drag-and-drop** sorting for playlists and the **Now Playing queue**  
+- **Create and manage playlists**
+- **Touch-friendly drag-and-drop** sorting for playlists and the **Now Playing queue**
 - Playback modes: **Repeat All, Repeat One, and Shuffle**
 
 ### Storage
 
-- Supports **SD cards**  
-- Supports **external USB drives** *(pen drives & HDDs)*  
-- **Automatic mount and unmount** for connected storage devices  
-- Supports **NVMe & PCIe storage** *(not fully tested but expected to work)*  
-- **SMB network folder sharing** from mounted drives  
+- Supports **SD cards**
+- Supports **external USB drives** _(pen drives & HDDs)_
+- **Automatic mount and unmount** for connected storage devices
+- Supports **NVMe & PCIe storage** _(not fully tested but expected to work)_
+- **SMB network folder sharing** from mounted drives
 - Supports adding **remote NAS storage** from **Windows, macOS, and other network locations**
 
 ### Networking
 
-- Scan and manage **Bluetooth devices via D-Bus**  
-- Discover and manage **Wi-Fi networks**  
-- Automatically enables a **Wi-Fi hotspot if no network is connected**  
-- Manage **Ethernet connections**  
-- Configure **IP settings** *(DHCP or manual/static)*
+- Scan and manage **Bluetooth devices via D-Bus**
+- Discover and manage **Wi-Fi networks**
+- Automatically enables a **Wi-Fi hotspot if no network is connected**
+- Manage **Ethernet connections**
+- Configure **IP settings** _(DHCP or manual/static)_
 
 ### Power
 
-- View **CPU, memory, and storage usage statistics**  
-- **Shutdown, reboot, and standby** controls from the interface  
+- View **CPU, memory, and storage usage statistics**
+- **Shutdown, reboot, and standby** controls from the interface
 - Standby screen displays **local date and time**
 
 ### Camilla DSP
 
-- Supports all DSP features of [CamillaDSP](https://github.com/HEnquist/camilladsp)  
-- Advanced **filtering, routing, mixing, and gain control**  
-- Create custom **EQ profiles** *(PEQ, GEQ, FIR, IIR filters)*  
-- **Load and switch between multiple DSP presets**  
-- **Real-time DSP updates** without restarting playback  
-- Supports **high-resolution audio pipelines** *(up to 32-bit / 384 kHz depending on hardware)*
+- **New: Fully Integerated Camilla DSP GUI**
+- **New: Supports Effects Reverb, Flanger & Pitch Control (2 Channels only)**
+- Supports all DSP features of [CamillaDSP](https://github.com/HEnquist/camilladsp)
+- Advanced **filtering, routing, mixing, and gain control**
+- Create custom **EQ profiles** _(PEQ, GEQ, FIR, IIR filters)_
+- Load and switch between multiple DSP presets (In Progress)
+- **Real-time DSP updates** without restarting playback
+- Supports **high-resolution audio pipelines** _(up to 32-bit / 384 kHz depending on hardware)_
 
-### Appearance 
+### Appearance
+
 - Supports Dark & Light Mode UI
 - Ability to show or hide Album Art in Now playing background
 
 ### Coming Soon
 
+- Spotify Soloist
+- Soundcloud
 - DLNA
 - GPIO Buttons
 - Infrared Remote
@@ -237,7 +242,7 @@ Berryaudio has been tested on the following Raspberry Pi (Bookworm OS). While it
 
 ## Audio Boards
 
-Below are the list of Hardware that have been tested and are confirmed to work out of the box. More will be added as testing progresses. If you have a devices you’d like to see supported, or are able to provide a board for testing, we’d be happy to include it on the platform—your contributions are always welcome! 
+Below are the list of Hardware that have been tested and are confirmed to work out of the box. More will be added as testing progresses. If you have a devices you’d like to see supported, or are able to provide a board for testing, we’d be happy to include it on the platform—your contributions are always welcome!
 <a href="https://docs.berryaudio.org/getting-started/supported-hardware.html">Full list of hardware</a>
 
 <table>
@@ -296,7 +301,6 @@ Below are the list of Hardware that have been tested and are confirmed to work o
 </table>
 
 ## Displays
-
 
 <table>
     <thead>
@@ -364,7 +368,6 @@ Below are the list of Hardware that have been tested and are confirmed to work o
     </tbody>
 </table>
 
-
 ## License
 
 Berry Audio is released under the MIT License.  
@@ -373,5 +376,3 @@ Fork it, modify it, and build your perfect listening setup.
 ## Contributing
 
 We welcome your contributions! Based on functionality and code quality, contributions may be integrated directly into the core system or offered as user-contributed modules that can be installed separately.
-
-

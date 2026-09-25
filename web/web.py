@@ -10,6 +10,8 @@ from core.actor import Actor
 from main import USE_GBULB
 from core.actor import Actor
 from core.util import handle_json, handle_json_ws
+from core.models import Track
+
 
 logging.getLogger("aiohttp.access").setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
@@ -87,8 +89,20 @@ class WebExtension(Actor):
     async def run_server(self):
         host = "0.0.0.0"
         port = 8080
-        self._app = web.Application()
 
+        @web.middleware
+        async def cors_middleware(request, handler):
+            if request.method == "OPTIONS":
+                resp = web.Response()
+            else:
+                resp = await handler(request)
+            resp.headers["Access-Control-Allow-Origin"] = "*"
+            resp.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+            resp.headers["Access-Control-Allow-Headers"] = "Content-Type"
+            return resp
+
+        self._app = web.Application(middlewares=[cors_middleware])
+        
         www_dir = pathlib.Path(__file__).parent / "www"
         images_dir = www_dir / "images"
 

@@ -1,8 +1,8 @@
 import logging
 import ast
 
-from core.actor import Actor
-from core.models import Track
+from core.actor import SourceActor
+from core.models import Track, Source
 from playlist.utils import build_track, build_album, build_artist, to_serialize
 
 logger = logging.getLogger(__name__)
@@ -25,12 +25,20 @@ SQL_QUERY_CREATE_HISTORY = """
     );
     """
 
-class CollectionExtension(Actor):
+
+class CollectionExtension(SourceActor):
     def __init__(self, name, core, db, config):
         super().__init__()
         self._name = name
         self._core = core
         self._db = db
+        self._source = Source(
+            name="Collection",
+            uri=self._name,
+            enabled=True,
+            index=2,
+            browsable=True,
+        )
 
     async def on_start(self):
         self._init_table()
@@ -52,7 +60,7 @@ class CollectionExtension(Actor):
             (uri,)
         )
         return row is not None
-    
+
     def on_favourite(self, item) -> bool:
         uri = item.get("uri")
         name = item.get("name")
@@ -153,7 +161,7 @@ class CollectionExtension(Actor):
                     items.append(build_artist(data))
 
             return items
-        
+
         tracks = []
         for row in rows:
             data = ast.literal_eval(row["track"])
@@ -161,4 +169,3 @@ class CollectionExtension(Actor):
             tracks.extend(build_track(data))
 
         return tracks
-

@@ -167,6 +167,9 @@ class LocalExtension(SourceActor):
         self._source = Source(
             name="Library",
             uri=self._name,
+            enabled=True,
+            index=3,
+            browsable=True,
             controls=[
                 PlaybackControls.SEEK,
                 PlaybackControls.PLAY,
@@ -177,7 +180,6 @@ class LocalExtension(SourceActor):
                 PlaybackControls.SHUFFLE,
                 PlaybackControls.FAVOURITE,
             ],
-            state={},
         )
 
     async def on_event(self, message):
@@ -436,13 +438,18 @@ class LocalExtension(SourceActor):
         return Track(**self.build_track(row[0]))
 
     async def on_stop_service(self) -> bool:
-        logger.info("Stopping Service")
+        logger.info("Stopping service")
         await self._core.request("playback.clear")
         return True
 
     async def on_start_service(self) -> bool:
-        logger.info("Starting Service")
+        logger.info("Starting service")
+        await self._core.request("dsp.set_capture_device")
         return self._source
+
+    async def on_start_stream(self):
+        logger.info("Starting stream")
+        await self._core.request("playback.start_stream")
 
     async def on_clean(self):
         self._db.executescript(

@@ -35,6 +35,7 @@ class PlaybackExtension(Actor):
         self._playback_ready = False
         self._tl_track = None
         self._loop = asyncio.get_event_loop()
+        self._ext = None
 
     def _setup_playbin(self, uri: str | None = None):
         self._pipeline = Gst.Pipeline.new("audio-player")
@@ -42,6 +43,13 @@ class PlaybackExtension(Actor):
         self._convert = Gst.ElementFactory.make("audioconvert", "convert")
         self._resample = Gst.ElementFactory.make("audioresample", "resample")
         self._sink = Gst.ElementFactory.make("alsasink", "sink")
+
+        if uri:
+            is_network = uri.startswith(
+                ("http://", "https://", "rtsp://", "rtmp://"))
+            self._source.set_property("use-buffering", is_network)
+            if is_network:
+                self._source.set_property("buffer-duration", 2 * Gst.SECOND)
 
         self._resample.set_property("quality", 0)
 
@@ -119,13 +127,15 @@ class PlaybackExtension(Actor):
                             "bit_depth": bit_depth,
                         }
                     )
-                    self._tl_track = TlTrack(tlid=self._tl_track.tlid, track=track)
-                    self._core.send(
-                        target=["web", "display"],
-                        event="track_meta_updated",
-                        tl_track=self._tl_track,
-                    )
+                    self._tl_track = TlTrack(
+                        tlid=self._tl_track.tlid, track=track)
 
+                    if self._playback_ready:
+                        self._core.send(
+                            target=["web", "display", "multiroom"],
+                            event="track_meta_updated",
+                            tl_track=self._tl_track,
+                        )
             return Gst.PadProbeReturn.REMOVE
 
         pad.add_probe(Gst.PadProbeType.BUFFER, probe)
@@ -184,28 +194,34 @@ class PlaybackExtension(Actor):
 
             if updates:
                 updated_track = self._tl_track.track.copy(update=updates)
-                tl_track = TlTrack(tlid=self._tl_track.tlid, track=updated_track)
+                tl_track = TlTrack(tlid=self._tl_track.tlid,
+                                   track=updated_track)
 
                 def _has_changes(old: TlTrack, new: TlTrack) -> bool:
                     return old.model_dump_json() != new.model_dump_json()
 
                 if _has_changes(self._tl_track, tl_track):
                     self._tl_track = tl_track
-                    self._core.send(
-                        target=["web", "display"],
-                        event="track_meta_updated",
-                        tl_track=self._tl_track,
-                    )
+
+                    if self._playback_ready:
+                        self._core.send(
+                            target=["web", "display", "multiroom"],
+                            event="track_meta_updated",
+                            tl_track=self._tl_track,
+                        )
 
         if t == Gst.MessageType.DURATION_CHANGED:
             success, duration = self._pipeline.query_duration(Gst.Format.TIME)
             if success and duration > 0:
                 self._duration = int(duration / Gst.SECOND) * 1000
-                _track = self._tl_track.track.copy(update={"length": self._duration})
-                self._tl_track = TlTrack(tlid=self._tl_track.tlid, track=_track)
+                _track = self._tl_track.track.copy(
+                    update={"length": self._duration})
+                self._tl_track = TlTrack(
+                    tlid=self._tl_track.tlid, track=_track)
 
         elif t == Gst.MessageType.BUFFERING:
             percent = message.parse_buffering()
+            
             if percent < 100:
                 self._pipeline.set_state(Gst.State.PAUSED)
             else:
@@ -216,29 +232,31 @@ class PlaybackExtension(Actor):
             )
 
         elif t == Gst.MessageType.ASYNC_DONE:
-            if not self._playback_ready:
+            if self._sample_rate and not self._playback_ready:
+                self._playback_ready = True
+                self._elapsed = 0
+
+                self._pipeline.set_state(Gst.State.NULL)
+
+                if self._time_source_id is not None:
+                    GLib.source_remove(self._time_source_id)
+                    self._time_source_id = None
+
                 asyncio.run_coroutine_threadsafe(
                     self._core.request(
-                        "dsp.set_capture_device", samplerate=self._sample_rate
-                    ),
-                    self._loop,
-                )
-                self._playback_ready = True
+                        "dsp.set_capture_device",
+                        samplerate=self._sample_rate,
+                        ext=self._ext,
+                    ), self._loop,)
 
         elif t == Gst.MessageType.EOS:
-            self.on_stop()
-            self._core.send(
-                target=["web", "display", "tracklist"],
-                event="track_playback_ended",
-                tl_track=self._tl_track,
-            )
+            asyncio.run_coroutine_threadsafe(self.on_playback_stop(), self._loop,)
 
         elif t == Gst.MessageType.ERROR:
             err, debug = message.parse_error()
             domain = err.domain
             code = err.code
             msg = err.message.lower()
-
             logger.error(
                 f"Domain: {domain}, Code: {code}, Message: {msg}, Debug: {debug}"
             )
@@ -278,18 +296,17 @@ class PlaybackExtension(Actor):
                 message=custom_message,
             )
 
-            self.on_stop()
+            asyncio.run_coroutine_threadsafe(self.on_playback_stop(), self._loop,)
 
         elif t == Gst.MessageType.STREAM_START:
-            if self._playback_ready:
-                self._start_time_tracking()
+            self._start_time_tracking()
 
-                self._core.send(
-                    target=["web", "display"],
-                    event="track_playback_started",
-                    tl_track=self._tl_track,
-                    time_position=self._elapsed,
-                )
+            self._core.send(
+                target=["web", "display"],
+                event="track_playback_started",
+                tl_track=self._tl_track,
+                time_position=self._elapsed,
+            )
 
     def _start_time_tracking(self):
         if self._time_source_id:
@@ -297,7 +314,8 @@ class PlaybackExtension(Actor):
 
         def update_elapsed():
             if self._pipeline:
-                success, position = self._pipeline.query_position(Gst.Format.TIME)
+                success, position = self._pipeline.query_position(
+                    Gst.Format.TIME)
                 if success:
                     self._elapsed = int((position / Gst.SECOND) * 1000)
             return True
@@ -308,27 +326,24 @@ class PlaybackExtension(Actor):
         self._setup_playbin()
         logger.info("Started")
 
+    async def on_stop(self):
+        await self.on_playback_stop()
+        logger.info("Stopped")
+
     async def on_clear(self):
         self._playback_uri = None
         self.on_set_metadata()
-        self.on_stop()
+        await self.on_playback_stop()
 
     async def on_event(self, message):
         event = message.get("event")
-
-        if event == "dsp_options_changed" or event == "dsp_options_error":
-            if self._playback_ready:
-                if self._pipeline is not None:
-                    self._pipeline.set_state(Gst.State.NULL)
-                    await self.on_set_time_position(0)
-
-                self._setup_playbin(uri=self._playback_uri)
-                self._play()
-                self._now_playing()
+        if event == "dsp_options_error":
+            await self.on_playback_stop()
 
         if event == "tracklist_changed":
             if not message["tl_tracks"]:
-                self._tl_track = TlTrack(tlid=0, track=self._tl_track.track.copy())
+                self._tl_track = TlTrack(
+                    tlid=0, track=self._tl_track.track.copy())
 
     async def on_get_current_tl_track(self):
         if self._tl_track:
@@ -359,28 +374,40 @@ class PlaybackExtension(Actor):
             time_position=position_ms,
         )
 
-    def on_set_metadata(self, track: Track | None = None) -> bool:
-        if track is None:
-            self._tl_track = None
-        else:
-            tlid = self._tl_track.tlid if self._tl_track else 0
-            self._tl_track = TlTrack(tlid=tlid, track=track)
-
+    def on_set_metadata(self, tl_track: TlTrack | None = None) -> bool:
+        self._tl_track = tl_track
         self._core.send(
-            target=["web", "display"],
+            target=["web", "display", "multiroom"],
             event="track_meta_updated",
             tl_track=self._tl_track,
         )
-        return True
+
+    async def on_start_stream(self):
+        if not self._playback_ready:
+            return
+        
+        self._setup_playbin(self._playback_uri)
+        self._pipeline.set_state(Gst.State.PLAYING)
+        self._state = PlaybackState.PLAYING
+
+        self._core.send(
+            target=["web", "display"],
+            event="playback_state_changed",
+            state=self._state,
+        )
+        track = self._tl_track.track
+        logger.info(
+            f"Now Playing: {track.name or 'Unknown Title'} : {track.audio_codec} | {track.bitrate}bps | {track.sample_rate}Hz | {track.bit_depth}")
 
     async def on_play(self, uri: str | None = None, tlid: int | None = 0) -> bool:
         if uri:
+            self._ext = None
             try:
                 ext, path = uri.split(":", 1)
             except ValueError:
                 raise ValueError(f"Invalid uri format: {uri}")
 
-            self.on_stop()
+            await self.on_playback_stop()
             await self._core.request("source.set", uri=ext)
 
             track = await self._core.request(f"{ext}.lookup_track", path=path)
@@ -397,25 +424,29 @@ class PlaybackExtension(Actor):
             if not self._playback_uri:
                 raise ValueError("Playback uri not found")
 
+            self._ext = ext
             if self._playback_uri == ext:
                 return True
 
-            self._sample_rate = None
             self._playback_ready = False
-            self._setup_playbin(uri=self._playback_uri)
+            self._sample_rate = None
 
-        if self._state == PlaybackState.STOPPED:
+            self._pipeline.set_state(Gst.State.NULL)
+            self._setup_playbin(self._playback_uri)
+
             self._pipeline.set_state(Gst.State.PAUSED)
             self._state = PlaybackState.PAUSED
-            return self._state
+        else:
+            if self._state == PlaybackState.STOPPED:
+                await self.on_play(self._tl_track.track.uri, self._tl_track.tlid)
 
-        if self._state == PlaybackState.PAUSED:
-            return self._resume()
+            if self._state == PlaybackState.PAUSED:
+                return self._resume()
 
-        if self._state == PlaybackState.PLAYING:
-            return self.on_pause()
+            if self._state == PlaybackState.PLAYING:
+                return self.on_pause()
 
-        return self._state
+        return True
 
     def on_seek(self, time_position: int):
         if time_position < 1:
@@ -442,30 +473,28 @@ class PlaybackExtension(Actor):
             else:
                 return False
 
-    async def on_next(self, from_ui: bool = True) -> bool:
-        next_track = await self._core.request("tracklist.next_track", from_ui=from_ui)
-        if next_track is not None:
-            await self.on_play(next_track.track.uri, next_track.tlid)
+    async def on_next(self) -> bool:
+        next_tl_track = await self._core.request("tracklist.next_track")
+        if next_tl_track is not None:
+            await self.on_play(next_tl_track.track.uri, next_tl_track.tlid)
         else:
-            self.on_stop()
+            await self.on_playback_stop()
         return True
 
-    async def on_previous(self, from_ui: bool = True) -> bool:
-        previous_track = await self._core.request(
-            "tracklist.previous_track", from_ui=from_ui
-        )
-        if previous_track is not None:
-            await self.on_play(previous_track.track.uri, previous_track.tlid)
+    async def on_previous(self) -> bool:
+        previous_tl_track = await self._core.request("tracklist.previous_track")
+        if previous_tl_track is not None:
+            await self.on_play(previous_tl_track.track.uri, previous_tl_track.tlid)
         else:
-            self.on_stop()
+            await self.on_playback_stop()
         return True
 
     def _resume(self):
         if self._state != PlaybackState.PAUSED:
-            return self._state
+            return False
 
         if self._pipeline is None:
-            return self._state
+            return False
 
         self._pipeline.set_state(Gst.State.PLAYING)
         self._state = PlaybackState.PLAYING
@@ -481,14 +510,14 @@ class PlaybackExtension(Actor):
         self._core.send(
             target=["web", "display"], event="playback_state_changed", state=self._state
         )
-        return self._state
+        return True
 
     def on_pause(self) -> PlaybackState:
         if self._state != PlaybackState.PLAYING:
-            return self._state
+            return False
 
         if self._pipeline is None:
-            return self._state
+            return False
 
         self._pipeline.set_state(Gst.State.PAUSED)
 
@@ -510,22 +539,24 @@ class PlaybackExtension(Actor):
             state=self._state,
         )
 
-        return self._state
+        return True
 
-    def on_stop(self) -> PlaybackState:
+    async def on_playback_stop(self) -> PlaybackState:
+        self._playback_ready = False
+
         if self._pipeline is not None:
             self._pipeline.set_state(Gst.State.NULL)
 
         if self._state not in (PlaybackState.PLAYING, PlaybackState.PAUSED):
-            return self._state
+            return True
 
         if self._time_source_id is not None:
             GLib.source_remove(self._time_source_id)
             self._time_source_id = None
 
         self._state = PlaybackState.STOPPED
-        self._playback_ready = False
         self._elapsed = 0
+        self._ext = None
 
         self._core.send(
             target=["web", "display"],
@@ -540,19 +571,7 @@ class PlaybackExtension(Actor):
             state=self._state,
         )
 
-        return self._state
+        if self._tl_track is not None and self._tl_track.tlid:
+            await self.on_next()
 
-    def _play(self) -> PlaybackState | bool:
-        self._pipeline.set_state(Gst.State.PLAYING)
-        self._state = PlaybackState.PLAYING
-        self._core.send(
-            target=["web", "display"],
-            event="playback_state_changed",
-            state=self._state,
-        )
-        return self._state
-
-    def _now_playing(self):
-        track = self._tl_track.track
-        info = f"Now Playing: {track.name or 'Unknown Title'} : {track.audio_codec} | {track.bitrate}bps | {track.sample_rate}Hz | {track.bit_depth}"
-        logger.info(info)
+        return True

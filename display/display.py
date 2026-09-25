@@ -329,7 +329,9 @@ class DisplayExtension(Actor):
                     self.start_timer(None)
 
             elif event == "track_meta_updated":
-                self.set_current_track(message.get("tl_track").track)
+                tl_track = message.get("tl_track")
+                if tl_track is not None:
+                    self.set_current_track(message.get("tl_track").track)
 
             elif event == "playback_state_changed":
                 self.set_playback_state(message.get("state"))

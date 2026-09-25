@@ -45,6 +45,18 @@ class SystemUtil:
         except Exception:
             return "UNKNOWN"
 
+    def get_mac(self):
+            try:
+                result = subprocess.run(
+                    "cat /sys/class/net/$(ip route show default | awk '/default/ {print $5}')/address",
+                    shell=True, capture_output=True, text=True, timeout=2
+                )
+                mac = result.stdout.strip().lower()
+                return mac if mac else None
+            except Exception as e:
+                logger.error(f"Failed to get active MAC: {e}")
+                return None
+            
     async def write_asoundrc(self, pcm=None, path: str = "/home/pi/.asoundrc"):
         """Switches between PCM device and bluealsa for RX/TX mode"""
         _config = self._db.get_config()

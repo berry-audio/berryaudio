@@ -7,7 +7,7 @@ import time
 
 from pathlib import Path
 from core.actor import SourceActor
-from core.models import Album, Artist, Track, Image, Source
+from core.models import Album, Artist, Track, Image, Source, TlTrack
 from core.types import PlaybackState
 
 logger = logging.getLogger(__name__)
@@ -37,6 +37,8 @@ class ShairportsyncExtension(SourceActor):
         self._source = Source(
             name="Airplay",
             uri=self._name,
+            index=7,
+            enabled=False,
             controls=[],
             state={"connected": False},
         )
@@ -50,15 +52,18 @@ class ShairportsyncExtension(SourceActor):
         self._sample_rate = 44100
         self._loop = asyncio.get_running_loop()
 
+    def _enabled_state(self):
+        self._source.enabled = os.path.exists(
+            SHAIRPORT_PATH) and os.path.exists(SHAIRPORT_RENDER_PATH)
+
     async def on_start(self):
         if not os.path.exists(SHAIRPORT_PATH):
             logger.error("Shairport service missing")
-            return
 
         if not os.path.exists(SHAIRPORT_RENDER_PATH):
             logger.error("Shairport meta service missing")
-            return
 
+        self._enabled_state()
         logger.info("Started")
 
     async def on_event(self, message):
@@ -93,23 +98,26 @@ class ShairportsyncExtension(SourceActor):
 
     async def on_start_service(self):
         self._source_active = True
+        logger.info("Starting service")
+        await self._core.request("dsp.set_capture_device", samplerate=self._sample_rate, gain=-5.0, ext=self._name)
+        return self._source
+
+    async def on_start_stream(self):
+        logger.info("Starting stream")
         if os.path.exists(SHAIRPORT_PATH) and os.path.exists(SHAIRPORT_RENDER_PATH):
-            await self._core.request("dsp.set_capture_device", samplerate=self._sample_rate)
+            
             threading.Thread(target=self._shairportsync_init,
                              daemon=True).start()
             threading.Thread(
                 target=self._shairportsync_meta_init, daemon=True).start()
             self._clean_images_dir()
             self._reset_meta()
-            logger.info(
-                f"Starting Service"
-            )
+
             logger.info(
                 f"Started Shairport Sync with name {self._hostname} on {self._output_device}"
             )
         else:
-            logger.error(f"Shairport servics missing")
-        return self._source
+            logger.error(f"Shairport services missing")
 
     def _clean_images_dir(self):
         if ALBUM_IMAGES_DIR.exists() and ALBUM_IMAGES_DIR.is_dir():
@@ -128,7 +136,7 @@ class ShairportsyncExtension(SourceActor):
             uri=self._name,
             name="Airplay",
         )
-        self._core._request("playback.set_metadata", track=self._track)
+        self._core._request("playback.set_metadata", tl_track=TlTrack(tlid=0, track=self._track))
 
     def _shairportsync_init(self):
         """Starting shairportsync service"""
@@ -203,8 +211,9 @@ class ShairportsyncExtension(SourceActor):
                 picture_uri = ()
 
             self._track = self._track.copy(update={"images": picture_uri})
+            
             if self._source_active:
-                self._core._request("playback.set_metadata", track=self._track)
+                self._core._request("playback.set_metadata", tl_track=TlTrack(tlid=0, track=self._track))
 
         def _parse_metadata_line(line: str):
             line = line.strip()
@@ -325,7 +334,7 @@ class ShairportsyncExtension(SourceActor):
                     # self._clean_images_dir()
                     if self._source_active:
                         self._core._request(
-                            "playback.set_metadata", track=self._track)
+                            "playback.set_metadata", tl_track=TlTrack(tlid=0, track=self._track))
 
                 if meta_code == "prsm":  # play stream resume
                     self._resume_timer()
@@ -384,7 +393,7 @@ class ShairportsyncExtension(SourceActor):
                                 "playback.set_time_position", position_ms=position_ms
                             )
                             self._core._request(
-                                "playback.set_metadata", track=self._track
+                                "playback.set_metadata", tl_track=TlTrack(tlid=0, track=self._track)
                             )
 
             except Exception:

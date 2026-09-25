@@ -14,7 +14,7 @@ class SourceExtension(Actor):
         self._db = db
         self._config = config
         self._current = Source(
-            name=None, uri=None, controls=[], state={"connected": False}
+            name=None, uri=None, controls=[]
         )
 
     async def on_start(self):
@@ -26,23 +26,25 @@ class SourceExtension(Actor):
     async def on_stop(self):
         logger.info("Stopped")
 
-    def on_directory(self):
-        _dirs = []
+    def on_directory(self) -> list[Source]:
+        _sources: list[Source] = []
         for ext in self._core.extensions:
             if (
                 isinstance(ext, SourceActor)
-                and hasattr(ext, "_source")
-                and isinstance(ext._source, Source)
+                and isinstance(getattr(ext, "_source", None), Source)
                 and ext._source.uri is not None
             ):
                 ext._source.active = self._current.uri == ext._source.uri
-                _dirs.append(ext._source)
-        return _dirs
+                _sources.append(ext._source)
+
+        _sources.sort(key=lambda s: s.index)
+        return _sources
 
     def on_update_source(self, source: object) -> None:
         """Updates source information from renderers"""
         if self._current.uri == source.uri:
             self._current = source
+            self._current.active = True
             self._core.send(
                 target=["web", "display"], event="source_updated", source=self._current
             )
@@ -74,7 +76,7 @@ class SourceExtension(Actor):
                         )
                     )
                 except Exception as e:
-                    raise
+                    logger.error(e)
 
         if uri is None:
             self._current = Source(
@@ -87,17 +89,19 @@ class SourceExtension(Actor):
                 try:
                     logger.debug(f"Starting {uri} service")
                     source = await self._core.request(start_method)
+                    self._current = source
+                    self._current.active = True
                 except Exception as e:
-                    self._core.send(
-                        target=["web", "display"], event="source_changed", source=Source(
-                            name=None,
-                            uri=None,
-                            controls=[],
-                            state={"connected": False},
-                        )
+                    self._current = Source(
+                        name=None,
+                        uri=None,
+                        controls=[],
+                        state={"connected": False},
                     )
-                    raise
-                self._current = source
+                    self._core.send(
+                        target=["web", "display"], event="source_changed", source=self._current
+                    )
+
                 self._core.send(
                     target=["web", "display"],
                     event="source_changed",
@@ -106,13 +110,6 @@ class SourceExtension(Actor):
             else:
                 logger.error(f"Start service not found for source {uri}")
 
-        self._core.send(
-            target=["web", "display"],
-            event="options_changed",
-            single=False,
-            repeat=False,
-            shuffle=False,
-        )
         return True
 
     def on_get(self) -> dict:

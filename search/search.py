@@ -37,4 +37,4 @@ class SearchExtension(Actor):
                 for key, value in result.items():
                     if len(value):
                         result_merged[key] = value
-        return result_merged
+        return dict(sorted(result_merged.items()))

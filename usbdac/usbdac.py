@@ -1,7 +1,7 @@
 import logging
 
 from core.actor import SourceActor
-from core.models import Track, Source
+from core.models import Track, Source, TlTrack
 from core.util.system import SystemUtil
 
 logger = logging.getLogger(__name__)
@@ -22,19 +22,12 @@ class UsbdacExtension(SourceActor):
         self._gain = self._config[self._name].get("gain")
         self._channels = 2
         self._audio_codec = "PCM"
-        self._track = Track(
-            uri=self._name,
-            name="USB DAC",
-            sample_rate=self._sample_rate,
-            bit_depth=self._bit_depth,
-            channels=self._channels,
-            audio_codec=self._audio_codec,
-        )
+        self._enabled = self._config[self._name].get("enable")
         self._source = Source(
             name="USB DAC",
             uri=self._name,
-            controls=[],
-            state={"connected": False},
+            index=11,
+            enabled=False,
         )
 
     async def on_init(self, enable=False):
@@ -48,32 +41,35 @@ class UsbdacExtension(SourceActor):
 
         if "enable" in updated_config:
             await self.on_init(updated_config["enable"])
+            self._enabled = updated_config["enable"]
             self._core.send(event="system", action="restart")
 
         if "sample_rate" in updated_config:
             self._sample_rate = updated_config["sample_rate"]
             await self._system.write_g_audio_config(samplerate=self._sample_rate)
             self._track.sample_rate = self._sample_rate
-            await self._core.request("playback.set_metadata", track=self._track)
             self._core.send(event="system", action="restart")
 
         if "gain" in updated_config:
             self._gain = updated_config["gain"]
+            if await self.is_active():
+                await self._core.request(
+                    "dsp.set_capture_gain",
+                    gain=self._gain,
+                )
 
-        if await self.is_active():
-            await self._core.request(
-                "dsp.set_capture_device",
-                device=self._input_device,
-                gain=self._gain,
-                samplerate=self._sample_rate,
-            )
+        self._enabled_state()
 
     async def is_active(self):
         source = await self._core.request("source.get")
         return bool(source and source.uri == self._name)
 
+    def _enabled_state(self):
+        self._source.enabled = self._enabled
+
     async def on_start(self):
         await self.on_init(self._config[self._name].get("enable"))
+        self._enabled_state()
         logger.info("Started")
 
     async def on_event(self, message):
@@ -83,17 +79,32 @@ class UsbdacExtension(SourceActor):
         logger.info("Stopped")
 
     async def on_start_service(self):
+        logger.info("Starting service")
         await self._core.request(
             "dsp.set_capture_device",
             device=self._input_device,
             gain=self._gain,
             samplerate=self._sample_rate,
+            ext=self._name
         )
-        await self._core.request("playback.set_metadata", track=self._track)
-        logger.info("Starting service")
         return self._source
 
+    async def on_start_stream(self):
+        logger.info("Starting stream")
+        tl_track = TlTrack(
+            tlid=0,
+            track=Track(
+                uri=self._name,
+                name="USB DAC",
+                sample_rate=self._sample_rate,
+                bit_depth=self._bit_depth,
+                channels=self._channels,
+                audio_codec=self._audio_codec,
+            )
+        )
+        await self._core.request("playback.set_metadata", tl_track=tl_track)
+
     async def on_stop_service(self):
-        await self._core.request("playback.clear")
+        await self._core.request("playback.set_metadata")
         logger.info("Stopping service")
         return True
