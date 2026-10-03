@@ -35,8 +35,14 @@ class Command(enum.StrEnum):
     STANDBY = "standby"
     UP = "up"
     DOWN = "down"
+    LEFT = "left"
+    LEFT_LONG = "left_long"
+    RIGHT = "right"
+    RIGHT_LONG = "right_long"
     SELECT = "select"
+    SELECT_LONG = "select_long"
     BACK = "back"
+    BACK_LONG = "back_long"
     DIRECTORY = "directory"
     VISUALISER = "visualiser"
     PLAY_PAUSE = "play_pause"
@@ -47,6 +53,7 @@ class Command(enum.StrEnum):
     SOURCE = "source"
     EQUALISER = "equaliser"
     NOW_PLAYING = "now_playing"
+
 
 
 class EncoderMode(enum.StrEnum):
@@ -68,3 +75,5 @@ class DisplayPage(enum.StrEnum):
     MUTE = "mute"
     VOLUME = "volume"
     LOADING = "loading"
+    POWER = "power"
+    TRACKLIST = "tracklist"

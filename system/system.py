@@ -12,6 +12,7 @@ import asyncio
 from datetime import datetime
 from zoneinfo import ZoneInfo
 from core.actor import Actor
+from core.models import Power
 from core.util.system import SystemUtil
 from version import __version__
 
@@ -28,12 +29,12 @@ class SystemExtension(Actor):
         self._system = SystemUtil(core, db)
         self._is_standby = True
         self._power_state = "standby"
-    
+
     async def on_config_update(self, config):
         updated_config = config[self._name]
         if "hostname" in updated_config:
             self.on_set_hostname(updated_config.get("hostname"))
-        self._core.send(event="system", action="restart") 
+        self._core.send(event="system", action="restart")
 
     async def on_start(self):
         self._time_task = asyncio.create_task(self._time_update())
@@ -66,7 +67,7 @@ class SystemExtension(Actor):
             return match.group(0) if match else None
         except (FileNotFoundError, subprocess.TimeoutExpired):
             return None
-        
+
     async def on_stop(self):
         if hasattr(self, "_time_task"):
             self._time_task.cancel()
@@ -81,6 +82,22 @@ class SystemExtension(Actor):
         now = datetime.now(tz)
         time = now.strftime("%Y-%m-%dT%H:%M:%S")
         return time
+
+    async def on_directory(self, uri):
+        if uri == self._name:
+            return [
+                Power(uri="system:standby", name="Standby"),
+                Power(uri="system:reboot", name="Reboot"),
+                Power(uri="system:shutdown", name="Shutdown")
+            ]
+        values = uri.split(":")
+        ext, action = values
+        if action == 'standby':
+            await self.on_standby()
+        if action == 'reboot':
+            await self.on_reboot()
+        if action == 'shutdown':
+            await self.on_shutdown()
 
     async def on_standby(self):
         if self._power_state is None:
@@ -126,7 +143,8 @@ class SystemExtension(Actor):
         return True
 
     def on_set_hostname(self, hostname: str):
-        subprocess.run(["sudo", "hostnamectl", "set-hostname", hostname], check=True)
+        subprocess.run(
+            ["sudo", "hostnamectl", "set-hostname", hostname], check=True)
         logger.info(f"Hostname changed to: {hostname}")
 
     def get_temperature(self):
@@ -182,10 +200,9 @@ class SystemExtension(Actor):
         machine = platform.machine()
         hostname = socket.gethostname()
 
-
         cpu_cores = psutil.cpu_count(logical=True)
         cpu_per_core = psutil.cpu_percent(interval=0.5, percpu=True)
-        cpu_percent  = round(sum(cpu_per_core) / len(cpu_per_core), 1)
+        cpu_percent = round(sum(cpu_per_core) / len(cpu_per_core), 1)
 
         info = platform.uname()
         version = info.version

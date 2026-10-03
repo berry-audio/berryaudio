@@ -51,7 +51,7 @@ async def async_main(verbose=False):
         "multiroom",
         "display",
         "collection",
-        # "gpio",
+        "gpio",
         # "infrared",
         "tuner",
         "webrtc",

@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 from core.actor import Actor
 from core.types import PlaybackState, Command, EncoderMode, DisplayPage
-from core.models import RefType
+from core.models import Album, Artist, Track, Bluetooth, Category, Storage, Directory, Source, Playlist, Tuner, File, TlTrack, Power
 from core.util.system import SystemUtil
 
 from .ssd1322 import DisplaySSD1322
@@ -16,6 +16,20 @@ logger = logging.getLogger(__name__)
 DISPLAY_LIST_PATH = Path(__file__).parent.parent / "display" / "display.json"
 DISPLAY_OVERLAY_TIMEOUT = 1.0
 DISPLAY_BLINK_TIMEOUT = 0.5
+BIT_DEPTH_MAPPING = {
+    "S16_LE": "16bit",
+    "S16": "16bit",
+    "S32": "32bit",
+    "S24_LE": "24bit",
+    "S24_32LE": "32bit",
+    "S32_LE": "32bit",
+    "S16_BE": "16bit",
+    "S24_BE": "24bit",
+    "S32_BE": "32bit",
+    "S16LE": "16bit",
+    "S24LE": "24bit",
+    "F32LE": "32bit",
+}
 
 
 class DisplayExtension(Actor):
@@ -39,8 +53,8 @@ class DisplayExtension(Actor):
         self._volume = 0
         self._muted = False
         self._current_track = None
+        self._current_track = None
         self._current_dir = None
-        self._source_dir = None
         self._current_dir_breadcrumbs = []
         self._source = None
         self._current_time = None
@@ -48,6 +62,14 @@ class DisplayExtension(Actor):
         self._blink_visible = True
         self._timer_timeout = None
         self._timer_blink = None
+        self._sample_rate = None
+        self._sample_format = None
+        self._tracklist = None
+
+    def get_bit_depth(self, sample_format):
+        if not sample_format:
+            return ""
+        return BIT_DEPTH_MAPPING.get(sample_format, sample_format)
 
     async def on_config_update(self, config):
         updated_config = config[self._name]
@@ -64,21 +86,18 @@ class DisplayExtension(Actor):
         if message and "event" in message:
             event = message["event"]
             if event == "source_changed":
+                _source = message.get("source")
+                self._controller._set_current_elapsed()
                 self.set_source(message.get("source"))
-                if self._power_state is None:
-                    if self._page != DisplayPage.SOURCE:
-                        self._page_prev = self._page
-                    self._controller._set_current_elapsed()
-                    self._current_dir_breadcrumbs = []
-                    self.set_dir()
-                    self.set_page(DisplayPage.SOURCE)
-                    self.start_timer(DisplayPage.NOW_PLAYING)
+                if _source.uri is not None:
+                    self.set_page(DisplayPage.NOW_PLAYING)
 
             elif event == "source_updated":
                 self.set_source(message.get("source"))
 
             elif event == "track_position_updated":
-                self._controller._set_current_elapsed(message.get("time_position"))
+                self._controller._set_current_elapsed(
+                    message.get("time_position"))
 
             elif event == "command":
                 self._action = message.get("action")
@@ -87,217 +106,173 @@ class DisplayExtension(Actor):
                     self.set_page(DisplayPage.NOW_PLAYING)
 
                 if self._action == Command.SOURCE:
-                    if self._page != DisplayPage.SOURCE_DIRECTORY:
-                        if self._page_prev != DisplayPage.DIRECTORY:
-                            self._page_prev = self._page
-
-                        if self._power_state == "standby":
-                            await self._core.request("system.standby")
-
-                        source_list = await self._core.request("source.directory")
-                        self.set_source_dir(source_list)
-                        self.set_page(DisplayPage.SOURCE_DIRECTORY)
-
-                    elif self._page_prev != DisplayPage.STANDBY:
-                        self.set_page(self._page_prev)
+                    self.set_page(DisplayPage.SOURCE_DIRECTORY)
 
                 if self._action == Command.UP:
-                    self.set_dir_scroll_up()
+                    if self._page == DisplayPage.NOW_PLAYING:
+                        await self._core.request("playback.previous")
+                    else:
+                        self.set_dir_scroll_up()
 
                 if self._action == Command.DOWN:
-                    self.set_dir_scroll_down()
+                    if self._page == DisplayPage.NOW_PLAYING:
+                        await self._core.request("playback.next")
+                    else:
+                        self.set_dir_scroll_down()
 
                 if self._action == Command.SELECT:
+                    if self._page == DisplayPage.STANDBY:
+                        await self._core.request("system.directory", uri="system:standby")
+
                     if self._page == DisplayPage.NOW_PLAYING:
-                        self._core.send(
-                            target=["web", "display"],
-                            event="command",
-                            action=Command.DIRECTORY,
-                        )
+                        await self._core.request("playback.play")
 
-                    if self._page == DisplayPage.SOURCE_DIRECTORY:
-                        selected_item, selected_index, scroll_offset = (
-                            self._controller._get_selected_source()
-                        )
-                        if selected_item.active:
-                            self.set_page(DisplayPage.NOW_PLAYING)
-                        else:
-                            await self._core.request(
-                                "source.set", uri=selected_item.uri
-                            )
-
-                    elif self._page == DisplayPage.DIRECTORY:
+                    elif self._page == DisplayPage.DIRECTORY or self._page == DisplayPage.TRACKLIST or self._page == DisplayPage.POWER:
                         selected_item, selected_index, scroll_offset = (
                             self._controller._get_selected_item()
                         )
-                        if selected_item is not None:
-                            if (
-                                selected_item.type == RefType.CATEGORY
-                                or selected_item.type == RefType.STORAGE
-                                or selected_item.type == RefType.NAS
-                                or selected_item.type == RefType.REMOVABLE
-                                or selected_item.type == RefType.ALBUM
-                                or selected_item.type == RefType.ARTIST
-                                or selected_item.type == RefType.DIRECTORY
-                            ):
 
-                                self._current_dir_breadcrumbs.append(
-                                    {
-                                        "items": self._current_dir,
-                                        "selected_index": selected_index,
-                                        "scroll_offset": scroll_offset,
-                                    }
+                        if selected_item is None:
+                            return
+
+                        if isinstance(selected_item, Power):
+                            self._current_dir_breadcrumbs = []
+                            _ext = selected_item.uri.split(":", 1)[0]
+                            self.set_page(DisplayPage.POWER_STATE_CHANGING)
+                            self.start_timer(DisplayPage.STANDBY)
+                            await self._core.request(
+                                f"{_ext}.directory",
+                                uri=f"{selected_item.uri}",
+                            )
+
+                        if isinstance(selected_item, Source):
+                            self.set_page(DisplayPage.LOADING)
+                            if selected_item.browsable:
+                                if selected_item.uri == 'bluetooth':
+                                    _current_dir = await self._core.request(
+                                        f"{selected_item.uri}.devices",
+                                    )
+                                else:
+                                    _current_dir = await self._core.request(
+                                        f"{selected_item.uri}.directory", uri=f"{selected_item.uri}",
+                                    )
+                                self.set_dir(_current_dir)
+                                self.set_page(DisplayPage.DIRECTORY)
+                            else:
+                                await self._core.request(
+                                    "source.set", uri=selected_item.uri
                                 )
 
-                            if selected_item.type == RefType.TRACK:
-                                if selected_item.uri:
-                                    self.set_page(DisplayPage.LOADING)
+                        if (
+                            isinstance(selected_item, Category)
+                            or isinstance(selected_item, Directory)
+                            or isinstance(selected_item, Storage)
+                        ):
+                            _ext = selected_item.uri.split(":", 1)[0]
+                            self.set_page(DisplayPage.LOADING)
+
+                            _current_dir = await self._core.request(
+                                f"{_ext}.directory",
+                                uri=f"{selected_item.uri}",
+                            )
+                            self.set_dir(
+                                _current_dir, selected_index, scroll_offset)
+                            self.set_page(DisplayPage.DIRECTORY)
+
+                        if (
+                            isinstance(selected_item, Artist)
+                            or isinstance(selected_item, Album)
+                        ):
+                            _ext = selected_item.uri.split(":", 1)[0]
+                            self.set_page(DisplayPage.LOADING)
+
+                            _current_dir = await self._core.request(
+                                f"{_ext}.directory",
+                                uri=f"{selected_item.uri}:tracks",
+                            )
+                            self.set_dir(
+                                _current_dir, selected_index, scroll_offset)
+                            self.set_page(DisplayPage.DIRECTORY)
+
+                        if (isinstance(selected_item, Playlist)):
+                            _ext = selected_item.uri.split(":", 1)[0]
+                            self.set_page(DisplayPage.LOADING)
+
+                            _current_dir = await self._core.request(
+                                f"{_ext}.directory",
+                                uri=f"{selected_item.uri}:tracks",
+                            )
+                            self.set_dir(
+                                _current_dir, selected_index, scroll_offset)
+                            self.set_page(DisplayPage.DIRECTORY)
+
+                        if (isinstance(selected_item, Track)
+                                or isinstance(selected_item, Tuner)
+                                or isinstance(selected_item, File)
+                            ):
+                            if selected_item.uri:
+                                self.set_page(DisplayPage.LOADING)
+                                await self._core.request(
+                                    "playback.play", uri=selected_item.uri
+                                )
+                                self.set_page(DisplayPage.NOW_PLAYING)
+
+                        if (isinstance(selected_item, TlTrack)):
+                            if selected_item.tlid:
+                                self.set_page(DisplayPage.LOADING)
+                                await self._core.request(
+                                    "playback.play", uri=selected_item.track.uri, tlid=selected_item.tlid
+                                )
+                                self.set_page(DisplayPage.NOW_PLAYING)
+
+                        if (isinstance(selected_item, Bluetooth)):
+                            if selected_item.address:
+                                self.set_page(DisplayPage.LOADING)
+                                if selected_item.connected:
                                     await self._core.request(
-                                        "playback.play", uri=selected_item.uri
+                                        "bluetooth.disconnect",
+                                        address=f"{selected_item.address}",
                                     )
-                                    self.set_page(DisplayPage.NOW_PLAYING)
-
-                            elif selected_item.type == RefType.CATEGORY:
-                                if selected_item.uri:
-                                    self.set_page(DisplayPage.LOADING)
-                                    _current_dir = await self._core.request(
-                                        f"{self._source.uri}.directory",
-                                        uri=f"{selected_item.uri}",
+                                else:
+                                    await self._core.request(
+                                        "bluetooth.connect",
+                                        address=f"{selected_item.address}",
                                     )
-                                    self.set_dir(_current_dir)
-                                    self.set_page(DisplayPage.DIRECTORY)
-
-                            elif (
-                                selected_item.type == RefType.ALBUM
-                                or selected_item.type == RefType.ARTIST
-                            ):
-                                if selected_item.uri:
-                                    self.set_page(DisplayPage.LOADING)
-                                    _current_dir = await self._core.request(
-                                        "local.directory",
-                                        uri=f"{selected_item.uri}:list",
-                                    )
-                                    self.set_dir(_current_dir)
-                                    self.set_page(DisplayPage.DIRECTORY)
-
-                            elif selected_item.type == RefType.BLUETOOTH:
-                                if selected_item.address:
-                                    self.set_page(DisplayPage.LOADING)
-                                    if selected_item.connected:
-                                        try:
-                                            await self._core.request(
-                                                "bluetooth.disconnect",
-                                                address=f"{selected_item.address}",
-                                            )
-                                        except Exception as e:
-                                            pass
-                                        finally:
-                                            self.set_page(DisplayPage.DIRECTORY)
-                                    else:
-                                        try:
-                                            await self._core.request(
-                                                "bluetooth.connect",
-                                                address=f"{selected_item.address}",
-                                            )
-                                        except Exception as e:
-                                            pass
-                                        finally:
-                                            self.set_page(DisplayPage.NOW_PLAYING)
-
-                            elif (
-                                selected_item.type == RefType.STORAGE
-                                or selected_item.type == RefType.NAS
-                                or selected_item.type == RefType.REMOVABLE
-                                or selected_item.type == RefType.DIRECTORY
-                            ):
-                                if selected_item.uri:
-                                    self.set_page(DisplayPage.LOADING)
-                                    _current_dir = await self._core.request(
-                                        "storage.directory", uri=f"{selected_item.uri}"
-                                    )
-                                    self.set_dir(_current_dir)
-                                    self.set_page(DisplayPage.DIRECTORY)
+                                self.set_page(DisplayPage.DIRECTORY)
 
                 if self._action == Command.BACK:
-                    if self._current_dir_breadcrumbs:
-                        last_items = self._current_dir_breadcrumbs[-1]["items"]
-                        last_selected_index = self._current_dir_breadcrumbs[-1][
-                            "selected_index"
-                        ]
-                        last_scroll_offset = self._current_dir_breadcrumbs[-1][
-                            "scroll_offset"
-                        ]
-
-                        if len(self._current_dir_breadcrumbs) == 1:
-                            if self._source.uri == "storage":
-                                _current_dir = await self._core.request(
-                                    "storage.directory"
-                                )
-                                last_items = _current_dir
-                                last_selected_index = 0
-                                last_scroll_offset = 0
-
-                        self.set_dir(
-                            last_items, last_selected_index, last_scroll_offset
-                        )
+                    if self._page == DisplayPage.STANDBY:
+                        return
+                    
+                    if self._page == DisplayPage.TRACKLIST:
+                        self.set_page(DisplayPage.NOW_PLAYING)
+                    elif self._page == DisplayPage.NOW_PLAYING:
+                        if self._page_prev == DisplayPage.TRACKLIST:
+                            self.set_dir(-1)
                         self.set_page(DisplayPage.DIRECTORY)
-                        self._current_dir_breadcrumbs.pop()
+                    else:
+                        if self._page_prev != DisplayPage.POWER:
+                            self.set_dir(-1)
+                        self.set_page(DisplayPage.DIRECTORY)
 
-                if self._action == Command.DIRECTORY:
-                    if self._timer_timeout is not None:
-                        self._timer_timeout.cancel()
+                if self._action == Command.BACK_LONG:
+                    _current_dir = await self._core.request(
+                        f"system.directory", uri="system",
+                    )
+                    self.set_dir(_current_dir)
+                    self.set_page(DisplayPage.POWER)
 
-                    if self._page == DisplayPage.DIRECTORY:
-                        self._page_prev = DisplayPage.NOW_PLAYING
-                        self.set_page(self._page_prev)
+                if self._action == Command.RIGHT:
+                    if self._page == DisplayPage.NOW_PLAYING:
+                        _current_dir = await self._core.request("tracklist.get_tltracks")
+                        self.set_dir(_current_dir)
+                        self.set_page(DisplayPage.TRACKLIST)
+                    elif self._page == DisplayPage.TRACKLIST or self._page == DisplayPage.STANDBY:
                         return
                     else:
-                        self._page_prev = self._page
-
-                        _current_dir = None
-                        if self._source is not None:
-                            if self._source.uri == "radio":
-                                if self._current_dir is None:
-                                    self.set_page(DisplayPage.LOADING)
-                                    _current_dir = await self._core.request(
-                                        "radio.directory", uri="radio"
-                                    )
-                                    self.set_dir(_current_dir)
-
-                            elif self._source.uri == "local":
-                                if self._current_dir is None:
-                                    self.set_page(DisplayPage.LOADING)
-                                    _current_dir = await self._core.request(
-                                        "local.directory"
-                                    )
-                                    self.set_dir(_current_dir)
-
-                            elif self._source.uri == "storage":
-                                if self._current_dir is None:
-                                    self.set_page(DisplayPage.LOADING)
-                                    _current_dir = await self._core.request(
-                                        "storage.directory"
-                                    )
-                                    self.set_dir(_current_dir)
-
-                            elif self._source.uri == "bluetooth":
-                                if self._current_dir is None:
-                                    self.set_page(DisplayPage.LOADING)
-                                    _current_dir = await self._core.request(
-                                        "bluetooth.devices"
-                                    )
-                                    self.set_dir(_current_dir)
-
-                            elif self._source.uri == "snapcast":
-                                if self._current_dir is None:
-                                    self.set_page(DisplayPage.LOADING)
-                                    _current_dir = await self._core.request(
-                                        "snapcast.servers"
-                                    )
-                                    self.set_dir(_current_dir)
-
-                            if self._current_dir is not None:
-                                self.set_page(DisplayPage.DIRECTORY)
+                        if self._page == DisplayPage.POWER:
+                            self.set_dir(-1)
+                        self.set_page(DisplayPage.NOW_PLAYING)
 
                 if self._action == Command.VISUALISER:
                     self.set_visualizer_layout()
@@ -311,22 +286,23 @@ class DisplayExtension(Actor):
 
                 if self._power_state is None:
                     self.stop_timer_blink()
-                    source_list = await self._core.request("source.directory")
-                    self.set_source_dir(source_list)
-                    self.set_page(DisplayPage.SOURCE_DIRECTORY)
+                    _current_dir = await self._core.request("source.directory")
+                    self.set_dir(_current_dir)
+                    self.set_page(DisplayPage.DIRECTORY)
 
-                elif self._power_state == "standby":
-                    self.set_page(DisplayPage.POWER_STATE_CHANGING)
-                    self.start_timer(DisplayPage.STANDBY)
+                elif self._power_state == "standby":                    
                     self.start_timer_blink()
 
                 elif self._power_state == "reboot":
-                    self.set_page(DisplayPage.POWER_STATE_CHANGING)
                     self.start_timer(None)
 
                 elif self._power_state == "shutdown":
-                    self.set_page(DisplayPage.POWER_STATE_CHANGING)
                     self.start_timer(None)
+
+            elif event == "track_playback_started":
+                tl_track = message.get("tl_track")
+                if tl_track is not None:
+                    self.set_current_track(message.get("tl_track").track)
 
             elif event == "track_meta_updated":
                 tl_track = message.get("tl_track")
@@ -336,8 +312,13 @@ class DisplayExtension(Actor):
             elif event == "playback_state_changed":
                 self.set_playback_state(message.get("state"))
 
-                if self._playback_state == PlaybackState.PLAYING:
-                    self.set_page(DisplayPage.NOW_PLAYING)
+            elif event == 'dsp_options_changed':
+                self._sample_rate = message.get("sample_rate")
+                self._sample_format = self.get_bit_depth(
+                    message.get("sample_format"))
+                self._controller._set_dsp_state(
+                    self._sample_rate, self._sample_format
+                )
 
             elif (
                 event == "bluetooth_device_connected"
@@ -388,7 +369,11 @@ class DisplayExtension(Actor):
 
     async def on_start(self):
         await self.set_display(self._config["display"]["output_display"])
-        self.set_visualizer_layout(self._config["display"]["visualizer_layout"])
+        self.set_visualizer_layout(
+            self._config["display"]["visualizer_layout"])
+
+        mixer_volume = await self._core.request("mixer.get_volume")
+        self.set_volume(mixer_volume)
 
         if self._power_state == "standby":
             self.set_page(DisplayPage.STANDBY)
@@ -405,11 +390,14 @@ class DisplayExtension(Actor):
         logger.info("Stopped")
 
     def set_page(self, page):
+        self._page_prev = self._page
         self._page = page
-        if self._page in (DisplayPage.SOURCE_DIRECTORY, DisplayPage.DIRECTORY):
-            self._core._request("gpio.set_encoder_mode", mode=EncoderMode.DIRECTION)
+        if self._page == DisplayPage.DIRECTORY:
+            self._core._request("gpio.set_encoder_mode",
+                                mode=EncoderMode.DIRECTION)
         else:
-            self._core._request("gpio.set_encoder_mode", mode=EncoderMode.VOLUME)
+            self._core._request("gpio.set_encoder_mode",
+                                mode=EncoderMode.VOLUME)
 
         if self._controller is not None:
             self._controller._set_page(page)
@@ -420,16 +408,7 @@ class DisplayExtension(Actor):
             self._controller._set_source(source)
 
         if self._source is not None and self._source.uri != source.uri:
-            self._current_dir_breadcrumbs = []
-            self.set_dir()
             self._controller._set_current_elapsed()
-
-    def set_source_dir(self, dir, selected_index=0, scroll_offset=0):
-        self._source_dir = dir
-        if self._controller is not None:
-            self._controller._set_source_dir(
-                self._source_dir, selected_index, scroll_offset
-            )
 
     def set_current_track(self, track):
         self._current_track = track
@@ -437,9 +416,33 @@ class DisplayExtension(Actor):
             self._controller._set_current_track(track)
 
     def set_dir(self, dir=None, selected_index=0, scroll_offset=0):
-        self._current_dir = dir
+        if dir is None:
+            self._current_dir = None
+            self._current_dir_breadcrumbs = []
+            selected_index = scroll_offset = 0
+        elif dir == -1:
+            if len(self._current_dir_breadcrumbs) <= 1:
+                return
+            prev = self._current_dir_breadcrumbs[-1]
+            if len(self._current_dir_breadcrumbs) > 1:
+                self._current_dir_breadcrumbs.pop()
+            self._current_dir = prev["items"]
+            selected_index = prev["selected_index"]
+            scroll_offset = prev["scroll_offset"]
+        else:
+            self._current_dir_breadcrumbs.append(
+                {
+                    "items": self._current_dir,
+                    "selected_index": selected_index,
+                    "scroll_offset": scroll_offset,
+                }
+            )
+            self._current_dir = dir
+            selected_index = scroll_offset = 0
+
         if self._controller is not None:
-            self._controller._set_dir(self._current_dir, selected_index, scroll_offset)
+            self._controller._set_dir(
+                self._current_dir, selected_index, scroll_offset)
 
     def set_playback_state(self, state):
         self._playback_state = state
@@ -499,7 +502,8 @@ class DisplayExtension(Actor):
     def start_timer_blink(self):
         if self._timer_blink is not None:
             self._timer_blink.cancel()
-        self._timer_blink = threading.Timer(DISPLAY_BLINK_TIMEOUT, self.toggle_blink)
+        self._timer_blink = threading.Timer(
+            DISPLAY_BLINK_TIMEOUT, self.toggle_blink)
         self._timer_blink.start()
 
     def toggle_blink(self):
@@ -545,10 +549,12 @@ class DisplayExtension(Actor):
         with open(DISPLAY_LIST_PATH, "r", encoding="utf-8") as f:
             displays = json.load(f)
 
-        found_display = next((d for d in displays if d.get("device") == device), None)
+        found_display = next(
+            (d for d in displays if d.get("device") == device), None)
 
         if found_display is None:
-            logger.warning(f"Display device '{device}' not found in display list")
+            logger.warning(
+                f"Display device '{device}' not found in display list")
             self._device = None
             return
 

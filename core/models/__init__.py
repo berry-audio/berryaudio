@@ -45,6 +45,16 @@ class RefType(enum.StrEnum):
     def __repr__(self) -> str:
         return self.name
 
+class Power(BaseModel):
+    """Represents an power with URI and optional dimensions."""
+    model: Literal["Power"] = Field(
+        default="Power",
+        repr=False,
+        alias="__model__",
+    )
+    uri: Uri
+    name: str | None = None
+
 
 class Album(BaseModel):
     """Represents a musical album."""
@@ -84,6 +94,7 @@ class Artist(BaseModel):
     musicbrainz_id: UUID | None = None
     images: tuple | None = None
     favourite: bool = False
+
 
 
 class Category(BaseModel):

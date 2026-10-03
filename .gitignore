@@ -51,3 +51,6 @@ coverage/
 !/web/www/images/storage/.gitkeep
 !/web/www/images/nowplaying/.gitkeep
 !/web/www/images/shairportsync/.gitkeep
+
+dsp/camilladsp/configs/camilladsp.yml
+dsp/camilladsp/statefile.yml

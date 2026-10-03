@@ -2,7 +2,7 @@ import logging
 import ast
 
 from core.actor import SourceActor
-from core.models import Track, Source
+from core.models import Track, Source, Category
 from playlist.utils import build_track, build_album, build_artist, to_serialize
 
 logger = logging.getLogger(__name__)
@@ -108,12 +108,23 @@ class CollectionExtension(SourceActor):
         )
         return True
 
+    def _directories(self):        
+        _dirs = [
+            Category(uri=f"{self._name}:recent", name="Recents"),
+            Category(uri=f"{self._name}:favourite", name="Favourites"),
+            Category(uri=f"{self._name}:top100", name="Top 100"),
+        ]
+        return _dirs
+    
     async def on_directory(
         self,
         uri: str | None = None,
         limit: int | None = None,
         offset: int | None = None,
-    ):
+    ):  
+        if uri == 'collection':
+            return self._directories()        
+
         params = []
 
         _, *parts = (uri or "").split(":")

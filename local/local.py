@@ -192,13 +192,12 @@ class LocalExtension(SourceActor):
     async def on_stop(self):
         logger.info("Stopped")
 
-    def _directories(self):
-        Item = namedtuple("Item", ["uri", "name", "type"])
+    def _directories(self):        
         _dirs = [
-            Item(uri="artist", name="Artists", type=RefType.CATEGORY),
-            Item(uri="album", name="Albums", type=RefType.CATEGORY),
-            Item(uri="track", name="Tracks", type=RefType.CATEGORY),
-            Item(uri="genre", name="Genre", type=RefType.CATEGORY),
+            Category(uri=f"{self._name}:artist", name="Artists"),
+            Category(uri=f"{self._name}:album", name="Albums"),
+            Category(uri=f"{self._name}:track", name="Tracks"),
+            Category(uri=f"{self._name}:genre", name="Genre"),
         ]
         return _dirs
 
@@ -222,7 +221,7 @@ class LocalExtension(SourceActor):
         limit: int | None = None,
         offset: int | None = None,
     ):
-        if not uri:
+        if not uri or uri == self._name:
             return self._directories()
 
         values = uri.split(":")

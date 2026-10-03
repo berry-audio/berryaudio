@@ -46,6 +46,7 @@ class TunerExtension(SourceActor):
             uri=self._name,
             index=9,
             enabled=False,
+            browsable=True,
             controls=[
                 PlaybackControls.NEXT,
                 PlaybackControls.PREVIOUS,

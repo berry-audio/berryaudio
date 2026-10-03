@@ -1,5 +1,5 @@
 from PIL import ImageFont, Image
-from core.models import RefType
+from core.models import RefType, TlTrack, Bluetooth
 from pathlib import Path
 
 FONT_STYLE_1 = Path(__file__).parent.parent / "fonts" / "3x5pexel.ttf"
@@ -66,8 +66,16 @@ class WidgetListScrollable:
         content_width = self.width - self.scrollbar_width - self.scrollbar_padding
         for i in range(start_idx, end_idx):
             y_pos = (i - start_idx) * self.line_height
-            display_name = items[i].name
-            display_type = items[i].uri
+
+            if isinstance(items[i], TlTrack):
+                display_name = items[i].track.name
+                display_type = items[i].track.uri
+            elif isinstance(items[i], Bluetooth):
+                display_name = items[i].name
+                display_type = items[i].address
+            else:
+                display_name = items[i].name
+                display_type = items[i].uri
             display_active = getattr(items[i], "active", False) or getattr(
                 items[i], "connected", False
             )
@@ -90,6 +98,7 @@ class WidgetListScrollable:
                     display_type == RefType.DIRECTORY
                     or display_type == RefType.ALBUM
                     or display_type == RefType.ARTIST
+                    
                 ):
                     draw.bitmap((2, y_pos + 4), self.folder_icon, fill="black")
                 elif (
@@ -118,6 +127,12 @@ class WidgetListScrollable:
                     display_type == RefType.DIRECTORY
                     or display_type == RefType.ALBUM
                     or display_type == RefType.ARTIST
+                    or display_type == 'genre'
+                    or display_type == 'collection'
+                    or display_type == 'local'
+                    or display_type == 'playlist'
+                    or display_type == 'radio'
+                    or display_type == 'multiroom'
                 ):
                     draw.bitmap((2, y_pos + 4), self.folder_icon, fill=240)
                 elif (
