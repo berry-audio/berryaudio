@@ -10,6 +10,8 @@ from luma.oled.device import ssd1306
 from luma.core.sprite_system import framerate_regulator
 
 from core.types import DisplayPage, PlaybackState
+from core.models import Track
+
 from display.widgets.vu_meter import WidgetVUMeter
 from display.widgets.spectrum_analyzer import WidgetSpectumAnalyzer
 from display.widgets.text_scrollable import WidgetTextScrollable
@@ -23,7 +25,6 @@ from display.utils import format_time, power_state_name
 
 logger = logging.getLogger(__name__)
 
-CAVA_FIFO = "/tmp/cava_fifo"
 FONT_STYLE_1 = Path(__file__).parent.parent / \
     "fonts" / "DotMatrix-Custom-5x7.ttf"
 FONT_STYLE_2 = Path(__file__).parent.parent / "fonts" / "3x5pexel.ttf"
@@ -153,15 +154,26 @@ class DisplaySSD1306:
     def _set_blink_visible(self, state):
         self._blink_visible = state
 
+    def _start_visualizer_fifo(self):
+        if self._widget_visualizer:
+            self._widget_visualizer.start_fifo()
+
+    def _stop_visualizer_fifo(self):
+        if self._widget_visualizer:
+            self._widget_visualizer.stop_fifo()
+
+    def _get_visualizer_config(self):
+        return self._widget_visualizer.config() if self._widget_visualizer else None
+
     def _set_visualizer_layout(self, layout):
         self._visualizer_layout = layout
-        if self._widget_visualizer:
-            self._widget_visualizer.cleanup()
 
         if self._visualizer_layout in [1, 2, 3]:
             self._widget_visualizer = WidgetSpectumAnalyzer(num_bars=32)
+
         elif self._visualizer_layout == 4:
             self._widget_visualizer = WidgetSpectumAnalyzer(num_bars=64)
+
         elif self._visualizer_layout in [5, 6]:
             self._widget_visualizer = WidgetVUMeter()
 
@@ -294,7 +306,7 @@ class DisplaySSD1306:
                                         FONT_STYLE_4, 20),
                                     fill="red",
                                 )
-                                
+
                             self._widget_title.draw(
                                 draw,
                                 width=self.width - 13,
@@ -350,11 +362,8 @@ class DisplaySSD1306:
                                     y=60,
                                     x=0,
                                     elapsed=self._current_elapsed,
-                                    total=(
-                                        self._current_tl_track.track.length
-                                        if self._current_tl_track
-                                        else None
-                                    ),
+                                    total=getattr(
+                                        getattr(self._current_tl_track, "track", None), "length", 0,) if self._current_tl_track else None
                                 )
 
                             if isinstance(self._widget_visualizer, WidgetSpectumAnalyzer):

@@ -1,6 +1,9 @@
+import os
 import logging
 import threading
 import json
+import time
+import subprocess
 
 from pathlib import Path
 from core.actor import Actor
@@ -13,6 +16,7 @@ from .ssd1306 import DisplaySSD1306
 
 logger = logging.getLogger(__name__)
 
+CAVA_FIFO = "/tmp/cava_fifo"
 DISPLAY_LIST_PATH = Path(__file__).parent.parent / "display" / "display.json"
 DISPLAY_OVERLAY_TIMEOUT = 1.0
 DISPLAY_BLINK_TIMEOUT = 0.5
@@ -65,6 +69,9 @@ class DisplayExtension(Actor):
         self._sample_rate = None
         self._sample_format = None
         self._tracklist = None
+        self._cava_process = None
+        self._cava_config = None
+        self._fifo = None
 
     def get_bit_depth(self, sample_format):
         if not sample_format:
@@ -77,7 +84,7 @@ class DisplayExtension(Actor):
             await self.set_display(updated_config.get("output_display"))
 
         if "visualizer_layout" in updated_config:
-            self.set_visualizer_layout(updated_config.get("visualizer_layout"))
+            await self.set_visualizer_layout(updated_config.get("visualizer_layout"))
 
     async def on_event(self, message):
         if self._controller is None:
@@ -152,7 +159,7 @@ class DisplayExtension(Actor):
                                 if selected_item.uri == 'dsp' or selected_item.uri == 'config':
                                     self.set_page(DisplayPage.DIRECTORY)
                                     return
-                                
+
                                 elif selected_item.uri == 'bluetooth':
                                     _current_dir = await self._core.request(
                                         f"{selected_item.uri}.devices",
@@ -163,7 +170,8 @@ class DisplayExtension(Actor):
                                     _current_servers = await self._core.request("multiroom.servers")
 
                                     for server in _current_servers:
-                                        groups = server.status.get("server", {}).get("groups", [])
+                                        groups = server.status.get(
+                                            "server", {}).get("groups", [])
 
                                         for group in groups:
                                             for client in group.get("clients", []):
@@ -234,7 +242,7 @@ class DisplayExtension(Actor):
                         if (isinstance(selected_item, Track)
                                 or isinstance(selected_item, Tuner)
                                 or isinstance(selected_item, File)
-                            ):
+                                ):
                             if selected_item.uri:
                                 self.set_page(DisplayPage.LOADING)
                                 await self._core.request(
@@ -268,7 +276,7 @@ class DisplayExtension(Actor):
                 if self._action == Command.BACK:
                     if self._page == DisplayPage.STANDBY:
                         return
-                    
+
                     if self._page == DisplayPage.TRACKLIST:
                         self.set_page(DisplayPage.NOW_PLAYING)
                     elif self._page == DisplayPage.NOW_PLAYING:
@@ -300,7 +308,7 @@ class DisplayExtension(Actor):
                         self.set_page(DisplayPage.NOW_PLAYING)
 
                 if self._action == Command.VISUALISER:
-                    self.set_visualizer_layout()
+                    await self.set_visualizer_layout()
 
             elif event == "system_time_updated":
                 self.set_current_time(message.get("datetime"))
@@ -315,7 +323,7 @@ class DisplayExtension(Actor):
                     self.set_dir(_current_dir)
                     self.set_page(DisplayPage.DIRECTORY)
 
-                elif self._power_state == "standby":                    
+                elif self._power_state == "standby":
                     self.start_timer_blink()
 
                 elif self._power_state == "reboot":
@@ -390,7 +398,7 @@ class DisplayExtension(Actor):
 
     async def on_start(self):
         await self.set_display(self._config["display"]["output_display"])
-        self.set_visualizer_layout(
+        await self.set_visualizer_layout(
             self._config["display"]["visualizer_layout"])
 
         mixer_volume = await self._core.request("mixer.get_volume")
@@ -409,6 +417,73 @@ class DisplayExtension(Actor):
         if self._controller is not None:
             self._controller.stop()
         logger.info("Stopped")
+
+    async def on_start_cava(self):
+        if self._visualizer_layout in [7]:
+            return
+
+        if self._cava_process is not None:
+            return
+
+        if self._controller is None:
+            return
+
+        self._cava_config = self._controller._get_visualizer_config()
+        if self._cava_config is None:
+            return
+
+        if os.path.exists(CAVA_FIFO):
+            os.unlink(CAVA_FIFO)
+
+        os.mkfifo(CAVA_FIFO)
+
+        try:
+            self._cava_process = subprocess.Popen(
+                ["cava", "-p", self._cava_config],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                bufsize=1,
+            )
+            logger.info(f"Started CAVA with config {self._cava_config}")
+
+            def log(stream, label):
+                for line in iter(stream.readline, ""):
+                    line = line.strip()
+                    if label == "STDERR":
+                        logger.error(f"CAVA {label}: {line}")
+                    elif "error" in line.lower():
+                        logger.error(f"CAVA {label}: {line}")
+                    elif "warning" in line.lower():
+                        logger.warning(f"CAVA {label}: {line}")
+                    else:
+                        logger.debug(f"CAVA {label}: {line}")
+                stream.close()
+
+            threading.Thread(
+                target=log, args=(self._cava_process.stdout, "STDOUT"), daemon=True
+            ).start()
+            threading.Thread(
+                target=log, args=(self._cava_process.stderr, "STDERR"), daemon=True
+            ).start()
+            self._controller._start_visualizer_fifo()
+
+        except Exception as e:
+            logger.error(f"Error starting CAVA: {e}")
+            await self.on_stop_cava()
+
+    async def on_stop_cava(self):
+        if self._controller:
+            self._controller._stop_visualizer_fifo()
+
+        if self._cava_process:
+            if os.path.exists(CAVA_FIFO):
+                os.unlink(CAVA_FIFO)
+
+            self._cava_process.terminate()
+            self._cava_process.wait()
+        self._cava_process = None
+        logger.info(f"Stopped CAVA")
 
     def set_page(self, page):
         self._page_prev = self._page
@@ -449,7 +524,7 @@ class DisplayExtension(Actor):
             selected_index = prev["selected_index"]
             scroll_offset = prev["scroll_offset"]
         else:
-            dir = list(dir)  
+            dir = list(dir)
             if len(dir) == 0:
                 return
             self._current_dir_breadcrumbs.append(
@@ -463,7 +538,8 @@ class DisplayExtension(Actor):
             selected_index = scroll_offset = 0
 
         if self._controller is not None:
-            self._controller._set_dir(self._current_dir, selected_index, scroll_offset)
+            self._controller._set_dir(
+                self._current_dir, selected_index, scroll_offset)
 
     def set_playback_state(self, state):
         self._playback_state = state
@@ -490,13 +566,17 @@ class DisplayExtension(Actor):
         if self._controller is not None:
             self._controller._set_current_time(self._current_time)
 
-    def set_visualizer_layout(self, layout=None):
+    async def set_visualizer_layout(self, layout=None):
         if layout is not None:
             self._visualizer_layout = layout
         else:
             self._visualizer_layout = (self._visualizer_layout % 7) + 1
+
         if self._controller is not None:
             self._controller._set_visualizer_layout(self._visualizer_layout)
+            await self.on_stop_cava()
+            await self.on_start_cava()
+
         logger.info(f"Visualizer Layout {self._visualizer_layout}")
 
     def set_dir_scroll_down(self):

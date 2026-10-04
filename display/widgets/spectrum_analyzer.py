@@ -1,15 +1,12 @@
+import numpy as np
 import os
 import logging
-import subprocess
-import time
-import threading
-import numpy as np
 
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-CAVA_FIFO = "/tmp/cava_fifo_sa"
+CAVA_FIFO = "/tmp/cava_fifo"
 
 
 class WidgetSpectumAnalyzer:
@@ -26,66 +23,23 @@ class WidgetSpectumAnalyzer:
         self.cava_process = None
         self.data_received = False
         self.frame = 0
-        self.fifo = None
         self.last_data = None
-        self.init()
+        self._fifo = None
 
-    def init(self):
-        if os.path.exists(CAVA_FIFO):
-            os.unlink(CAVA_FIFO)
-
-        os.mkfifo(CAVA_FIFO)
-
-        try:
-            self.cava_process = subprocess.Popen(
-                ["cava", "-p", self.cava_config],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                bufsize=1,
-            )
-            logger.debug(f"Started CAVA with config {self.cava_config}")
-
-            def log(stream, label):
-                for line in iter(stream.readline, ""):
-                    line = line.strip()
-                    if label == "STDERR":
-                        logger.error(f"CAVA {label}: {line}")
-                    elif "error" in line.lower():
-                        logger.error(f"CAVA {label}: {line}")
-                    elif "warning" in line.lower():
-                        logger.warning(f"CAVA {label}: {line}")
-                    else:
-                        logger.debug(f"CAVA {label}: {line}")
-                stream.close()
-
-            threading.Thread(
-                target=log, args=(self.cava_process.stdout, "STDOUT"), daemon=True
-            ).start()
-            threading.Thread(
-                target=log, args=(self.cava_process.stderr, "STDERR"), daemon=True
-            ).start()
-
-            time.sleep(0.2)
-            fd = os.open(CAVA_FIFO, os.O_RDONLY | os.O_NONBLOCK)
-            self.fifo = os.fdopen(fd, "rb", buffering=0)
-        except Exception as e:
-            logger.error(f"Error starting CAVA: {e}")
-            self.cleanup()
+    def start_fifo(self):
+        if self._fifo is not None:
             return
+        if os.path.exists(CAVA_FIFO):
+            fd = os.open(CAVA_FIFO, os.O_RDONLY | os.O_NONBLOCK)
+            self._fifo = os.fdopen(fd, "rb", buffering=0)
 
-    def cleanup(self, signum=None, frame=None):
-        self.stop_threads = True
+    def stop_fifo(self):
+        if self._fifo is not None:
+            self._fifo.close()
+            self._fifo = None
 
-        if self.fifo:
-            try:
-                self.fifo.close()
-            except:
-                pass
-
-        if self.cava_process:
-            self.cava_process.terminate()
-            self.cava_process.wait()
+    def config(self):
+        return self.cava_config
 
     def draw_textured_bar(self, draw, x, y, width, height, pattern, color):
         if pattern == "solid":
@@ -113,13 +67,13 @@ class WidgetSpectumAnalyzer:
         try:
             available_data = b""
             while True:
-                chunk = self.fifo.read(self.num_bars)
+                chunk = self._fifo.read(self.num_bars)
                 if not chunk:
                     break
                 available_data += chunk
 
             if len(available_data) >= self.num_bars:
-                data = available_data[-self.num_bars :]
+                data = available_data[-self.num_bars:]
                 self.last_data = data
             elif self.last_data:
                 data = self.last_data
@@ -149,7 +103,8 @@ class WidgetSpectumAnalyzer:
         )
         decay_mask = ~attack_mask
         self.smoothed_bars[decay_mask] = self.smoothed_bars[decay_mask] * decay_factor
-        self.smoothed_bars = np.maximum(self.smoothed_bars, current_bars * 0.05)
+        self.smoothed_bars = np.maximum(
+            self.smoothed_bars, current_bars * 0.05)
 
         for i in range(self.num_bars):
             min_peak = self.smoothed_bars[i] + peak_gap + 1
@@ -163,7 +118,8 @@ class WidgetSpectumAnalyzer:
                 if self.peak_hold_time[i] > 0:
                     self.peak_hold_time[i] -= 1
                 else:
-                    self.peaks[i] = max(self.peaks[i] - peak_fall_speed, min_peak)
+                    self.peaks[i] = max(
+                        self.peaks[i] - peak_fall_speed, min_peak)
 
         baseline_y = y + height
         draw.line((x, baseline_y, x + width - 1, baseline_y), fill="white")
@@ -181,7 +137,8 @@ class WidgetSpectumAnalyzer:
 
             if peak_height > _height + peak_gap:
                 peak_y = y + height - peak_height
-                draw.line((bar_x, peak_y, bar_x + bar_width - 1, peak_y), fill="white")
+                draw.line((bar_x, peak_y, bar_x +
+                          bar_width - 1, peak_y), fill="white")
 
     def draw_textured_bar(self, draw, x, y, width, height, pattern, color="white"):
         if pattern == "checkerboard":
@@ -195,7 +152,8 @@ class WidgetSpectumAnalyzer:
 
         elif pattern == "gradient":
             if isinstance(color, str) and color != "white":
-                draw.rectangle((x, y, x + width - 1, y + height - 1), fill=color)
+                draw.rectangle(
+                    (x, y, x + width - 1, y + height - 1), fill=color)
             else:
                 brightness = 255 if color == "white" else color
                 for j in range(height):

@@ -187,6 +187,7 @@ class DspExtension(SourceActor):
         """Update config file directly then restart CamillaDSP."""
         if self._resample_rate is None:
             await self._core.request("multiroom.stop_snapserver")
+            await self._core.request("display.stop_cava")
 
         # Set Gain and Capture Device
         config = self._read_config()
@@ -233,6 +234,7 @@ class DspExtension(SourceActor):
                 await asyncio.sleep(0.5)
             else:
                 await self._core.request("multiroom.stop_snapserver")
+                await self._core.request("display.stop_cava")
                 self._core.send(
                     event="dsp_options_error",
                     message="DSP failed to start.Try again.",
@@ -288,6 +290,7 @@ class DspExtension(SourceActor):
         except Exception as e:
             logger.error(e)
             await self._core.request("multiroom.stop_snapserver")
+            await self._core.request("display.stop_cava")
             self._core.send(
                 event="dsp_options_error",
                 message="DSP failed to start.Try again.",

@@ -1,9 +1,6 @@
-import subprocess
+import numpy as np
 import logging
 import os
-import threading
-import time
-import numpy as np
 
 from pathlib import Path
 from PIL import ImageFont
@@ -11,7 +8,7 @@ from luma.core.render import canvas
 
 logger = logging.getLogger(__name__)
 
-CAVA_FIFO = "/tmp/cava_fifo_vu"
+CAVA_FIFO = "/tmp/cava_fifo"
 FONT_STYLE_1 = Path(__file__).parent.parent / "fonts" / "kollection_bitmap.ttf"
 
 
@@ -21,69 +18,27 @@ class WidgetVUMeter:
         self.smoothed_levels = np.zeros(2)
         self.peak_hold_time = np.zeros(2)
         self.peaks = np.zeros(2)
-        self.cava_config = Path(__file__).parent.parent / "widgets" / "vu_meter.conf"
-        self.cava_process = None
+        self.cava_config = Path(__file__).parent.parent / \
+            "widgets" / "vu_meter.conf"
         self.data_received = False
         self.frame = 0
         self.last_data = None
-        self.init()
+        self._fifo = None
 
-    def init(self):
-        if os.path.exists(CAVA_FIFO):
-            os.unlink(CAVA_FIFO)
-
-        os.mkfifo(CAVA_FIFO)
-
-        try:
-            self.cava_process = subprocess.Popen(
-                ["cava", "-p", self.cava_config],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                bufsize=1,
-            )
-            logger.debug(f"Started CAVA with config {self.cava_config}")
-
-            def log(stream, label):
-                for line in iter(stream.readline, ""):
-                    line = line.strip()
-                    if label == "STDERR":
-                        logger.error(f"CAVA {label}: {line}")
-                    elif "error" in line.lower():
-                        logger.error(f"CAVA {label}: {line}")
-                    elif "warning" in line.lower():
-                        logger.warning(f"CAVA {label}: {line}")
-                    else:
-                        logger.debug(f"CAVA {label}: {line}")
-                stream.close()
-
-            threading.Thread(
-                target=log, args=(self.cava_process.stdout, "STDOUT"), daemon=True
-            ).start()
-            threading.Thread(
-                target=log, args=(self.cava_process.stderr, "STDERR"), daemon=True
-            ).start()
-
-            time.sleep(0.2)
-            fd = os.open(CAVA_FIFO, os.O_RDONLY | os.O_NONBLOCK)
-            self.fifo = os.fdopen(fd, "rb", buffering=0)
-        except Exception as e:
-            logger.error(f"Error starting CAVA: {e}")
-            self.cleanup()
+    def start_fifo(self):
+        if self._fifo is not None:
             return
+        if os.path.exists(CAVA_FIFO):
+            fd = os.open(CAVA_FIFO, os.O_RDONLY | os.O_NONBLOCK)
+            self._fifo = os.fdopen(fd, "rb", buffering=0)
 
-    def cleanup(self, signum=None, frame=None):
-        self.stop_threads = True
+    def stop_fifo(self):
+        if self._fifo is not None:
+            self._fifo.close()
+            self._fifo = None
 
-        if self.fifo:
-            try:
-                self.fifo.close()
-            except:
-                pass
-
-        if self.cava_process:
-            self.cava_process.terminate()
-            self.cava_process.wait()
+    def config(self):
+        return self.cava_config
 
     def draw(
         self,
@@ -121,13 +76,13 @@ class WidgetVUMeter:
         try:
             available_data = b""
             while True:
-                chunk = self.fifo.read(self.num_bars)
+                chunk = self._fifo.read(self.num_bars)
                 if not chunk:
                     break
                 available_data += chunk
 
             if len(available_data) >= self.num_bars:
-                data = available_data[-self.num_bars :]
+                data = available_data[-self.num_bars:]
                 self.last_data = data
             elif self.last_data:
                 data = self.last_data
@@ -168,9 +123,11 @@ class WidgetVUMeter:
                     + (1 - attack_factor) * self.smoothed_levels[i]
                 )
             else:
-                self.smoothed_levels[i] = self.smoothed_levels[i] * decay_factor
+                self.smoothed_levels[i] = self.smoothed_levels[i] * \
+                    decay_factor
 
-        self.smoothed_levels = np.maximum(self.smoothed_levels, current_levels * 0.05)
+        self.smoothed_levels = np.maximum(
+            self.smoothed_levels, current_levels * 0.05)
 
         for i in range(2):
             min_peak = self.smoothed_levels[i] + peak_gap
@@ -185,7 +142,8 @@ class WidgetVUMeter:
                 if self.peak_hold_time[i] > 0:
                     self.peak_hold_time[i] -= 1
                 else:
-                    self.peaks[i] = max(self.peaks[i] - peak_fall_speed, min_peak)
+                    self.peaks[i] = max(
+                        self.peaks[i] - peak_fall_speed, min_peak)
 
         draw.rectangle(
             (box_x, box_y, box_x + box_width - 1, box_y + box_height - 1),
