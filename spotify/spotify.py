@@ -98,7 +98,6 @@ class SpotifyExtension(SourceActor):
         logger.info("Starting stream")
         if os.path.exists(LIBRESPOT_PATH):
             threading.Thread(target=self._librespot_init, daemon=True).start()
-            await self._reset_meta()
             logger.info(
                 f"Starting stream"
             )
@@ -108,35 +107,22 @@ class SpotifyExtension(SourceActor):
         else:
             logger.error(f"Librespot service missing")
 
-    async def _reset_meta(self):
-        """Reset metadata handling"""
-        track = Track(
-            uri=self._name,
-            name="Spotify Connect",
-            sample_rate=self._sample_rate,
-            bit_depth=self._bit_depth,
-            channels=self._channels,
-            audio_codec=self._audio_codec,
-        )
-        self._tl_track = TlTrack(tlid=0, track=track)
-        await self._core.request("playback.set_metadata", tl_track=self._tl_track)
-
     async def on_message(self, event):
         """Handle incoming events from librespot"""
         logger.debug(event)
 
         if "PLAYER_EVENT" in event and self._source_active:
             if event["PLAYER_EVENT"] in ("session_connected"):
-                self._source.state.user_name = event["USER_NAME"]
+                self._source.state.name = event["USER_NAME"]
                 self._source.state.connection_id = event["CONNECTION_ID"]
                 self._source.state.connected = True
                 self._core.send(
                     target=["web", "display"],
                     event="spotify_connected",
-                    name=self._source.state.user_name or "Unknown",
+                    name=self._source.state.name or "Unknown",
                 )
                 logger.info(
-                    f"Connected to Spotify account: {self._source.state.user_name}"
+                    f"Connected to Spotify account: {self._source.state.name}"
                 )
 
             if event["PLAYER_EVENT"] in ("session_disconnected"):
@@ -146,25 +132,23 @@ class SpotifyExtension(SourceActor):
                 await self._stop_timer()
                 await self._core.request("playback.playback_stop")
                 await self._core.request("source.update_source", source=self._source)
-                await self._reset_meta()
+                await self._core.request("playback.set_metadata")
                 self._core.send(
                     target=["web", "display"],
                     event="spotify_disconnected",
-                    name=self._source.state.user_name or "Unknown",
+                    name=self._source.state.name or "Unknown",
                 )
                 logger.warning(
-                    f"Disconnected from Spotify account: {self._source.state.user_name}"
+                    f"Disconnected from Spotify account: {self._source.state.name}"
                 )
 
             if event["PLAYER_EVENT"] in ("session_client_changed"):
                 self._source.state.name = (
-                    self._source.state.user_name
+                    self._source.state.name
                 )  # event["CLIENT_NAME"] not available anymore
                 await self._stop_timer()
-                await self._reset_meta()
-                await self._core.request(
-                    "playback.set_state", state=PlaybackState.STOPPED
-                )
+                await self._core.request("playback.set_metadata")
+                await self._core.request("playback.set_state", state=PlaybackState.STOPPED)
                 await self._core.request("playback.set_time_position", position_ms=0)
                 await self._core.request("source.update_source", source=self._source)
 

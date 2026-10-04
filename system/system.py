@@ -112,8 +112,8 @@ class SystemExtension(Actor):
             event="system_power_state_changed",
             state=self._power_state,
         )
-
-        await self._core.request("source.set", uri=None)
+        await self._core.request("playback.set_metadata")
+        await self._core.request("source.set")
         await self._core.request("bluetooth.adapter_set_state", state=False)
         return True
 

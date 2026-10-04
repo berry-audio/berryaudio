@@ -200,7 +200,6 @@ class Playlist(BaseModel):
 class State(BaseModel):
     model_config = ConfigDict(frozen=False)
     connected: bool = False
-    user_name: Optional[str] = None
     connection_id: Optional[str] = None
     name: Optional[str] = None
     icon: Optional[str] = None

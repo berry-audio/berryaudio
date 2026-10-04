@@ -105,14 +105,11 @@ class ShairportsyncExtension(SourceActor):
     async def on_start_stream(self):
         logger.info("Starting stream")
         if os.path.exists(SHAIRPORT_PATH) and os.path.exists(SHAIRPORT_RENDER_PATH):
-            
             threading.Thread(target=self._shairportsync_init,
                              daemon=True).start()
             threading.Thread(
                 target=self._shairportsync_meta_init, daemon=True).start()
             self._clean_images_dir()
-            self._reset_meta()
-
             logger.info(
                 f"Started Shairport Sync with name {self._hostname} on {self._output_device}"
             )
@@ -129,14 +126,6 @@ class ShairportsyncExtension(SourceActor):
                     logger.warning(f"Failed to delete {item}: {e}")
         else:
             logger.warning(f"Directory does not exist: {ALBUM_IMAGES_DIR}")
-
-    def _reset_meta(self):
-        """Reset metadata handling"""
-        self._track = Track(
-            uri=self._name,
-            name="Airplay",
-        )
-        self._core._request("playback.set_metadata", tl_track=TlTrack(tlid=0, track=self._track))
 
     def _shairportsync_init(self):
         """Starting shairportsync service"""
@@ -267,7 +256,7 @@ class ShairportsyncExtension(SourceActor):
                         self._core._request(
                             "source.update_source", source=self._source)
                     self._stop_timer()
-                    self._reset_meta()
+                    self._core._request("playback.set_metadata")
                     self._core.send(
                         target=["web", "display"],
                         event="shairportsync_disconnected",

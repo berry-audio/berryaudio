@@ -38,6 +38,7 @@ ICON_AIRPLAY = Path(__file__).parent.parent / "icons" / "airplay.png"
 ICON_SHUFFLE = Path(__file__).parent.parent / "icons" / "shuffle.png"
 ICON_REPEAT = Path(__file__).parent.parent / "icons" / "repeat.png"
 ICON_SINGLE = Path(__file__).parent.parent / "icons" / "single.png"
+ICON_TRACK = Path(__file__).parent.parent / "icons" / "music_note.png"
 
 I2C_PORT = 0
 I2C_ADDRESS = 0x3C
@@ -67,7 +68,7 @@ class DisplaySSD1306:
         self._source = None
         self._power_state = "standby"
         self._blink_visible = False
-        self._current_track = None
+        self._current_tl_track = None
         self._current_elapsed = 0
         self._current_time = None
         self._current_dir = None
@@ -106,8 +107,8 @@ class DisplaySSD1306:
     def _set_source(self, source):
         self._source = source
 
-    def _set_current_track(self, track):
-        self._current_track = track
+    def _set_current_track(self, tl_track):
+        self._current_tl_track = tl_track
 
     def _set_current_elapsed(self, elapsed=0):
         self._current_elapsed = elapsed
@@ -271,15 +272,15 @@ class DisplaySSD1306:
 
                             if self._shuffle:
                                 draw.bitmap(
-                                    (77, 0), Image.open(ICON_SHUFFLE), fill="white"
+                                    (75, 0), Image.open(ICON_SHUFFLE), fill="white"
                                 )
 
                             if self._repeat:
-                                draw.bitmap((91, 0), Image.open(
+                                draw.bitmap((87, 0), Image.open(
                                     ICON_REPEAT), fill="white")
 
                             if self._single:
-                                draw.bitmap((99, 0), Image.open(
+                                draw.bitmap((97, 0), Image.open(
                                     ICON_SINGLE), fill="white")
 
                             if (
@@ -293,17 +294,22 @@ class DisplaySSD1306:
                                         FONT_STYLE_4, 20),
                                     fill="red",
                                 )
-
-                            if self._current_track is not None and self._current_track.name:
-                                self._widget_title.draw(
-                                    draw,
-                                    width=self.width - 13,
-                                    x=13,
-                                    y=24,
-                                    text=self._current_track.name,
+                                
+                            self._widget_title.draw(
+                                draw,
+                                width=self.width - 13,
+                                x=13 if self._source and self._current_tl_track else 0,
+                                y=24,
+                                text=(
+                                    self._current_tl_track.track.name
+                                    if self._current_tl_track
+                                    else self._source.state.name
+                                    if self._source is not None
+                                    else "No Media"
                                 )
+                            )
 
-                            if self._current_track is not None and self._current_track.name:
+                            if self._source and self._current_tl_track:
                                 self._widget_play_pause.draw(
                                     draw, 0, 26, state=self._playback_state
                                 )
@@ -314,30 +320,27 @@ class DisplaySSD1306:
                                         draw,
                                         width=self.width,
                                         x=0,
-                                        y=5,
+                                        y=9,
                                         text="MUTED",
                                     )
                             else:
-                                artists = getattr(
-                                    self._current_track, "artists", None)
-                                if self._current_track is not None and artists:
-                                    self._widget_artist.draw(
-                                        draw,
-                                        width=self.width,
-                                        x=0,
-                                        y=9,
-                                        text=next(iter(artists)).name,
-                                    )
+                                artist = None
+                                if self._current_tl_track:
+                                    artists = getattr(
+                                        self._current_tl_track.track, "artists", None)
+                                    if artists:
+                                        artist = next(iter(artists)).name
 
-                            if self._tuner_stereo:
-                                self._text_box.draw(
+                                artist = artist or (
+                                    getattr(self._source, "name",
+                                            None) or "Now Playing"
+                                )
+                                self._widget_artist.draw(
                                     draw,
-                                    224,
-                                    20,
-                                    box_width=32,
-                                    box_height=9,
-                                    text="STEREO",
-                                    highlight=True,
+                                    width=self.width,
+                                    x=0,
+                                    y=9,
+                                    text=artist,
                                 )
 
                             if self._visualizer_layout == 7:
@@ -348,8 +351,8 @@ class DisplaySSD1306:
                                     x=0,
                                     elapsed=self._current_elapsed,
                                     total=(
-                                        self._current_track.length
-                                        if self._current_track
+                                        self._current_tl_track.track.length
+                                        if self._current_tl_track
                                         else None
                                     ),
                                 )

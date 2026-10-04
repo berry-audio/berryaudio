@@ -91,18 +91,6 @@ class UsbdacExtension(SourceActor):
 
     async def on_start_stream(self):
         logger.info("Starting stream")
-        tl_track = TlTrack(
-            tlid=0,
-            track=Track(
-                uri=self._name,
-                name="USB DAC",
-                sample_rate=self._sample_rate,
-                bit_depth=self._bit_depth,
-                channels=self._channels,
-                audio_codec=self._audio_codec,
-            )
-        )
-        await self._core.request("playback.set_metadata", tl_track=tl_track)
 
     async def on_stop_service(self):
         await self._core.request("playback.set_metadata")

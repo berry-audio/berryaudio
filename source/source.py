@@ -13,9 +13,7 @@ class SourceExtension(Actor):
         self._core = core
         self._db = db
         self._config = config
-        self._current = Source(
-            name=None, uri=None, controls=[]
-        )
+        self._current = None
 
     async def on_start(self):
         logger.info("Started")
@@ -33,8 +31,11 @@ class SourceExtension(Actor):
                 isinstance(ext, SourceActor)
                 and isinstance(getattr(ext, "_source", None), Source)
                 and ext._source.uri is not None
-            ):
-                ext._source.active = self._current.uri == ext._source.uri
+            ):  
+                if isinstance(self._current, Source):
+                    ext._source.active = self._current.uri == ext._source.uri
+                else:
+                    ext._source.active = False    
                 _sources.append(ext._source)
 
         _sources.sort(key=lambda s: s.index)
@@ -42,6 +43,9 @@ class SourceExtension(Actor):
 
     def on_update_source(self, source: object) -> None:
         """Updates source information from renderers"""
+        if self._current is None:
+            return
+        
         if self._current.uri == source.uri:
             self._current = source
             self._current.active = True
@@ -51,56 +55,40 @@ class SourceExtension(Actor):
 
     async def on_set(self, uri: str | None = None) -> bool:
         """Set the active source and manage start stop services."""
-        uri_prev = self._current.uri
+        if self._current is not None:
+            uri_prev = self._current.uri
 
-        if uri == uri_prev:
-            return True
+            if uri == uri_prev:
+                return True
 
-        directory = self.on_directory()
-        if uri is not None and uri not in (source.uri for source in directory):
-            logger.error(f"Unknown source type: {uri}")
-            raise ValueError(f"Unknown source type: {uri}")
+            directory = self.on_directory()
+            if uri is not None and uri not in (source.uri for source in directory):
+                logger.error(f"Unknown source type: {uri}")
+                raise ValueError(f"Unknown source type: {uri}")
 
-        if uri_prev is not None:
-            stop_method = f"{uri_prev}.stop_service"
-            if self._core.is_callable(stop_method):
-                try:
-                    logger.debug(f"Stopping {uri_prev} service")
-                    await self._core.request(stop_method)
-                    self._core.send(
-                        target=["web", "display"], event="source_changed", source=Source(
-                            name=None,
-                            uri=uri,
-                            controls=[],
-                            state={"connected": False},
-                        )
-                    )
-                except Exception as e:
-                    logger.error(e)
+            if uri_prev is not None:
+                stop_method = f"{uri_prev}.stop_service"
+                if self._core.is_callable(stop_method):
+                    try:
+                        logger.debug(f"Stopping {uri_prev} service")
+                        await self._core.request(stop_method)
+                    except Exception as e:
+                        logger.error(e)
 
         if uri is None:
-            self._current = Source(
-                name=None, uri=None, controls=[], state={"connected": False}
-            )
-
-        if uri is not None:
+            self._current = None
+            self._core.send(target=["web", "display"], event="source_changed", source=self._current)
+        else:
             start_method = f"{uri}.start_service"
             if self._core.is_callable(start_method):
                 try:
                     logger.debug(f"Starting {uri} service")
+                    await self._core.request("playback.set_metadata")
                     source = await self._core.request(start_method)
                     self._current = source
                     self._current.active = True
                 except Exception as e:
-                    self._current = Source(
-                        name=None,
-                        uri=None,
-                        controls=[],
-                        state={"connected": False},
-                    )
-                    self._core.send(
-                        target=["web", "display"], event="source_changed", source=self._current
-                    )
+                    self._current = None
 
                 self._core.send(
                     target=["web", "display"],

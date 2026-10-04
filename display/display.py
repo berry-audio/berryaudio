@@ -4,7 +4,7 @@ import json
 
 from pathlib import Path
 from core.actor import Actor
-from core.types import PlaybackState, Command, EncoderMode, DisplayPage
+from core.types import PlaybackState, Command, EncoderMode, DisplayPage, PlaybackControls
 from core.models import Album, Artist, Track, Bluetooth, Category, Storage, Directory, Source, Playlist, Tuner, File, TlTrack, Power
 from core.util.system import SystemUtil
 
@@ -52,8 +52,8 @@ class DisplayExtension(Actor):
         self._action = None
         self._volume = 0
         self._muted = False
-        self._current_track = None
-        self._current_track = None
+        self._current_tl_track = None
+        self._current_tl_track = None
         self._current_dir = None
         self._current_dir_breadcrumbs = []
         self._source = None
@@ -89,7 +89,7 @@ class DisplayExtension(Actor):
                 _source = message.get("source")
                 self._controller._set_current_elapsed()
                 self.set_source(message.get("source"))
-                if _source.uri is not None:
+                if _source is not None:
                     self.set_page(DisplayPage.NOW_PLAYING)
 
             elif event == "source_updated":
@@ -125,7 +125,8 @@ class DisplayExtension(Actor):
                         await self._core.request("system.directory", uri="system:standby")
 
                     if self._page == DisplayPage.NOW_PLAYING:
-                        await self._core.request("playback.play")
+                        if PlaybackControls.PLAY in self._source.controls:
+                            await self._core.request("playback.play")
 
                     elif self._page == DisplayPage.DIRECTORY or self._page == DisplayPage.TRACKLIST or self._page == DisplayPage.POWER:
                         selected_item, selected_index, scroll_offset = (
@@ -148,10 +149,34 @@ class DisplayExtension(Actor):
                         if isinstance(selected_item, Source):
                             self.set_page(DisplayPage.LOADING)
                             if selected_item.browsable:
-                                if selected_item.uri == 'bluetooth':
+                                if selected_item.uri == 'dsp' or selected_item.uri == 'config':
+                                    self.set_page(DisplayPage.DIRECTORY)
+                                    return
+                                
+                                elif selected_item.uri == 'bluetooth':
                                     _current_dir = await self._core.request(
                                         f"{selected_item.uri}.devices",
                                     )
+
+                                elif selected_item.uri == 'multiroom':
+                                    _current_dir = []
+                                    _current_servers = await self._core.request("multiroom.servers")
+
+                                    for server in _current_servers:
+                                        groups = server.status.get("server", {}).get("groups", [])
+
+                                        for group in groups:
+                                            for client in group.get("clients", []):
+                                                host = client.get("host", {})
+
+                                                _current_dir.append({
+                                                    "__model__": "Room",
+                                                    "name": host.get("name", "Unknown"),
+                                                    "uri": host.get("ip", ""),
+                                                })
+                                    print(_current_dir)
+                                    # self.set_dir(_current_dir)
+                                    self.set_page(DisplayPage.DIRECTORY)
                                 else:
                                     _current_dir = await self._core.request(
                                         f"{selected_item.uri}.directory", uri=f"{selected_item.uri}",
@@ -300,14 +325,10 @@ class DisplayExtension(Actor):
                     self.start_timer(None)
 
             elif event == "track_playback_started":
-                tl_track = message.get("tl_track")
-                if tl_track is not None:
-                    self.set_current_track(message.get("tl_track").track)
+                self.set_current_track(message.get("tl_track"))
 
             elif event == "track_meta_updated":
-                tl_track = message.get("tl_track")
-                if tl_track is not None:
-                    self.set_current_track(message.get("tl_track").track)
+                self.set_current_track(message.get("tl_track"))
 
             elif event == "playback_state_changed":
                 self.set_playback_state(message.get("state"))
@@ -410,10 +431,10 @@ class DisplayExtension(Actor):
         if self._source is not None and self._source.uri != source.uri:
             self._controller._set_current_elapsed()
 
-    def set_current_track(self, track):
-        self._current_track = track
+    def set_current_track(self, tl_track):
+        self._current_tl_track = tl_track
         if self._controller is not None:
-            self._controller._set_current_track(track)
+            self._controller._set_current_track(tl_track)
 
     def set_dir(self, dir=None, selected_index=0, scroll_offset=0):
         if dir is None:
@@ -423,13 +444,14 @@ class DisplayExtension(Actor):
         elif dir == -1:
             if len(self._current_dir_breadcrumbs) <= 1:
                 return
-            prev = self._current_dir_breadcrumbs[-1]
-            if len(self._current_dir_breadcrumbs) > 1:
-                self._current_dir_breadcrumbs.pop()
+            prev = self._current_dir_breadcrumbs.pop()
             self._current_dir = prev["items"]
             selected_index = prev["selected_index"]
             scroll_offset = prev["scroll_offset"]
         else:
+            dir = list(dir)  
+            if len(dir) == 0:
+                return
             self._current_dir_breadcrumbs.append(
                 {
                     "items": self._current_dir,
@@ -441,8 +463,7 @@ class DisplayExtension(Actor):
             selected_index = scroll_offset = 0
 
         if self._controller is not None:
-            self._controller._set_dir(
-                self._current_dir, selected_index, scroll_offset)
+            self._controller._set_dir(self._current_dir, selected_index, scroll_offset)
 
     def set_playback_state(self, state):
         self._playback_state = state
