@@ -2,7 +2,7 @@ import os
 import logging
 import threading
 import json
-import time
+import asyncio
 import subprocess
 
 from pathlib import Path
@@ -47,6 +47,8 @@ class DisplayExtension(Actor):
         self._device = None
         self._visualizer_layout = 1
         self._playback_state = PlaybackState.STOPPED
+        self._timer_tick = None
+        self._position_tick = None
         self._controller = None
         self._single = False
         self._repeat = False
@@ -103,8 +105,7 @@ class DisplayExtension(Actor):
                 self.set_source(message.get("source"))
 
             elif event == "track_position_updated":
-                self._controller._set_current_elapsed(
-                    message.get("time_position"))
+                self._controller._set_current_elapsed(message.get("time_position"))
 
             elif event == "command":
                 self._action = message.get("action")
@@ -131,7 +132,7 @@ class DisplayExtension(Actor):
                     if self._page == DisplayPage.STANDBY:
                         await self._core.request("system.directory", uri="system:standby")
 
-                    if self._page == DisplayPage.NOW_PLAYING:
+                    if self._page == DisplayPage.NOW_PLAYING and self._source:
                         if PlaybackControls.PLAY in self._source.controls:
                             await self._core.request("playback.play")
 
@@ -339,7 +340,13 @@ class DisplayExtension(Actor):
                 self.set_current_track(message.get("tl_track"))
 
             elif event == "playback_state_changed":
-                self.set_playback_state(message.get("state"))
+                state = message.get("state")
+                self.set_playback_state(state)
+                if state == PlaybackState.PLAYING:
+                    self.start_position_tick()
+                else:
+                    self.stop_position_tick()
+
 
             elif event == 'dsp_options_changed':
                 self._sample_rate = message.get("sample_rate")
@@ -414,6 +421,9 @@ class DisplayExtension(Actor):
         if self._timer_blink is not None:
             self._timer_blink.cancel()
             self._timer_blink = None
+
+        self.stop_position_tick()
+
         if self._controller is not None:
             self._controller.stop()
         logger.info("Stopped")
@@ -617,6 +627,36 @@ class DisplayExtension(Actor):
             self._timer_blink.cancel()
             self._timer_blink = None
         self.set_blink_visible(True)
+
+    def start_position_tick(self):
+        if self._position_tick is not None:
+            self._position_tick.cancel()
+
+        def on_position(future):
+            try:
+                position = future.result()
+            except Exception as e:
+                logger.error(f"Position tick error: {e}")
+                return
+            if position is not None and self._controller is not None:
+                self._controller._set_current_elapsed(position)
+
+        def tick():
+            self._position_tick = None
+            if self._playback_state != PlaybackState.PLAYING:
+                return
+            asyncio.run_coroutine_threadsafe(
+                self._core.request("playback.get_time_position"), self._loop
+            ).add_done_callback(on_position)
+            self.start_position_tick()
+
+        self._position_tick = threading.Timer(1.0, tick)
+        self._position_tick.start()
+
+    def stop_position_tick(self):
+        if self._position_tick is not None:
+            self._position_tick.cancel()
+            self._position_tick = None    
 
     def on_get_displays(self) -> list[dict] | dict | None:
         """Return displays, optionally filtered by device name."""

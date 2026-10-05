@@ -10,13 +10,13 @@ from luma.oled.device import ssd1306
 from luma.core.sprite_system import framerate_regulator
 
 from core.types import DisplayPage, PlaybackState
-from core.models import Track
+from core.util import format_codec, format_position
 
 from display.widgets.vu_meter import WidgetVUMeter
 from display.widgets.spectrum_analyzer import WidgetSpectumAnalyzer
 from display.widgets.text_scrollable import WidgetTextScrollable
 from display.widgets.codec_bitrate import WidgetCodecBitrate
-from display.widgets.text_box import WidgetTextBox
+from display.widgets.text import WidgetText
 from display.widgets.play_pause import WidgetPlayPause
 from display.widgets.list_scrollable import WidgetListScrollable
 from display.widgets.progress_bar import WidgetProgressBar
@@ -77,7 +77,7 @@ class DisplaySSD1306:
         self._sample_format = None
         self._widget_visualizer = None
         self._visualizer_layout = 1
-        self._text_box = WidgetTextBox(font_size=5, font_path=FONT_STYLE_2)
+        self._position_labels = WidgetText(font_size=8, font_path=FONT_STYLE_3)
         self._widget_bitrate = WidgetCodecBitrate(font_path=FONT_STYLE_2)
         self._widget_title = WidgetTextScrollable(
             font_size=8, font_path=FONT_STYLE_3)
@@ -94,10 +94,12 @@ class DisplaySSD1306:
             font_path=FONT_STYLE_3,
         )
         self.progress_bar = WidgetProgressBar(
-            font_path=FONT_STYLE_1, font_size=21, bar_height=4, bar_outline_color=False, show_labels=True
+            font_path=FONT_STYLE_1, font_size=21, bar_height=4, bar_outline_color=False, show_labels=False
         )
         self.loader = WidgetLoader(
             display_width=self.width, display_height=self.height)
+
+    
 
     def _set_power_state(self, state):
         self._power_state = state
@@ -356,6 +358,46 @@ class DisplaySSD1306:
                                 )
 
                             if self._visualizer_layout == 7:
+                                self._position_labels.draw(
+                                    draw,
+                                    width=self.width,
+                                    x=0,
+                                    y=45,
+                                    text=format_position(
+                                        self._current_elapsed),
+                                    align='left'
+                                )
+
+                                self._position_labels.draw(
+                                    draw,
+                                    width=self.width,
+                                    x=0,
+                                    y=45,
+                                    text=format_codec(
+                                        getattr(
+                                            getattr(
+                                                self._current_tl_track, "track", None),
+                                            "audio_codec",
+                                            "",
+                                        )
+                                        if self._current_tl_track
+                                        else ""
+                                    ),
+                                    align="center",
+                                )
+
+                                self._position_labels.draw(
+                                    draw,
+                                    width=self.width,
+                                    x=0,
+                                    y=45,
+                                    text=format_position(
+                                        getattr(
+                                            getattr(self._current_tl_track, "track", None), "length", 0) or 0
+                                    ),
+                                    align="right",
+                                )
+
                                 self.progress_bar.draw(
                                     draw,
                                     width=self.width,
