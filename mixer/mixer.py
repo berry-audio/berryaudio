@@ -5,6 +5,7 @@ import asyncio
 import json
 import re
 import subprocess
+import zlib
 
 from pathlib import Path
 from typing import Optional
@@ -19,6 +20,7 @@ DTOVERLAY_DICT = Path(__file__).parent.parent / "mixer" / "dtoverlay.json"
 MIXERS_LIST_PATH = Path(__file__).parent.parent / "mixer" / "mixers.json"
 VOL_MIN = 0
 VOL_MAX = 100
+USB_DEVICE_ID_BASE = 10000
 
 
 class MixerExtension(Actor):
@@ -383,5 +385,62 @@ class MixerExtension(Actor):
     def on_list(self):
         with open(MIXERS_LIST_PATH, "r", encoding="utf-8") as f:
             mixers = json.load(f)
-        return mixers 
+
+        mixers.extend(self.get_usb_devices(mixers))
+
+        hw_card = self.alsa_device_to_card(self._hw_device or "")
+        configured_listed = any(
+            m["device"] == self._hw_device
+            or (hw_card and (m.get("card") or "").lower() == hw_card.lower())
+            for m in mixers
+        )
+        if self._hw_device and not configured_listed:
+            # Keep the configured device selectable while it is unplugged
+            mixers.append(
+                {
+                    "id": self.device_to_id(self._hw_device),
+                    "name": f"{self._hw_device} (not connected)",
+                    "device": self._hw_device,
+                    "card": hw_card,
+                    "dtoverlay": "",
+                }
+            )
+
+        return mixers
+
+    def device_to_id(self, device: str) -> int:
+        """Stable numeric id for a detected device, outside the mixers.json id range"""
+        return USB_DEVICE_ID_BASE + zlib.crc32(device.encode()) % 1000000
+
+    def get_usb_devices(self, mixers: list) -> list:
+        """Gets connected USB audio devices not already present in mixers.json"""
+        known_cards = {m["card"].lower() for m in mixers if m.get("card")}
+        names = {c["card"]: c["description"] for c in self.get_alsa_mixers()}
+        devices = []
+
+        for d in self.on_alsa_devices("aplay"):
+            card = d["card"]
+            if not card or not d["device"].startswith("plughw:"):
+                continue
+            if card.lower() in known_cards:
+                continue
+            if not Path(f"/proc/asound/{card}/usbid").exists():
+                continue
+
+            name = names.get(card, card).split(" - ", 1)[-1]
+            dev = re.search(r"DEV=(\d+)", d["device"])
+            if dev and dev.group(1) != "0":
+                name = f"{name} #{dev.group(1)}"
+
+            devices.append(
+                {
+                    "id": self.device_to_id(d["device"]),
+                    "name": f"{name} (USB)",
+                    "device": d["device"],
+                    "card": card,
+                    "dtoverlay": "",
+                }
+            )
+
+        return devices
 
