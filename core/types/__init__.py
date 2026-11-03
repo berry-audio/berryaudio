@@ -67,7 +67,6 @@ class DisplayPage(enum.StrEnum):
     """Enum of display screens."""
 
     STANDBY = "standby"
-    SOURCE = "source"
     SOURCE_DIRECTORY = "source_directory"
     NOW_PLAYING = "now_playing"
     DIRECTORY = "directory"

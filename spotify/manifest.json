@@ -1,0 +1,12 @@
+{
+  "name": "spotify",
+  "version": "5.0.1",
+  "depends_on": ["config"],
+  "config": {
+    "output_device": "plughw:CARD=Loopback,DEV=0",
+    "bitrate": 320,
+    "bit_depth": "S32",
+    "volume_default": 100,
+    "volume_normalization": true
+  }
+}

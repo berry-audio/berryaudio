@@ -1,0 +1,12 @@
+{
+  "name": "tuner",
+  "version": "5.0.1",
+  "depends_on": ["config"],
+  "config": {
+    "hw_device": null,
+    "input_device": null,
+    "sample_rate": 44100,
+    "bit_depth": "S16_LE",
+    "gain": 0
+  }
+}

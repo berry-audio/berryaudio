@@ -1,0 +1,10 @@
+{
+  "name": "storage",
+  "version": "5.0.1",
+  "depends_on": ["config"],
+  "config": {
+    "username": null,
+    "password": null,
+    "smb_clients": {}
+  }
+}

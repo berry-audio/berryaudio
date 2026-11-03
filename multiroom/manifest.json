@@ -1,0 +1,13 @@
+{
+  "name": "multiroom",
+  "version": "5.0.1",
+  "depends_on": ["config"],
+  "config": {
+    "client_device": "plughw:CARD=Loopback,DEV=0",
+    "server_device": "hw:Loopback,1,1",
+    "server": false,
+    "codec": "opus",
+    "chunk": 50,
+    "buffer": 1024
+  }
+}

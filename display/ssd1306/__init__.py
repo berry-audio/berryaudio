@@ -5,6 +5,7 @@ from PIL import ImageFont, Image
 from pathlib import Path
 
 from luma.core.interface.serial import i2c
+from luma.core.interface.serial import spi
 from luma.core.render import canvas
 from luma.oled.device import ssd1306
 from luma.core.sprite_system import framerate_regulator
@@ -43,6 +44,12 @@ ICON_TRACK = Path(__file__).parent.parent / "icons" / "music_note.png"
 
 I2C_PORT = 0
 I2C_ADDRESS = 0x3C
+
+
+SPI_PORT = 0
+SPI_DEVICE = 0
+SPI_GPIO_DC = 24
+SPI_GPIO_RST = 25
 
 DISPLAY_WIDTH = 128
 DISPLAY_HEIGHT = 64
@@ -181,7 +188,13 @@ class DisplaySSD1306:
 
     def init(self):
         try:
-            self._serial = i2c(port=I2C_PORT, address=I2C_ADDRESS)
+            # self._serial = i2c(port=I2C_PORT, address=I2C_ADDRESS)
+            self._serial = spi(
+                port=SPI_PORT,
+                device=SPI_DEVICE,
+                gpio_DC=SPI_GPIO_DC,
+                gpio_RST=SPI_GPIO_RST
+            )
             self._device = ssd1306(
                 self._serial, width=self.width, height=self.height, rotate=2)
             self._device.contrast(self._contrast)
@@ -215,15 +228,24 @@ class DisplaySSD1306:
                 try:
                     with canvas(self._device) as draw:
                         if self._page == DisplayPage.STANDBY:
+                            if not self._current_time:
+                                self._widget_title.draw(
+                                            draw,
+                                            width=self.width,
+                                            y=24,
+                                            text='Berryaudio',
+                                            center=True,
+                                        )
+
                             if self._blink_visible:
-                                _time_now = self._current_time
                                 self._widget_title.draw(
                                     draw,
                                     width=self.width,
                                     y=24,
-                                    text=_time_now,
+                                    text=self._current_time,
                                     center=True,
                                 )
+
 
                         if self._page == DisplayPage.POWER_STATE_CHANGING:
                             self._widget_title.draw(
@@ -231,16 +253,6 @@ class DisplaySSD1306:
                                 width=self.width,
                                 y=24,
                                 text=power_state_name(self._power_state),
-                                auto_scroll=False,
-                                center=True,
-                            )
-
-                        if self._page == DisplayPage.SOURCE:
-                            self._widget_title.draw(
-                                draw,
-                                width=self.width,
-                                y=24,
-                                text=self._source.name,
                                 auto_scroll=False,
                                 center=True,
                             )

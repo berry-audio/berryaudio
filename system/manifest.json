@@ -1,0 +1,10 @@
+{
+  "name": "system",
+  "version": "5.0.1",
+  "depends_on": ["config"],
+  "config": {
+    "hostname": "berryaudio",
+    "timezone": "Europe/Berlin",
+    "hardware": "auto"
+  }
+}

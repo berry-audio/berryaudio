@@ -1,0 +1,8 @@
+{
+  "name": "local",
+  "version": "5.0.1",
+  "depends_on": ["config"],
+  "config": {
+    "library_path": []
+  }
+}

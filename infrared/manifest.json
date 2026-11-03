@@ -1,0 +1,6 @@
+{
+  "name": "infrared",
+  "version": "5.0.1",
+  "enabled": false,
+  "depends_on": ["config"]
+}

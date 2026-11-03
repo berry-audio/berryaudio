@@ -8,7 +8,6 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 DB_FILENAME = "library.db"
-DB_PATH = "/home/pi/berryaudio/db/core"
 SCHEMA_INIT_SQL = """
         CREATE TABLE IF NOT EXISTS extensions (
             name TEXT PRIMARY KEY,
@@ -122,10 +121,12 @@ class DBConnection:
 
             ext_config = _configs[ext_name]
 
-            _keys = [key for key in config[ext_name].keys() if key not in ext_config]
+            _keys = [key for key in config[ext_name].keys()
+                     if key not in ext_config]
 
             if _keys:
-                raise ValueError(f"Unknown config for extension {ext_name}: {_keys}")
+                raise ValueError(
+                    f"Unknown config for extension {ext_name}: {_keys}")
 
             for k, v in config[ext_name].items():
                 ext_config[k] = v
@@ -134,3 +135,35 @@ class DBConnection:
             params = (json.dumps(ext_config), ext_name)
             self.execute(sql, params)
         return True
+
+    def reconcile_configs(self, defaults_by_name):
+        stored_rows = {
+            row["name"]: json.loads(row["config"])
+            for row in self.fetchall("SELECT name, config FROM extensions")
+        }
+
+        result = {}
+        to_write = []
+        for name, defaults in defaults_by_name.items():
+            if not defaults:
+                result[name] = {}
+                continue
+
+            stored = stored_rows.get(name)
+            if stored is None:
+                merged = dict(defaults)
+            else:
+                merged = {k: stored.get(k, v) for k, v in defaults.items()}
+
+            result[name] = merged
+            if merged != stored:
+                to_write.append((name, json.dumps(merged)))
+
+        if to_write:
+            self.executemany(
+                "INSERT INTO extensions (name, config) VALUES (?, ?) "
+                "ON CONFLICT(name) DO UPDATE SET config = excluded.config",
+                to_write,
+            )
+            logger.debug(f"Config updated: {[n for n, _ in to_write]}")
+        return result

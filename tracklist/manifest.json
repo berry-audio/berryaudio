@@ -1,0 +1,8 @@
+{
+  "name": "tracklist",
+  "version": "5.0.1",
+  "depends_on": ["config"],
+  "config": {
+    "current_queue": []
+  }
+}

@@ -1,5 +1,0 @@
-output_device: plughw:CARD=Loopback,DEV=0
-bitrate: 320
-bit_depth: S32
-volume_default: 100
-volume_normalization: true

@@ -327,7 +327,14 @@ class DspExtension(SourceActor):
         return volume_db
 
     @client_connection
-    def on_set_volume(self, volume_db: float = None):
+    def on_set_volume_db(self, volume_db: float = None):
+        self._client.volume.set_main_volume(float(volume_db))
+        logger.info(f"DSP volume set to: {volume_db} dB")
+        return volume_db
+
+    @client_connection
+    def on_set_volume(self, volume: int = None):
+        volume_db = self.on_volume_to_db(volume)
         self._client.volume.set_main_volume(float(volume_db))
         logger.info(f"DSP volume set to: {volume_db} dB")
         return volume_db

@@ -1,14 +1,15 @@
 import asyncio
 import importlib
-import yaml
 import logging
+import json
 
 from pathlib import Path
+from graphlib import CycleError, TopologicalSorter
 from collections import defaultdict
 from core.db import DBConnection
 
 logger = logging.getLogger(__name__)
-
+EXTENSIONS_DIR = Path(__file__).resolve().parent.parent
 
 class Core:
     def __init__(self):
@@ -19,42 +20,90 @@ class Core:
         self._responses = {}
         self._loop = asyncio.get_running_loop()
 
-    async def load_extensions_by_name(self, extension_names):
-        extensions_to_start = []
-        loaded_extensions = []
+    def load_order(self, manifests):
+        manifests = dict(manifests)
+        changed = True
+        while changed:
+            changed = False
+            for name, manifest in list(manifests.items()):
+                missing = set(manifest.get("depends_on", [])) - manifests.keys()
+                if missing:
+                    logger.error(
+                        f"{name} depends on {sorted(missing)}, which are not "
+                        f"available; skipping {name}"
+                    )
+                    del manifests[name]
+                    changed = True
+ 
+        graph = {n: set(m.get("depends_on", [])) for n, m in manifests.items()}
+        sorter = TopologicalSorter(graph)
+        try:
+            sorter.prepare()
+        except CycleError as e:
+            logger.error(f"Circular depends_on between extensions: {e.args[1]}")
+            raise
+ 
+        order = []
+        while sorter.is_active():
+            ready = sorted(sorter.get_ready())
+            order.extend(ready)
+            sorter.done(*ready)
+        return order
 
-        # Init Extensions config in database
-        for name in extension_names:
-            module = importlib.import_module(name)
-            ext_class = getattr(module, "Extension")
-            loaded_extensions.append((name, ext_class))
+    def load_manifests(self):
+        manifests = {}
+        for path in sorted(EXTENSIONS_DIR.glob("*/manifest.json")):
+            try:
+                manifest = json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                logger.exception(f"Invalid manifest, skipping: {path}")
+                continue
+ 
+            name = manifest.get("name")
+            if name != path.parent.name:
+                logger.error(
+                    f"Manifest name {name!r} does not match folder "
+                    f"{path.parent.name!r}, skipping"
+                )
+                continue
+            if manifest.get("enabled", True) is False:
+                logger.warning(f"Extension {name} is disabled")
+                continue
+ 
+            manifests[name] = manifest
+        return manifests
+    
+    async def load_extensions(self):
+        manifests = self.load_manifests()
+        config = self.db.reconcile_configs(
+            {name: m.get("config") or {} for name, m in manifests.items()}
+        )
+ 
+        loaded = set()
+        for name in self.load_order(manifests):
+            failed = [d for d in manifests[name].get("depends_on", []) if d not in loaded]
+            if failed:
+                logger.error(f"Skipping {name}: dependencies failed to load: {failed}")
+                continue
+ 
+            try:
+                module = importlib.import_module(name)
+                ext = module.Extension(
+                    name=name, core=self, db=self.db, config=config
+                )
+                ext.set_loop(self._loop)
+                ext._module_name = name
+                self.extensions.append(ext)
+                self.routes[name].append(ext)
+                self.tasks.append(asyncio.create_task(ext.run()))
+                loaded.add(name)
+            except Exception:
+                logger.exception(f"Failed to load extension {name}")
+                continue
+ 
+            await asyncio.sleep(0)
 
-            ext_folder = Path(module.__file__).parent
-            config_path = ext_folder / "config.yaml"
-
-            if config_path.exists():
-                with open(config_path, "r", encoding="utf-8") as f:
-                    config = yaml.safe_load(f) or {}
-            else:
-                config = {}
-
-            self.db.init_extension(name, config)
-
-        # Load & Run Extensions 
-        for name, ext_class in loaded_extensions:
-            config = self.db.get_config()
-
-            ext = ext_class(name=name, core=self, db=self.db, config=config)
-            ext.set_loop(self._loop)
-            ext._module_name = name
-
-            self.extensions.append(ext)
-            self.routes[name].append(ext)
-            extensions_to_start.append(ext)
-
-            task = asyncio.create_task(ext.run())
-            self.tasks.append(task)
-
+    
     async def send_to(self, name: str, message):
         for ext in self.extensions:
             if ext.__class__.__name__.lower().startswith(name.lower()):

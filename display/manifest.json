@@ -1,0 +1,10 @@
+{
+  "name": "display",
+  "version": "5.0.1",
+  "depends_on": ["config", "mixer", "source"],
+  "config": {
+    "output_display": null,
+    "visualizer_layout": 7,
+    "standby_clock": true
+  }
+}

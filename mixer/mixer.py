@@ -133,16 +133,14 @@ class MixerExtension(Actor):
 
     async def on_set_volume(self, volume: int = 0) -> bool:
         """Set Mixer Volume"""
+        self._volume = volume
         if self._volume_event_task and not self._volume_event_task.done():
             self._volume_event_task.cancel()
 
         async def set_volume(volume: int):
-            self._volume = volume
+            
             if self._mixer is None:
-                volume_to_db = await self._core.request(
-                    "dsp.volume_to_db", volume=volume
-                )
-                await self._core.request("dsp.set_volume", volume_db=volume_to_db)
+                await self._core.request("dsp.set_volume", volume=volume)
                 return
 
             self._mixer.setvolume(self.volume_to_mixer_volume(volume))
@@ -164,10 +162,10 @@ class MixerExtension(Actor):
         return self._volume
 
     async def on_volume_up(self):
-        await self.on_set_volume(min(self._volume + 1, VOL_MAX))
+        return await self.on_set_volume(min(self._volume + 1, VOL_MAX))
 
     async def on_volume_down(self):
-        await self.on_set_volume(max(self._volume - 1, VOL_MIN))
+        return await self.on_set_volume(max(self._volume - 1, VOL_MIN))
 
     def volume_to_mixer_volume(self, volume):
         if volume == 0:

@@ -24,6 +24,8 @@ logger = None
 
 
 async def async_main(verbose=False):
+    welcome()
+    
     global logger
     log_level = logging.DEBUG if verbose else logging.INFO
     logger = setup_logging(log_level).getChild("core")
@@ -31,38 +33,7 @@ async def async_main(verbose=False):
     Gst.init(None)
 
     core = Core()
-    extensions = [
-        "config",
-        "dsp",
-        "system",
-        "mixer",
-        "tracklist",
-        "radio",
-        "source",
-        "spotify",
-        "shairportsync",
-        "bluetooth",
-        "local",
-        "search",
-        "storage",
-        "playlist",
-        "playback",
-        "network",
-        "multiroom",
-        "display",
-        "collection",
-        "gpio",
-        # "infrared",
-        "tuner",
-        "webrtc",
-        "linein",
-        "command",
-        "usbdac",
-        "web",
-    ]
-    await core.load_extensions_by_name(extensions)
-
-    welcome()
+    await core.load_extensions()
     logger.info("System started. Press Ctrl+C to exit.")
 
     stop_event = asyncio.Event()

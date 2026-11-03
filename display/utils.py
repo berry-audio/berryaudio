@@ -6,8 +6,6 @@ def power_state_name(state):
         return "Standby"
     if state == "shutdown":
         return "Power Off"
-    if state == "shutdown":
-        return "Power Off"
     if state == "reboot":
         return "Restarting..."
 

@@ -1,0 +1,5 @@
+{
+  "name": "radio",
+  "version": "5.0.1",
+  "depends_on": ["config"]
+}

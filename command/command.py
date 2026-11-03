@@ -40,12 +40,6 @@ class CommandExtension(Actor):
             elif action == Command.MUTE:
                 await self._core.request("mixer.toggle_mute")
 
-            elif action == Command.VOLUME_UP:
-                await self._core.request("mixer.volume_up")
-
-            elif action == Command.VOLUME_DOWN:
-                await self._core.request("mixer.volume_down")
-
     async def on_start(self):
         logger.info("Started")
 

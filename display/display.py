@@ -53,7 +53,7 @@ class DisplayExtension(Actor):
         self._single = False
         self._repeat = False
         self._shuffle = False
-        self._page = DisplayPage.STANDBY
+        self._page = DisplayPage.DIRECTORY
         self._page_prev = self._page
         self._action = None
         self._volume = 0
@@ -105,16 +105,29 @@ class DisplayExtension(Actor):
                 self.set_source(message.get("source"))
 
             elif event == "track_position_updated":
-                self._controller._set_current_elapsed(message.get("time_position"))
+                self._controller._set_current_elapsed(
+                    message.get("time_position"))
 
             elif event == "command":
                 self._action = message.get("action")
 
+                if self._action == Command.VOLUME_UP:
+                    volume = await self._core.request("mixer.volume_up")
+                    self.set_volume(volume)
+                    self.set_page(DisplayPage.VOLUME)
+                    self.start_timer(self._page_prev)
+
+                if self._action == Command.VOLUME_DOWN:
+                    volume = await self._core.request("mixer.volume_down")
+                    self.set_volume(volume)
+                    self.set_page(DisplayPage.VOLUME)
+                    self.start_timer(self._page_prev)
+                    
                 if self._action == Command.NOW_PLAYING:
                     self.set_page(DisplayPage.NOW_PLAYING)
 
                 if self._action == Command.SOURCE:
-                    self.set_page(DisplayPage.SOURCE_DIRECTORY)
+                   pass
 
                 if self._action == Command.UP:
                     if self._page == DisplayPage.NOW_PLAYING:
@@ -146,9 +159,23 @@ class DisplayExtension(Actor):
 
                         if isinstance(selected_item, Power):
                             self._current_dir_breadcrumbs = []
-                            _ext = selected_item.uri.split(":", 1)[0]
-                            self.set_page(DisplayPage.POWER_STATE_CHANGING)
-                            self.start_timer(DisplayPage.STANDBY)
+                            _ext, action = selected_item.uri.split(":", 1)
+
+                            self._power_state = action
+                            self._controller._set_power_state(
+                                self._power_state)
+
+                            if self._power_state == "standby":
+                                self.set_page(DisplayPage.POWER_STATE_CHANGING)
+                                self.start_timer(DisplayPage.STANDBY)
+                                self.start_timer_blink()
+
+                            elif self._power_state == "reboot":
+                                self.set_page(DisplayPage.POWER_STATE_CHANGING)
+
+                            elif self._power_state == "shutdown":
+                                self.set_page(DisplayPage.POWER_STATE_CHANGING)
+
                             await self._core.request(
                                 f"{_ext}.directory",
                                 uri=f"{selected_item.uri}",
@@ -183,8 +210,6 @@ class DisplayExtension(Actor):
                                                     "name": host.get("name", "Unknown"),
                                                     "uri": host.get("ip", ""),
                                                 })
-                                    print(_current_dir)
-                                    # self.set_dir(_current_dir)
                                     self.set_page(DisplayPage.DIRECTORY)
                                 else:
                                     _current_dir = await self._core.request(
@@ -243,7 +268,7 @@ class DisplayExtension(Actor):
                         if (isinstance(selected_item, Track)
                                 or isinstance(selected_item, Tuner)
                                 or isinstance(selected_item, File)
-                                ):
+                            ):
                             if selected_item.uri:
                                 self.set_page(DisplayPage.LOADING)
                                 await self._core.request(
@@ -316,22 +341,12 @@ class DisplayExtension(Actor):
 
             elif event == "system_power_state_changed":
                 self._power_state = message.get("state")
-                self._controller._set_power_state(self._power_state)
 
                 if self._power_state is None:
                     self.stop_timer_blink()
                     _current_dir = await self._core.request("source.directory")
                     self.set_dir(_current_dir)
                     self.set_page(DisplayPage.DIRECTORY)
-
-                elif self._power_state == "standby":
-                    self.start_timer_blink()
-
-                elif self._power_state == "reboot":
-                    self.start_timer(None)
-
-                elif self._power_state == "shutdown":
-                    self.start_timer(None)
 
             elif event == "track_playback_started":
                 self.set_current_track(message.get("tl_track"))
@@ -346,7 +361,6 @@ class DisplayExtension(Actor):
                     self.start_position_tick()
                 else:
                     self.stop_position_tick()
-
 
             elif event == 'dsp_options_changed':
                 self._sample_rate = message.get("sample_rate")
@@ -387,9 +401,6 @@ class DisplayExtension(Actor):
 
             elif event == "volume_changed":
                 self.set_volume(message.get("volume"))
-                if self._page != DisplayPage.VOLUME:
-                    if self._page != DisplayPage.MUTE:
-                        self._page_prev = self._page
                 self.set_page(DisplayPage.VOLUME)
                 self.start_timer(self._page_prev)
 
@@ -408,12 +419,17 @@ class DisplayExtension(Actor):
         await self.set_visualizer_layout(
             self._config["display"]["visualizer_layout"])
 
-        mixer_volume = await self._core.request("mixer.get_volume")
-        self.set_volume(mixer_volume)
+        self._volume = await self._core.request("mixer.get_volume")
+        self.set_volume(self._volume)
 
-        if self._power_state == "standby":
-            self.set_page(DisplayPage.STANDBY)
-            self.start_timer_blink()
+        if self._config["display"]["standby_clock"]: 
+            if self._power_state == "standby":
+                self.set_page(DisplayPage.STANDBY)
+                self.start_timer_blink()
+        else:            
+            _current_dir = await self._core.request("source.directory")
+            self.set_dir(_current_dir)
+            self.set_page(DisplayPage.DIRECTORY)       
 
         logger.info("Started")
 
@@ -496,15 +512,13 @@ class DisplayExtension(Actor):
         logger.info(f"Stopped CAVA")
 
     def set_page(self, page):
-        self._page_prev = self._page
+        if self._page not in (DisplayPage.VOLUME, DisplayPage.MUTE):
+            self._page_prev = self._page
         self._page = page
-        if self._page == DisplayPage.DIRECTORY:
-            self._core._request("gpio.set_encoder_mode",
-                                mode=EncoderMode.DIRECTION)
-        else:
-            self._core._request("gpio.set_encoder_mode",
-                                mode=EncoderMode.VOLUME)
-
+        # if self._page == DisplayPage.DIRECTORY:
+        #     self._core._request("gpio.set_encoder_mode",mode=EncoderMode.DIRECTION)
+        # else:
+        #     self._core._request("gpio.set_encoder_mode", mode=EncoderMode.VOLUME)
         if self._controller is not None:
             self._controller._set_page(page)
 
@@ -556,7 +570,7 @@ class DisplayExtension(Actor):
         if self._controller is not None:
             self._controller._set_playback_state(state)
 
-    def set_volume(self, volume):
+    def set_volume(self, volume=None):
         self._volume = volume
         if self._controller is not None:
             self._controller._set_volume(volume)
@@ -656,7 +670,7 @@ class DisplayExtension(Actor):
     def stop_position_tick(self):
         if self._position_tick is not None:
             self._position_tick.cancel()
-            self._position_tick = None    
+            self._position_tick = None
 
     def on_get_displays(self) -> list[dict] | dict | None:
         """Return displays, optionally filtered by device name."""

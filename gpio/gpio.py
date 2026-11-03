@@ -8,8 +8,7 @@ from .mcp23017 import GpioMCP23017
 
 logger = logging.getLogger(__name__)
 
-PINS = {17: Command.UP, 27: Command.DOWN,
-        22: Command.SELECT, 5: Command.BACK, 6: Command.RIGHT}
+PINS = {17: Command.UP, 27: Command.DOWN, 22: Command.SELECT, 5: Command.BACK, 6: Command.RIGHT, 26: Command.MUTE}
 REPEAT = {Command.UP, Command.DOWN}
 BOUNCE_MS = 20
 REPEAT_DELAY = 0.3
@@ -22,7 +21,6 @@ PIN_BACK = 2
 PIN_DIRECTORY = 3
 PIN_INPUT = 4
 PIN_SELECT = 5
-
 PIN_CLK = 1
 PIN_DT = 0
 
@@ -32,6 +30,14 @@ LONG_PRESS_MAPPING = {
     Command.SELECT: Command.SELECT_LONG,
     Command.BACK: Command.BACK_LONG,
 }
+
+PI_ENC_A = 12  
+PI_ENC_B = 23
+ENC_STEPS_PER_DETENT = 4  
+ENC_TABLE = [0, -1, 1, 0,
+             1, 0, 0, -1,
+             -1, 0, 0, 1,
+             0, 1, -1, 0]
 
 
 class GpioExtension(Actor):
@@ -52,6 +58,8 @@ class GpioExtension(Actor):
         self._repeat_interval = REPEAT_INTERVAL
         self._timers = {}
         self._long_timers = {}
+        self._enc_state = 0
+        self._enc_accum = 0
 
     async def on_config_update(self, config):
         pass
@@ -117,10 +125,29 @@ class GpioExtension(Actor):
                 pin, GPIO.BOTH, callback=self._on_edge, bouncetime=self._bounce_ms
             )
 
+        for pin in (PI_ENC_A, PI_ENC_B):
+            GPIO.setup(pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+        self._enc_state = (GPIO.input(PI_ENC_A) << 1) | GPIO.input(PI_ENC_B)
+        for pin in (PI_ENC_A, PI_ENC_B):
+            GPIO.add_event_detect(pin, GPIO.BOTH, callback=self._on_enc_edge)    
+
     def _on_edge(self, pin):
         pressed = GPIO.input(pin) == GPIO.LOW
         self._loop.call_soon_threadsafe(
             self._on_pi_gpio, self._pins[pin], pressed)
+
+
+    def _on_enc_edge(self, pin):
+        new = (GPIO.input(PI_ENC_A) << 1) | GPIO.input(PI_ENC_B)
+        self._enc_accum += ENC_TABLE[(self._enc_state << 2) | new]
+        self._enc_state = new
+
+        if self._enc_accum >= ENC_STEPS_PER_DETENT:
+            self._enc_accum = 0
+            self.on_encoder("CW")
+        elif self._enc_accum <= -ENC_STEPS_PER_DETENT:
+            self._enc_accum = 0
+            self.on_encoder("CCW")
 
     def _on_pi_gpio(self, command, pressed):
         if command in LONG_PRESS_MAPPING:
@@ -167,10 +194,11 @@ class GpioExtension(Actor):
     def on_encoder(self, direction):
         if self._encoder_mode == EncoderMode.VOLUME:
             _action = Command.VOLUME_UP if direction == "CW" else Command.VOLUME_DOWN
+
         elif self._encoder_mode == EncoderMode.DIRECTION:
             _action = Command.DOWN if direction == "CW" else Command.UP
-        asyncio.run_coroutine_threadsafe(
-            self._press_event(_action), self._loop)
+
+        asyncio.run_coroutine_threadsafe(self._press_event(_action), self._loop)
 
     async def _press_event(self, action):
         self._core.send(
