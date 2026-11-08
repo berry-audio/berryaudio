@@ -16,6 +16,10 @@ class SourceExtension(Actor):
         self._current = None
 
     async def on_start(self):
+        restore_source = self._config.get(self._name, {}).get("restore_source")
+        restore_source_uri = self._config.get(self._name, {}).get("restore_source_uri")
+        if restore_source and restore_source_uri:
+            await self.on_set(restore_source_uri)
         logger.info("Started")
 
     async def on_event(self, message):
@@ -31,11 +35,11 @@ class SourceExtension(Actor):
                 isinstance(ext, SourceActor)
                 and isinstance(getattr(ext, "_source", None), Source)
                 and ext._source.uri is not None
-            ):  
+            ):
                 if isinstance(self._current, Source):
                     ext._source.active = self._current.uri == ext._source.uri
                 else:
-                    ext._source.active = False    
+                    ext._source.active = False
                 _sources.append(ext._source)
 
         _sources.sort(key=lambda s: s.index)
@@ -45,7 +49,7 @@ class SourceExtension(Actor):
         """Updates source information from renderers"""
         if self._current is None:
             return
-        
+
         if self._current.uri == source.uri:
             self._current = source
             self._current.active = True
@@ -77,7 +81,8 @@ class SourceExtension(Actor):
 
         if uri is None:
             self._current = None
-            self._core.send(target=["web", "display"], event="source_changed", source=self._current)
+            self._core.send(target=["web", "display"],
+                            event="source_changed", source=self._current)
         else:
             start_method = f"{uri}.start_service"
             if self._core.is_callable(start_method):
@@ -90,6 +95,9 @@ class SourceExtension(Actor):
                 except Exception as e:
                     self._current = None
 
+                self._db.set_config(
+                    {self._name: {"restore_source_uri": self._current.uri}})
+                
                 self._core.send(
                     target=["web", "display"],
                     event="source_changed",

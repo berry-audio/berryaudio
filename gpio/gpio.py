@@ -8,7 +8,7 @@ from .mcp23017 import GpioMCP23017
 
 logger = logging.getLogger(__name__)
 
-PINS = {17: Command.UP, 27: Command.DOWN, 22: Command.SELECT, 5: Command.BACK, 6: Command.RIGHT, 26: Command.MUTE}
+PINS = {5: Command.UP, 17: Command.DOWN, 22: Command.SELECT, 27: Command.BACK, 6: Command.RIGHT, 12: Command.MUTE}
 REPEAT = {Command.UP, Command.DOWN}
 BOUNCE_MS = 20
 REPEAT_DELAY = 0.3
@@ -31,8 +31,8 @@ LONG_PRESS_MAPPING = {
     Command.BACK: Command.BACK_LONG,
 }
 
-PI_ENC_A = 12  
-PI_ENC_B = 23
+PI_ENC_A = 23  
+PI_ENC_B = 26
 ENC_STEPS_PER_DETENT = 4  
 ENC_TABLE = [0, -1, 1, 0,
              1, 0, 0, -1,
@@ -202,7 +202,7 @@ class GpioExtension(Actor):
 
     async def _press_event(self, action):
         self._core.send(
-            target=["web", "display", "command"], event="command", action=action
+            target=["display", "command"], event="command", action=action
         )
 
     async def _press_long_event(self, action):

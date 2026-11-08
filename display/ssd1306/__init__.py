@@ -84,6 +84,15 @@ class DisplaySSD1306:
         self._sample_format = None
         self._widget_visualizer = None
         self._visualizer_layout = 1
+
+        self._font_status = ImageFont.truetype(FONT_STYLE_4, 20)
+        self._icon = {
+            "speaker": Image.open(ICON_SPEAKER),
+            "shuffle": Image.open(ICON_SHUFFLE),
+            "repeat": Image.open(ICON_REPEAT),
+            "single": Image.open(ICON_SINGLE),
+        }
+
         self._position_labels = WidgetText(font_size=8, font_path=FONT_STYLE_3)
         self._widget_bitrate = WidgetCodecBitrate(font_path=FONT_STYLE_2)
         self._widget_title = WidgetTextScrollable(
@@ -105,8 +114,6 @@ class DisplaySSD1306:
         )
         self.loader = WidgetLoader(
             display_width=self.width, display_height=self.height)
-
-    
 
     def _set_power_state(self, state):
         self._power_state = state
@@ -193,7 +200,8 @@ class DisplaySSD1306:
                 port=SPI_PORT,
                 device=SPI_DEVICE,
                 gpio_DC=SPI_GPIO_DC,
-                gpio_RST=SPI_GPIO_RST
+                gpio_RST=SPI_GPIO_RST,
+                bus_speed_hz=16000000
             )
             self._device = ssd1306(
                 self._serial, width=self.width, height=self.height, rotate=2)
@@ -221,7 +229,7 @@ class DisplaySSD1306:
         logger.info("Stopped")
 
     def _handle_messages(self):
-        regulator = framerate_regulator(fps=60)
+        regulator = framerate_regulator(fps=30)
 
         while self.running:
             with regulator:
@@ -230,12 +238,12 @@ class DisplaySSD1306:
                         if self._page == DisplayPage.STANDBY:
                             if not self._current_time:
                                 self._widget_title.draw(
-                                            draw,
-                                            width=self.width,
-                                            y=24,
-                                            text='Berryaudio',
-                                            center=True,
-                                        )
+                                    draw,
+                                    width=self.width,
+                                    y=24,
+                                    text='Berryaudio',
+                                    center=True,
+                                )
 
                             if self._blink_visible:
                                 self._widget_title.draw(
@@ -245,7 +253,6 @@ class DisplaySSD1306:
                                     text=self._current_time,
                                     center=True,
                                 )
-
 
                         if self._page == DisplayPage.POWER_STATE_CHANGING:
                             self._widget_title.draw(
@@ -285,11 +292,11 @@ class DisplaySSD1306:
                             draw.text(
                                 (111, -8),
                                 str(self._volume),
-                                font=ImageFont.truetype(FONT_STYLE_4, 20),
+                                font=self._font_status,
                                 fill="white",
                             )
-                            draw.bitmap((104, 0), Image.open(
-                                ICON_SPEAKER), fill="white")
+                            draw.bitmap(
+                                (104, 0), self._icon["speaker"], fill="white")
 
                             # if self._bluetooth_connected:
                             #     draw.bitmap(
@@ -298,16 +305,16 @@ class DisplaySSD1306:
 
                             if self._shuffle:
                                 draw.bitmap(
-                                    (75, 0), Image.open(ICON_SHUFFLE), fill="white"
+                                    (75, 0), self._icon["shuffle"], fill="white"
                                 )
 
                             if self._repeat:
-                                draw.bitmap((87, 0), Image.open(
-                                    ICON_REPEAT), fill="white")
+                                draw.bitmap(
+                                    (87, 0), self._icon["repeat"], fill="white")
 
                             if self._single:
-                                draw.bitmap((97, 0), Image.open(
-                                    ICON_SINGLE), fill="white")
+                                draw.bitmap(
+                                    (97, 0), self._icon["single"], fill="white")
 
                             if (
                                 self._sample_rate
@@ -316,8 +323,7 @@ class DisplaySSD1306:
                                 draw.text(
                                     (0, -8),
                                     f"{self._sample_rate / 1000:g}kHz {self._sample_format}",
-                                    font=ImageFont.truetype(
-                                        FONT_STYLE_4, 20),
+                                    font=self._font_status,
                                     fill="red",
                                 )
 

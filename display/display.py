@@ -65,6 +65,7 @@ class DisplayExtension(Actor):
         self._source = None
         self._current_time = None
         self._power_state = "standby"
+        self._standby_clock = self._config[self._name]["standby_clock"]
         self._blink_visible = True
         self._timer_timeout = None
         self._timer_blink = None
@@ -87,6 +88,9 @@ class DisplayExtension(Actor):
 
         if "visualizer_layout" in updated_config:
             await self.set_visualizer_layout(updated_config.get("visualizer_layout"))
+
+        if "standby_clock" in updated_config:
+            self._standby_clock = updated_config.get("standby_clock")
 
     async def on_event(self, message):
         if self._controller is None:
@@ -167,8 +171,13 @@ class DisplayExtension(Actor):
 
                             if self._power_state == "standby":
                                 self.set_page(DisplayPage.POWER_STATE_CHANGING)
-                                self.start_timer(DisplayPage.STANDBY)
-                                self.start_timer_blink()
+                                if self._standby_clock: 
+                                    self.start_timer(DisplayPage.STANDBY)
+                                    self.start_timer_blink()
+                                else:            
+                                    _current_dir = await self._core.request("source.directory")
+                                    self.set_dir(_current_dir)
+                                    self.start_timer(DisplayPage.DIRECTORY)
 
                             elif self._power_state == "reboot":
                                 self.set_page(DisplayPage.POWER_STATE_CHANGING)
@@ -422,8 +431,10 @@ class DisplayExtension(Actor):
         self._volume = await self._core.request("mixer.get_volume")
         self.set_volume(self._volume)
 
-        if self._config["display"]["standby_clock"]: 
+        if self._standby_clock: 
             if self._power_state == "standby":
+                _current_datetime = await self._core.request("system.datetime")
+                self.set_current_time(_current_datetime)
                 self.set_page(DisplayPage.STANDBY)
                 self.start_timer_blink()
         else:            

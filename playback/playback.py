@@ -3,9 +3,11 @@ import asyncio
 
 from pathlib import Path
 from gi.repository import GLib, Gst
+from playlist.utils import to_serialize, build_tltrack
 from core.actor import Actor
-from core.models import Album, Artist, Track, TlTrack
+from core.models import Album, Artist, TlTrack
 from core.types import PlaybackState
+
 
 logger = logging.getLogger(__name__)
 
@@ -221,7 +223,7 @@ class PlaybackExtension(Actor):
 
         elif t == Gst.MessageType.BUFFERING:
             percent = message.parse_buffering()
-            
+
             if percent < 100:
                 self._pipeline.set_state(Gst.State.PAUSED)
             else:
@@ -250,7 +252,8 @@ class PlaybackExtension(Actor):
                     ), self._loop,)
 
         elif t == Gst.MessageType.EOS:
-            asyncio.run_coroutine_threadsafe(self.on_playback_stop(), self._loop,)
+            asyncio.run_coroutine_threadsafe(
+                self.on_playback_stop(), self._loop,)
 
         elif t == Gst.MessageType.ERROR:
             err, debug = message.parse_error()
@@ -296,7 +299,8 @@ class PlaybackExtension(Actor):
                 message=custom_message,
             )
 
-            asyncio.run_coroutine_threadsafe(self.on_playback_stop(), self._loop,)
+            asyncio.run_coroutine_threadsafe(
+                self.on_playback_stop(), self._loop,)
 
         elif t == Gst.MessageType.STREAM_START:
             self._start_time_tracking()
@@ -324,6 +328,11 @@ class PlaybackExtension(Actor):
 
     async def on_start(self):
         self._setup_playbin()
+        restore_source = self._config.get('source', {}).get("restore_source")
+        restore_playback = self._config.get(self._name, {}).get("restore_playback")
+        restore_playback_tltrack = self._config.get(self._name, {}).get("restore_playback_tltrack")
+        if restore_playback and restore_source and restore_playback_tltrack:
+            self.on_set_metadata(build_tltrack(restore_playback_tltrack))
         logger.info("Started")
 
     async def on_stop(self):
@@ -385,7 +394,7 @@ class PlaybackExtension(Actor):
     async def on_start_stream(self):
         if not self._playback_ready:
             return
-        
+
         self._setup_playbin(self._playback_uri)
         self._pipeline.set_state(Gst.State.PLAYING)
         self._state = PlaybackState.PLAYING
@@ -415,8 +424,12 @@ class PlaybackExtension(Actor):
                 raise ValueError("Track metadata lookup failed")
 
             await self._core.request("collection.recently_played", track=track)
-
             self._tl_track = TlTrack(tlid=tlid, track=track)
+            self._db.set_config({
+                self._name: {
+                    "restore_playback_tltrack": to_serialize(self._tl_track)
+                }
+            })
 
             self._playback_uri = await self._core.request(
                 f"{ext}.playback_uri", path=path

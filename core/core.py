@@ -166,8 +166,7 @@ class Core:
 
                 if asyncio.iscoroutinefunction(handler):
                     return await handler(**params)
-                else:
-                    return handler(**params)
+                return await asyncio.to_thread(handler, **params) 
         logger.debug(f"Extension {ext_name} not found or disabled")
         return
 
