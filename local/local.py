@@ -459,6 +459,10 @@ class LocalExtension(SourceActor):
             DROP TABLE IF EXISTS track;
         """
         )
+        # recreate the schema immediately: otherwise the tables stay
+        # missing until the next service start and every scan/query
+        # fails with "no such table: track"
+        self._db.executescript(SCHEMA_SQL)
         logger.info("Cleared library")
 
         for path in Path(ALBUM_IMAGES_DIR).iterdir():
