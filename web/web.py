@@ -110,12 +110,12 @@ class WebExtension(Actor):
                 # effect immediately; the file is only ~800 bytes, so an
                 # unconditional re-fetch is cheap.
                 resp.headers["Cache-Control"] = "no-cache"
-            elif request.path.startswith("/assets/") or request.path.startswith(
-                "/images/"
-            ):
-                # Static JS/CSS/fonts/images: bounded cache. Asset filenames
-                # are not content-hashed, so a long max-age would strand
-                # browsers on stale bundles after an upgrade.
+            elif request.path.startswith("/assets/"):
+                # Content-hashed JS/CSS/fonts: safe to cache forever - any
+                # content change produces a new filename.
+                resp.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+            elif request.path.startswith("/images/"):
+                # Album art etc: not hashed, so keep the cache bounded.
                 resp.headers["Cache-Control"] = "public, max-age=3600"
             return resp
 
