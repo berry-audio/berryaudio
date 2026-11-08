@@ -109,7 +109,7 @@ QUERIES = {
         LEFT JOIN artist ar ON a.artist_id = ar.id
         LEFT JOIN genre g ON a.genre_id = g.id
         WHERE %s
-        ORDER BY a.name ASC
+        ORDER BY COALESCE(a.disc_number, 1), COALESCE(a.track_number, 9999), a.name ASC
     """,
     "album": """
         SELECT 
