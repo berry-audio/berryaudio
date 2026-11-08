@@ -164,6 +164,8 @@ class LocalExtension(SourceActor):
         self._config = config
         self._metadata = Metadata(cover_dir="album")
         self._scan_progress = None
+        self._scan_task = None
+        self._scan_artists_task = None
         self._source = Source(
             name="Library",
             uri=self._name,
@@ -233,6 +235,14 @@ class LocalExtension(SourceActor):
             "track":  lambda row: Track(**self.build_track(row)),
             "genre":  lambda row: Category(**self.build_category(row, "genre")),
         }
+        if values_len == 1:
+            # top-level category listing, e.g. uri="artist"
+            view = values[0]
+            if view not in builders:
+                raise ValueError(f"Unknown view '{view}'")
+            rows = self._db.fetchall(QUERIES[view] % "1=1")
+            return [builders[view](row) for row in rows]
+
         if values_len == 4:
             ext, view, ref_id, ref_type = values
 
@@ -480,11 +490,13 @@ class LocalExtension(SourceActor):
         return self._scan_progress
 
     def on_scan(self):
-        asyncio.create_task(self.scan_and_ingest())
+        # keep a strong reference: a bare create_task can be garbage
+        # collected mid-run, killing the scan silently
+        self._scan_task = asyncio.create_task(self.scan_and_ingest())
         return True
 
     def on_scan_artists(self):
-        asyncio.create_task(self.scan_and_download_artist_info())
+        self._scan_artists_task = asyncio.create_task(self.scan_and_download_artist_info())
         return True
 
     def normalize_artist_name(self, raw_name):
