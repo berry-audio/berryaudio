@@ -101,7 +101,27 @@ class WebExtension(Actor):
             resp.headers["Access-Control-Allow-Headers"] = "Content-Type"
             return resp
 
-        self._app = web.Application(middlewares=[cors_middleware])
+        @web.middleware
+        async def cache_middleware(request, handler):
+            resp = await handler(request)
+            content_type = resp.headers.get("Content-Type", "")
+            if "text/html" in content_type:
+                # Entry point: always revalidate so version upgrades take
+                # effect immediately; the file is only ~800 bytes, so an
+                # unconditional re-fetch is cheap.
+                resp.headers["Cache-Control"] = "no-cache"
+            elif request.path.startswith("/assets/"):
+                # Content-hashed JS/CSS/fonts: safe to cache forever - any
+                # content change produces a new filename.
+                resp.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+            elif request.path.startswith("/images/"):
+                # Album art etc: not hashed, so keep the cache bounded.
+                resp.headers["Cache-Control"] = "public, max-age=3600"
+            return resp
+
+        self._app = web.Application(
+            middlewares=[cors_middleware, cache_middleware]
+        )
         
         www_dir = pathlib.Path(__file__).parent / "www"
         images_dir = www_dir / "images"
