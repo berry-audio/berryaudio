@@ -99,9 +99,11 @@ class SystemExtension(Actor):
         if action == 'shutdown':
             await self.on_shutdown()
 
-    async def on_standby(self):
-        if self._power_state is None:
+    async def on_standby(self, state=True):
+        if state:
             self._power_state = "standby"
+            await self._core.request("source.set")
+            await self._core.request("bluetooth.adapter_set_state", state=False)
             logger.info("System going into Standby...")
         else:
             self._power_state = None
@@ -112,9 +114,6 @@ class SystemExtension(Actor):
             event="system_power_state_changed",
             state=self._power_state,
         )
-        await self._core.request("playback.set_metadata")
-        await self._core.request("source.set")
-        await self._core.request("bluetooth.adapter_set_state", state=False)
         return True
 
     def on_power_state(self):

@@ -329,10 +329,13 @@ class PlaybackExtension(Actor):
     async def on_start(self):
         self._setup_playbin()
         restore_source = self._config.get('source', {}).get("restore_source")
+        restore_source_uri = self._config.get('source', {}).get("restore_source_uri")
         restore_playback = self._config.get(self._name, {}).get("restore_playback")
         restore_playback_tltrack = self._config.get(self._name, {}).get("restore_playback_tltrack")
         if restore_playback and restore_source and restore_playback_tltrack:
-            self.on_set_metadata(build_tltrack(restore_playback_tltrack))
+            ext, _ = restore_playback_tltrack['track']['uri'].split(":", 1)
+            if ext == restore_source_uri:
+                self.on_set_metadata(build_tltrack(restore_playback_tltrack))
         logger.info("Started")
 
     async def on_stop(self):
@@ -584,7 +587,7 @@ class PlaybackExtension(Actor):
             state=self._state,
         )
 
-        if self._tl_track is not None and self._tl_track.tlid:
-            await self.on_next()
+        # if self._tl_track is not None and self._tl_track.tlid:
+        #     await self.on_next()
 
         return True

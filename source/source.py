@@ -81,22 +81,20 @@ class SourceExtension(Actor):
 
         if uri is None:
             self._current = None
-            self._core.send(target=["web", "display"],
-                            event="source_changed", source=self._current)
         else:
             start_method = f"{uri}.start_service"
             if self._core.is_callable(start_method):
                 try:
                     logger.debug(f"Starting {uri} service")
-                    await self._core.request("playback.set_metadata")
                     source = await self._core.request(start_method)
                     self._current = source
                     self._current.active = True
                 except Exception as e:
                     self._current = None
 
+                print('SETIING ---->', uri)
                 self._db.set_config(
-                    {self._name: {"restore_source_uri": self._current.uri}})
+                    {self._name: {"restore_source_uri": uri}})
                 
                 self._core.send(
                     target=["web", "display"],

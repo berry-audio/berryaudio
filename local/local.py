@@ -438,7 +438,7 @@ class LocalExtension(SourceActor):
 
     async def on_stop_service(self) -> bool:
         logger.info("Stopping service")
-        await self._core.request("playback.clear")
+        await self._core.request("playback.stop")
         return True
 
     async def on_start_service(self) -> bool:
