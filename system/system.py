@@ -75,6 +75,7 @@ class SystemExtension(Actor):
         logger.info("Stopped")
 
     async def on_event(self, message):
+        await self._core.request("system.standby", state=False)
         pass
 
     def on_datetime(self):
@@ -100,6 +101,7 @@ class SystemExtension(Actor):
             await self.on_shutdown()
 
     async def on_standby(self, state=True):
+        _prev_power_state = self._power_state
         if state:
             self._power_state = "standby"
             await self._core.request("source.set")
@@ -109,11 +111,12 @@ class SystemExtension(Actor):
             self._power_state = None
             logger.info("System wakeup...")
 
-        self._core.send(
-            target=["web", "display", "dsp"],
-            event="system_power_state_changed",
-            state=self._power_state,
-        )
+        if _prev_power_state != self._power_state:
+            self._core.send(
+                target=["web", "display", "dsp"],
+                event="system_power_state_changed",
+                state=self._power_state,
+            )
         return True
 
     def on_power_state(self):

@@ -36,7 +36,7 @@ class PlaybackExtension(Actor):
         self._playback_uri = None
         self._playback_ready = False
         self._tl_track = None
-        self._loop = asyncio.get_event_loop()
+        self._loop = asyncio.get_running_loop()
         self._ext = None
 
     def _setup_playbin(self, uri: str | None = None):
@@ -329,9 +329,12 @@ class PlaybackExtension(Actor):
     async def on_start(self):
         self._setup_playbin()
         restore_source = self._config.get('source', {}).get("restore_source")
-        restore_source_uri = self._config.get('source', {}).get("restore_source_uri")
-        restore_playback = self._config.get(self._name, {}).get("restore_playback")
-        restore_playback_tltrack = self._config.get(self._name, {}).get("restore_playback_tltrack")
+        restore_source_uri = self._config.get(
+            'source', {}).get("restore_source_uri")
+        restore_playback = self._config.get(
+            self._name, {}).get("restore_playback")
+        restore_playback_tltrack = self._config.get(
+            self._name, {}).get("restore_playback_tltrack")
         if restore_playback and restore_source and restore_playback_tltrack:
             ext, _ = restore_playback_tltrack['track']['uri'].split(":", 1)
             if ext == restore_source_uri:
@@ -356,6 +359,11 @@ class PlaybackExtension(Actor):
             if not message["tl_tracks"]:
                 self._tl_track = TlTrack(
                     tlid=0, track=self._tl_track.track.copy())
+
+        if event == "source_before_change":
+            if self._state != PlaybackState.STOPPED:
+                await self.on_playback_stop()
+            self.on_set_metadata()
 
     async def on_get_current_tl_track(self):
         if self._tl_track:
@@ -419,14 +427,13 @@ class PlaybackExtension(Actor):
             except ValueError:
                 raise ValueError(f"Invalid uri format: {uri}")
 
-            await self.on_playback_stop()
-            await self._core.request("source.set", uri=ext)
-
             track = await self._core.request(f"{ext}.lookup_track", path=path)
             if not track:
                 raise ValueError("Track metadata lookup failed")
 
+            await self._core.request("source.set", uri=ext)
             await self._core.request("collection.recently_played", track=track)
+
             self._tl_track = TlTrack(tlid=tlid, track=track)
             self._db.set_config({
                 self._name: {
@@ -448,6 +455,7 @@ class PlaybackExtension(Actor):
             self._sample_rate = None
 
             self._pipeline.set_state(Gst.State.NULL)
+
             self._setup_playbin(self._playback_uri)
 
             self._pipeline.set_state(Gst.State.PAUSED)

@@ -17,7 +17,8 @@ class SourceExtension(Actor):
 
     async def on_start(self):
         restore_source = self._config.get(self._name, {}).get("restore_source")
-        restore_source_uri = self._config.get(self._name, {}).get("restore_source_uri")
+        restore_source_uri = self._config.get(
+            self._name, {}).get("restore_source_uri")
         if restore_source and restore_source_uri:
             await self.on_set(restore_source_uri)
         logger.info("Started")
@@ -86,16 +87,19 @@ class SourceExtension(Actor):
             if self._core.is_callable(start_method):
                 try:
                     logger.debug(f"Starting {uri} service")
+                    self._core.send(
+                        target=["playback"],
+                        event="source_before_change"
+                    )
                     source = await self._core.request(start_method)
                     self._current = source
                     self._current.active = True
                 except Exception as e:
                     self._current = None
 
-                print('SETIING ---->', uri)
                 self._db.set_config(
                     {self._name: {"restore_source_uri": uri}})
-                
+
                 self._core.send(
                     target=["web", "display"],
                     event="source_changed",

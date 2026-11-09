@@ -1,4 +1,5 @@
 import asyncio
+import asyncio_glib
 import argparse
 import logging
 import signal
@@ -13,6 +14,7 @@ from core.core import Core
 from core.logger import setup_logging
 from gi.repository import Gst
 
+asyncio.set_event_loop_policy(asyncio_glib.GLibEventLoopPolicy())
 
 USE_GBULB = False
 if USE_GBULB:
