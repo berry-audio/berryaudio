@@ -1,5 +1,5 @@
 {
   "name": "gpio",
   "version": "5.0.1",
-  "depends_on": ["config"]
+  "depends_on": ["config", "command"]
 }

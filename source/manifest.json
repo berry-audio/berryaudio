@@ -1,7 +1,7 @@
 {
   "name": "source",
   "version": "5.0.1",
-  "depends_on": ["config", "mixer", "dsp", "spotify", "shairportsync", "tuner", "storage", "radio", "local", "usbdac", "linein", "multiroom"],
+  "depends_on": ["dsp", "mixer", "bluetooth", "linein", "local", "multiroom", "radio", "shairportsync", "spotify", "storage", "tuner", "usbdac"],
   "config": {
     "restore_source": false,
     "restore_source_uri": null

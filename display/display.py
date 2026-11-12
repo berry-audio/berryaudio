@@ -126,12 +126,12 @@ class DisplayExtension(Actor):
                     self.set_volume(volume)
                     self.set_page(DisplayPage.VOLUME)
                     self.start_timer(self._page_prev)
-                    
+
                 if self._action == Command.NOW_PLAYING:
                     self.set_page(DisplayPage.NOW_PLAYING)
 
                 if self._action == Command.SOURCE:
-                   pass
+                    pass
 
                 if self._action == Command.UP:
                     if self._page == DisplayPage.NOW_PLAYING:
@@ -171,10 +171,10 @@ class DisplayExtension(Actor):
 
                             if self._power_state == "standby":
                                 self.set_page(DisplayPage.POWER_STATE_CHANGING)
-                                if self._standby_clock: 
+                                if self._standby_clock:
                                     self.start_timer(DisplayPage.STANDBY)
                                     self.start_timer_blink()
-                                else:            
+                                else:
                                     _current_dir = await self._core.request("source.directory")
                                     self.set_dir(_current_dir)
                                     self.start_timer(DisplayPage.DIRECTORY)
@@ -275,8 +275,8 @@ class DisplayExtension(Actor):
                             self.set_page(DisplayPage.DIRECTORY)
 
                         if (isinstance(selected_item, Track)
-                                or isinstance(selected_item, Tuner)
-                                or isinstance(selected_item, File)
+                            or isinstance(selected_item, Tuner)
+                            or isinstance(selected_item, File)
                             ):
                             if selected_item.uri:
                                 self.set_page(DisplayPage.LOADING)
@@ -302,6 +302,10 @@ class DisplayExtension(Actor):
                                         address=f"{selected_item.address}",
                                     )
                                 else:
+                                    await self._core.request(
+                                        "bluetooth.adapter_set_state",
+                                        state=True,
+                                    )
                                     await self._core.request(
                                         "bluetooth.connect",
                                         address=f"{selected_item.address}",
@@ -431,16 +435,16 @@ class DisplayExtension(Actor):
         self._volume = await self._core.request("mixer.get_volume")
         self.set_volume(self._volume)
 
-        if self._standby_clock: 
+        if self._standby_clock:
             if self._power_state == "standby":
                 _current_datetime = await self._core.request("system.datetime")
                 self.set_current_time(_current_datetime)
                 self.set_page(DisplayPage.STANDBY)
                 self.start_timer_blink()
-        else:            
+        else:
             _current_dir = await self._core.request("source.directory")
             self.set_dir(_current_dir)
-            self.set_page(DisplayPage.DIRECTORY)       
+            self.set_page(DisplayPage.DIRECTORY)
 
         logger.info("Started")
 

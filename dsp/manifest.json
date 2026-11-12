@@ -1,7 +1,7 @@
 {
   "name": "dsp",
   "version": "5.0.1",
-  "depends_on": ["config"],
+  "depends_on": ["config", "multiroom", "display"],
   "config": {
     "default_capture_device": "hw:CARD=Loopback,DEV=1",
     "default_gain": -15,

@@ -1,7 +1,7 @@
 {
   "name": "playback",
   "version": "5.0.1",
-  "depends_on": ["config", "mixer", "dsp", "source"],
+  "depends_on": ["config"],
   "config": {
     "background_albumart": true,
     "restore_playback": true,

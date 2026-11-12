@@ -2,6 +2,7 @@ import logging
 import asyncio
 
 from pathlib import Path
+
 from gi.repository import GLib, Gst
 from playlist.utils import to_serialize, build_tltrack
 from core.actor import Actor

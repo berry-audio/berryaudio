@@ -11,6 +11,7 @@ from core.db import DBConnection
 logger = logging.getLogger(__name__)
 EXTENSIONS_DIR = Path(__file__).resolve().parent.parent
 
+
 class Core:
     def __init__(self):
         self.db = DBConnection()
@@ -26,7 +27,8 @@ class Core:
         while changed:
             changed = False
             for name, manifest in list(manifests.items()):
-                missing = set(manifest.get("depends_on", [])) - manifests.keys()
+                missing = set(manifest.get("depends_on", [])) - \
+                    manifests.keys()
                 if missing:
                     logger.error(
                         f"{name} depends on {sorted(missing)}, which are not "
@@ -34,15 +36,16 @@ class Core:
                     )
                     del manifests[name]
                     changed = True
- 
+
         graph = {n: set(m.get("depends_on", [])) for n, m in manifests.items()}
         sorter = TopologicalSorter(graph)
         try:
             sorter.prepare()
         except CycleError as e:
-            logger.error(f"Circular depends_on between extensions: {e.args[1]}")
+            logger.error(
+                f"Circular depends_on between extensions: {e.args[1]}")
             raise
- 
+
         order = []
         while sorter.is_active():
             ready = sorted(sorter.get_ready())
@@ -58,7 +61,7 @@ class Core:
             except (OSError, json.JSONDecodeError):
                 logger.exception(f"Invalid manifest, skipping: {path}")
                 continue
- 
+
             name = manifest.get("name")
             if name != path.parent.name:
                 logger.error(
@@ -69,41 +72,55 @@ class Core:
             if manifest.get("enabled", True) is False:
                 logger.warning(f"Extension {name} is disabled")
                 continue
- 
+
             manifests[name] = manifest
         return manifests
+
     
     async def load_extensions(self):
         manifests = self.load_manifests()
         config = self.db.reconcile_configs(
             {name: m.get("config") or {} for name, m in manifests.items()}
         )
- 
-        loaded = set()
-        for name in self.load_order(manifests):
-            failed = [d for d in manifests[name].get("depends_on", []) if d not in loaded]
-            if failed:
-                logger.error(f"Skipping {name}: dependencies failed to load: {failed}")
+        order = self.load_order(manifests)
+        logger.info("Extensions Order: %s", order)
+
+        for name in order:
+            if name in self.routes and self.routes[name]:
+                logger.debug("[%s] Already registered, skipping", name)
                 continue
- 
             try:
                 module = importlib.import_module(name)
                 ext = module.Extension(
-                    name=name, core=self, db=self.db, config=config
+                    name=name,
+                    core=self,
+                    db=self.db,
+                    config=config,
                 )
                 ext.set_loop(self._loop)
                 ext._module_name = name
+
                 self.extensions.append(ext)
                 self.routes[name].append(ext)
-                self.tasks.append(asyncio.create_task(ext.run()))
-                loaded.add(name)
+
+                logger.debug("[%s] Registered", name)
             except Exception:
-                logger.exception(f"Failed to load extension {name}")
-                continue
- 
+                logger.exception("[%s] Registration failed", name)
+
+        for ext in self.extensions:
+            name = ext._module_name
+            try:
+                task = asyncio.create_task(
+                    ext.run(),
+                    name=f"extension:{name}",
+                )
+                self.tasks.append(task)
+
+            except Exception:
+                logger.exception("[%s] Failed to schedule extension", name)
             await asyncio.sleep(0)
 
-    
+
     async def send_to(self, name: str, message):
         for ext in self.extensions:
             if ext.__class__.__name__.lower().startswith(name.lower()):
@@ -116,7 +133,8 @@ class Core:
             if isinstance(target, str):
                 target = [target]
 
-            targets = {ext for name in target for ext in self.routes.get(name, [])}
+            targets = {
+                ext for name in target for ext in self.routes.get(name, [])}
 
         msg = dict(kwargs)
 
@@ -143,7 +161,8 @@ class Core:
             return
         try:
             self._loop.call_soon_threadsafe(
-                lambda: asyncio.create_task(self.request(full_method, **params))
+                lambda: asyncio.create_task(
+                    self.request(full_method, **params))
             )
         except RuntimeError:
             pass
@@ -166,7 +185,7 @@ class Core:
 
                 if asyncio.iscoroutinefunction(handler):
                     return await handler(**params)
-                return await asyncio.to_thread(handler, **params) 
+                return await asyncio.to_thread(handler, **params)
         logger.debug(f"Extension {ext_name} not found or disabled")
         return
 

@@ -1,7 +1,7 @@
 {
   "name": "mixer",
   "version": "5.0.1",
-  "depends_on": ["config"],
+  "depends_on": ["config", "dsp"],
   "config": {
     "output_device": "hw:CARD=Loopback,DEV=0",
     "hw_device": null,

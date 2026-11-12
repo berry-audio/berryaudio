@@ -9,6 +9,7 @@ from urllib.parse import quote
 from core.actor import SourceActor
 from core.types import PlaybackControls
 from core.util.metadata import Metadata
+from core.util import album_bgcolor
 from core.models import Image, RefType, Album, Artist, Category, Track, Source
 from pathlib import Path
 from typing import Optional
@@ -434,7 +435,9 @@ class LocalExtension(SourceActor):
         row = self._db.fetchall(sql, (path,))
         if not row:
             return None
-        return Track(**self.build_track(row[0]))
+        _track = Track(**self.build_track(row[0]))
+        _track.bg_color = album_bgcolor(_track.images[0].uri)
+        return _track
 
     async def on_stop_service(self) -> bool:
         logger.info("Stopping service")

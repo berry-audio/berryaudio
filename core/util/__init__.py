@@ -1,8 +1,9 @@
 from pydantic import BaseModel, ConfigDict, TypeAdapter
+from PIL import Image
+from pathlib import Path
 from typing import Any
-import json
+
 import uuid
-import os
 
 RequestId = str | int | float
 
@@ -79,3 +80,24 @@ def format_codec(fmt):
     if not fmt:
         return ""
     return CODEC_NAMES.get(fmt, fmt)
+
+def album_bgcolor(image):
+    BASE_DIR = Path(__file__).resolve().parent.parent.parent
+    image_path = BASE_DIR / 'web' / 'www' / image
+
+    try:
+        with Image.open(image_path) as img:
+            img = img.convert("RGB")
+            img.thumbnail((32, 32))
+
+            rgb = img.resize(
+                (1, 1),
+                Image.Resampling.BOX
+            ).getpixel((0, 0))
+
+        rgb = tuple(int(c * 0.65) for c in rgb)
+
+        return "#{:02x}{:02x}{:02x}".format(*rgb)
+
+    except (OSError, IndexError, AttributeError):
+        return "#202020"

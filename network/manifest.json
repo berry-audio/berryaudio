@@ -1,7 +1,7 @@
 {
   "name": "network",
   "version": "5.0.1",
-  "depends_on": ["config"],
+  "depends_on": ["config", "mixer"],
   "config": {
     "apmode_password": 12345678
   }

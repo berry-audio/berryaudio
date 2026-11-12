@@ -159,6 +159,8 @@ class Track(BaseModel):
     bit_depth: str | None = None
     size: Optional[int] = None
     favourite: bool = False
+    bg_color: str | None = None
+
 
 
 class Tuner(BaseModel):

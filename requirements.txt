@@ -27,3 +27,4 @@ camilladsp_plot @ git+https://github.com/varungujjar/pycamilladsp-plot@e865ea2db
 netifaces==0.11.0
 pyalsaaudio==0.11.0
 spidev==3.8
+colorthief=0.2.1

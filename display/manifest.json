@@ -1,7 +1,7 @@
 {
   "name": "display",
   "version": "5.0.1",
-  "depends_on": ["config", "mixer", "source"],
+  "depends_on": ["command", "gpio"],
   "config": {
     "output_display": null,
     "visualizer_layout": 7,
