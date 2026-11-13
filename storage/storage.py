@@ -167,8 +167,23 @@ class StorageExtension(SourceActor):
                 offset=offset,
             )
 
+    def _handle_library_paths(self, uri: str, add: bool) -> bool:
+        config = self._db.get_config()
+        local = config.get("local", {})
+        paths = list(local.get("library_path", []))
+        if add:
+            if uri not in paths:
+                paths.append(uri)
+        else:
+            paths = [p for p in paths if p != uri]
+        local["library_path"] = paths
+        return self._db.set_config({"local": local})
+
     def on_add_to_library(self, uri: str) -> bool:
         return self._handle_library_paths(uri, add=True)
+
+    def on_remove_from_library(self, uri: str) -> bool:
+        return self._handle_library_paths(uri, add=False)
 
     async def on_mount(self, dev: str):
         return await self._storage.storage_mount(dev)
