@@ -1,9 +1,13 @@
+import io
+import uuid
+
 from pydantic import BaseModel, ConfigDict, TypeAdapter
 from PIL import Image
 from pathlib import Path
 from typing import Any
-
-import uuid
+from pathlib import Path
+from urllib.parse import urlparse
+from urllib.request import Request, urlopen
 
 RequestId = str | int | float
 
@@ -82,14 +86,24 @@ def format_codec(fmt):
     return CODEC_NAMES.get(fmt, fmt)
 
 def album_bgcolor(image):
-    BASE_DIR = Path(__file__).resolve().parent.parent.parent
-    image_path = BASE_DIR / 'web' / 'www' / image
-
+    if not image:
+        return None
+     
     try:
-        with Image.open(image_path) as img:
+        if urlparse(str(image)).scheme in ("http", "https"):
+            req = Request(image, headers={"User-Agent": "Mozilla/5.0"})
+            with urlopen(req, timeout=5) as resp:
+                data = resp.read(10 * 1024 * 1024 + 1)  # 10 MB cap
+            if len(data) > 10 * 1024 * 1024:
+                raise ValueError("Remote image too large")
+            source = io.BytesIO(data)
+        else:
+            BASE_DIR = Path(__file__).resolve().parent.parent.parent
+            source = BASE_DIR / 'web' / 'www' / image
+
+        with Image.open(source) as img:
             img = img.convert("RGB")
             img.thumbnail((32, 32))
-
             rgb = img.resize(
                 (1, 1),
                 Image.Resampling.BOX
@@ -99,5 +113,5 @@ def album_bgcolor(image):
 
         return "#{:02x}{:02x}{:02x}".format(*rgb)
 
-    except (OSError, IndexError, AttributeError):
-        return "#202020"
+    except (OSError, ValueError, IndexError, AttributeError):
+        return None

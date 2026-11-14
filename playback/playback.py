@@ -4,7 +4,7 @@ import asyncio
 from pathlib import Path
 
 from gi.repository import GLib, Gst
-from playlist.utils import to_serialize, build_tltrack
+from playlist.utils import to_serialize
 from core.actor import Actor
 from core.models import Album, Artist, TlTrack
 from core.types import PlaybackState
@@ -329,17 +329,6 @@ class PlaybackExtension(Actor):
 
     async def on_start(self):
         self._setup_playbin()
-        restore_source = self._config.get('source', {}).get("restore_source")
-        restore_source_uri = self._config.get(
-            'source', {}).get("restore_source_uri")
-        restore_playback = self._config.get(
-            self._name, {}).get("restore_playback")
-        restore_playback_tltrack = self._config.get(
-            self._name, {}).get("restore_playback_tltrack")
-        if restore_playback and restore_source and restore_playback_tltrack:
-            ext, _ = restore_playback_tltrack['track']['uri'].split(":", 1)
-            if ext == restore_source_uri:
-                self.on_set_metadata(build_tltrack(restore_playback_tltrack))
         logger.info("Started")
 
     async def on_stop(self):
@@ -360,11 +349,6 @@ class PlaybackExtension(Actor):
             if not message["tl_tracks"]:
                 self._tl_track = TlTrack(
                     tlid=0, track=self._tl_track.track.copy())
-
-        if event == "source_before_change":
-            if self._state != PlaybackState.STOPPED:
-                await self.on_playback_stop()
-            self.on_set_metadata()
 
     async def on_get_current_tl_track(self):
         if self._tl_track:
@@ -437,8 +421,8 @@ class PlaybackExtension(Actor):
 
             self._tl_track = TlTrack(tlid=tlid, track=track)
             self._db.set_config({
-                self._name: {
-                    "restore_playback_tltrack": to_serialize(self._tl_track)
+                'source': {
+                    "restore_source_tltrack": to_serialize(self._tl_track)
                 }
             })
 

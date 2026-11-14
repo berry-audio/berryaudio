@@ -1,6 +1,8 @@
 import logging
 
+from playlist.utils import build_tltrack
 from core.actor import Actor, SourceActor
+from core.types import PlaybackState
 from core.models import Source
 
 logger = logging.getLogger(__name__)
@@ -19,8 +21,16 @@ class SourceExtension(Actor):
         restore_source = self._config.get(self._name, {}).get("restore_source")
         restore_source_uri = self._config.get(
             self._name, {}).get("restore_source_uri")
+        
         if restore_source and restore_source_uri:
             await self.on_set(restore_source_uri)
+            restore_source_tltrack = self._config.get(
+                self._name, {}).get("restore_source_tltrack")
+            if restore_source and restore_source_tltrack:
+                ext, _ = restore_source_tltrack['track']['uri'].split(":", 1)
+                if ext == restore_source_uri:
+                    await self._core.request("playback.set_metadata", tl_track=build_tltrack(restore_source_tltrack))
+
         logger.info("Started")
 
     async def on_event(self, message):
@@ -72,6 +82,10 @@ class SourceExtension(Actor):
                 raise ValueError(f"Unknown source type: {uri}")
 
             if uri_prev is not None:
+                _state = await self._core.request("playback.get_state")
+                if _state != PlaybackState.STOPPED:
+                    await self._core.request("playback.playback_stop")
+
                 stop_method = f"{uri_prev}.stop_service"
                 if self._core.is_callable(stop_method):
                     try:
@@ -80,13 +94,18 @@ class SourceExtension(Actor):
                     except Exception as e:
                         logger.error(e)
 
-        if uri is None:
-            self._current = None
-        else:
+        if uri is not None:
+            _power_state = await self._core.request("system.power_state")
+            if _power_state == "standby":
+                await self._core.request("system.standby", state=False)
+
             start_method = f"{uri}.start_service"
             if self._core.is_callable(start_method):
                 try:
                     logger.debug(f"Starting {uri} service")
+
+                    await self._core.request("playback.set_metadata")
+
                     self._core.send(
                         target=["playback"],
                         event="source_before_change"

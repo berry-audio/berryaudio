@@ -5,6 +5,7 @@ from pathlib import Path
 from core.actor import SourceActor
 from core.models import Image, Album, Artist, Track, Source
 from core.types import PlaybackControls
+from core.util import album_bgcolor
 from pyradios import RadioBrowser
 
 logger = logging.getLogger(__name__)
@@ -107,7 +108,6 @@ class RadioExtension(SourceActor):
 
     async def on_stop_service(self) -> bool:
         logger.info("Stopping service")
-        await self._core.request("playback.stop")
         return True
 
     async def on_start_service(self):
@@ -201,7 +201,9 @@ class RadioExtension(SourceActor):
             try:
                 rows = self._db.fetchall("SELECT * FROM radio WHERE path = ?", (path,))
                 if rows:
-                    return Track(**self._build_track(rows[0]))
+                    _track = Track(**self._build_track(rows[0]))
+                    _track.bg_color = album_bgcolor(_track.images[0].uri)
+                    return _track
                 else:
                     logger.warning(f"URI {path} not found in radio db.")
             except Exception as e:
@@ -210,7 +212,9 @@ class RadioExtension(SourceActor):
             try:
                 row = self.rb.station_by_uuid(path)
                 if row:
-                    return Track(**self._build_track_rb(row[0]))
+                    _track = Track(**self._build_track_rb(row[0]))
+                    _track.bg_color = album_bgcolor(_track.images[0].uri)
+                    return _track
                 else:
                     logger.warning(f"UUID {path} not found by RadioBrowser.")
             except Exception as e:

@@ -4,6 +4,7 @@
   "depends_on": ["dsp", "mixer", "bluetooth", "linein", "local", "multiroom", "radio", "shairportsync", "spotify", "storage", "tuner", "usbdac"],
   "config": {
     "restore_source": false,
-    "restore_source_uri": null
+    "restore_source_uri": null,
+    "restore_source_tltrack": null
   }
 }

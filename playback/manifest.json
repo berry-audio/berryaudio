@@ -1,10 +1,8 @@
 {
   "name": "playback",
   "version": "5.0.1",
-  "depends_on": ["config"],
+  "depends_on": ["config", "source"],
   "config": {
-    "background_albumart": true,
-    "restore_playback": true,
-    "restore_playback_tltrack": null
+    "background_albumart": true
   }
 }

@@ -75,7 +75,6 @@ class SystemExtension(Actor):
         logger.info("Stopped")
 
     async def on_event(self, message):
-        await self._core.request("system.standby", state=False)
         pass
 
     def on_datetime(self):
